@@ -12,6 +12,7 @@ import CaseSidebar from '@/components/CaseSidebar.vue'
 import TimelinePanel from '@/components/TimelinePanel.vue'
 import DraftPanel from '@/components/DraftPanel.vue'
 import CopilotChat from '@/components/CopilotChat.vue'
+import { startWorkspaceTour, workspaceTourSeen } from '@/tour'
 
 const props = defineProps<{ id: string }>()
 
@@ -44,7 +45,11 @@ function onCounsel() {
   counselBanner.value = true
 }
 
-onMounted(() => load(true))
+onMounted(async () => {
+  await load(true)
+  // First case ever opened: tour the workspace once its panels are mounted.
+  if (detail.value && !workspaceTourSeen()) setTimeout(startWorkspaceTour, 600)
+})
 watch(
   () => route.params.id,
   () => load(true),
@@ -88,13 +93,18 @@ watch(
       </div>
 
       <div class="ws-grid">
-        <CaseSidebar :detail="detail" @refresh="refresh" />
+        <CaseSidebar data-tour="ws-sidebar" :detail="detail" @refresh="refresh" />
 
-        <TimelinePanel :detail="detail" @refresh="refresh" />
+        <TimelinePanel data-tour="ws-timeline" :detail="detail" @refresh="refresh" />
 
         <div class="ws-right">
-          <DraftPanel :detail="detail" @refresh="refresh" @counsel="onCounsel" />
-          <CopilotChat :case-id="detail.case.id" />
+          <DraftPanel
+            data-tour="ws-draft"
+            :detail="detail"
+            @refresh="refresh"
+            @counsel="onCounsel"
+          />
+          <CopilotChat data-tour="ws-copilot" :case-id="detail.case.id" />
         </div>
       </div>
     </template>

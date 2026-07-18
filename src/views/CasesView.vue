@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Plus, FolderOpen } from 'lucide-vue-next'
 import { listCases } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
@@ -9,9 +9,11 @@ import { centsToUsd, formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import StatusPill from '@/components/StatusPill.vue'
 import NewCaseModal from '@/components/NewCaseModal.vue'
+import { casesTourSeen, startCasesTour } from '@/tour'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const cases = ref<CaseListItem[]>([])
 const loading = ref(true)
@@ -40,7 +42,11 @@ function onCreated(c: CaseListItem) {
   router.push({ name: 'case', params: { id: c.id } })
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // First-ever visit (or ?tour=1 replay): run the walkthrough once the anchors are mounted.
+  if (route.query.tour === '1' || !casesTourSeen()) setTimeout(startCasesTour, 600)
+})
 </script>
 
 <template>
@@ -50,14 +56,16 @@ onMounted(load)
         <h1>Negotiation cases</h1>
         <p class="muted">Track insurer correspondence, tactics, and drafts per case.</p>
       </div>
-      <button class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
+      <button class="btn btn-primary" data-tour="new-case" @click="showNew = true">
+        <Plus :size="15" /> New case
+      </button>
     </div>
 
     <p v-if="error" class="error-text">{{ error }}</p>
 
     <div v-if="loading" class="empty muted"><span class="spinner"></span> Loading cases…</div>
 
-    <div v-else-if="cases.length === 0" class="empty card">
+    <div v-else-if="cases.length === 0" class="empty card" data-tour="case-list">
       <FolderOpen :size="30" class="muted" />
       <h3>No cases yet</h3>
       <p class="muted">
@@ -67,7 +75,7 @@ onMounted(load)
       <button class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
     </div>
 
-    <div v-else class="card table-card">
+    <div v-else class="card table-card" data-tour="case-list">
       <table class="data">
         <thead>
           <tr>

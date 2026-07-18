@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { Scale, LogOut, X } from 'lucide-vue-next'
+import { useRoute, useRouter } from 'vue-router'
+import { Scale, LogOut, X, HelpCircle } from 'lucide-vue-next'
 import { subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { startCasesTour } from '@/tour'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 function logout() {
   auth.logout()
   router.push({ name: 'login' })
+}
+
+function replayTour() {
+  if (route.name === 'cases') startCasesTour()
+  else router.push({ name: 'cases', query: { tour: '1' } })
 }
 
 function dismissNotice() {
@@ -26,6 +33,14 @@ function dismissNotice() {
       </RouterLink>
       <div class="topbar-right">
         <span class="muted user-name">{{ auth.displayName }}</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          data-tour="help"
+          title="Replay the walkthrough"
+          @click="replayTour"
+        >
+          <HelpCircle :size="15" />
+        </button>
         <button class="btn btn-ghost btn-sm" @click="logout">
           <LogOut :size="14" /> Sign out
         </button>

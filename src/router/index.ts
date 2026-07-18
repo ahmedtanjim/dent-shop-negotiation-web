@@ -5,6 +5,12 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: '/welcome',
+      name: 'welcome',
+      component: () => import('@/views/WelcomeView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
@@ -38,7 +44,9 @@ router.beforeEach((to) => {
     return true
   }
   if (!auth.isAuthed) {
-    return { name: 'login', query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined }
+    // Cold visitors to the root get the marketing landing page; deep links go to login.
+    if (to.fullPath === '/') return { name: 'welcome' }
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
   return true
 })
