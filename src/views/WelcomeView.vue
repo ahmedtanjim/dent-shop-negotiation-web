@@ -12,11 +12,6 @@ import {
   Check,
 } from 'lucide-vue-next'
 
-const states = [
-  'Ohio', 'Texas', 'Oklahoma', 'Arkansas', 'Missouri', 'Kansas', 'Colorado', 'Tennessee',
-  'Minnesota', 'Florida', 'Wisconsin', 'Illinois', 'New Mexico', 'North Dakota', 'Montana',
-]
-
 const steps = [
   {
     icon: Mail,
@@ -38,13 +33,13 @@ const steps = [
 const features = [
   {
     icon: Landmark,
-    title: 'Verified state playbooks',
-    text: '15 states of fair-claims law — deadlines, anti-steering rules, interest penalties, repair liens — every provision quote-backed against the official statute text.',
+    title: 'Your state’s law, on your side',
+    text: 'Claim-handling deadlines, anti-steering rules, interest penalties, repair liens — every letter leans on the insurance rules that actually apply where you work.',
   },
   {
     icon: BookOpenCheck,
     title: 'No made-up law. Ever.',
-    text: 'A deterministic citation validator checks every draft against the curated playbook. If the AI can’t back a citation, the draft is rejected — before you ever see it.',
+    text: 'Every legal citation is checked before a draft ever reaches you. No invented statutes, no walking back an embarrassing letter.',
   },
   {
     icon: ListChecks,
@@ -106,8 +101,8 @@ const features = [
 
       <div class="hero-stats">
         <div class="stat">
-          <span class="stat-num">15</span>
-          <span class="stat-label">states of verified claims law</span>
+          <span class="stat-num">$100k+</span>
+          <span class="stat-label">what short pays can cost a busy shop every year</span>
         </div>
         <div class="stat">
           <span class="stat-num">100%</span>
@@ -151,20 +146,6 @@ const features = [
       </div>
     </section>
 
-    <section class="section states-band">
-      <h2 class="section-title">Your state's law, chapter and verse</h2>
-      <p class="section-sub muted">
-        Each playbook is researched against official statute text, flagged for first- vs
-        third-party scope, and maintained on an attorney-review pipeline.
-      </p>
-      <div class="states-grid">
-        <span v-for="st in states" :key="st" class="state-chip">
-          <Check :size="13" /> {{ st }}
-        </span>
-      </div>
-      <p class="muted small">More states added by demand — tell us where you chase hail.</p>
-    </section>
-
     <section class="section" id="pricing">
       <h2 class="section-title">One recovered supplement pays for the year</h2>
       <p class="section-sub muted">Flat annual pricing, per shop location. Every seat included.</p>
@@ -175,7 +156,7 @@ const features = [
           <ul>
             <li><Check :size="14" /> Unlimited cases &amp; team seats</li>
             <li><Check :size="14" /> AI drafting, copilot chat &amp; .eml intake</li>
-            <li><Check :size="14" /> All 15 state playbooks, kept current</li>
+            <li><Check :size="14" /> State-specific legal backing, kept current</li>
             <li><Check :size="14" /> Fact ledger, documents &amp; full paper trail</li>
           </ul>
           <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Start free trial</RouterLink>
@@ -429,34 +410,6 @@ const features = [
 .feature p {
   font-size: 13.5px;
   line-height: 1.55;
-}
-
-/* states */
-.states-band {
-  text-align: center;
-}
-.states-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin: 26px auto 14px;
-  max-width: 760px;
-}
-.state-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  padding: 6px 13px;
-}
-.state-chip svg {
-  color: var(--green);
 }
 
 /* pricing */
