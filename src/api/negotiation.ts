@@ -10,6 +10,7 @@ import type {
   IntakeRequest,
   NegDocument,
   NegMessage,
+  PasteExtraction,
   UpsertCase,
 } from './types'
 
@@ -35,6 +36,10 @@ export function updateCase(shopId: string, caseId: string, body: UpsertCase): Pr
 
 export function setCaseStatus(shopId: string, caseId: string, status: CaseStatus): Promise<void> {
   return api.post<void>(`${base(shopId)}/cases/${caseId}/status`, { status })
+}
+
+export function extractPaste(shopId: string, text: string): Promise<PasteExtraction> {
+  return api.post<PasteExtraction>(`${base(shopId)}/intake/extract`, { text })
 }
 
 export function intakeMessage(

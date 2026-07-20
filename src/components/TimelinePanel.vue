@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Copy, Check, Send, Inbox, Sparkles, MailPlus } from 'lucide-vue-next'
-import { intakeEml, intakeMessage, markSent } from '@/api/negotiation'
+import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2 } from 'lucide-vue-next'
+import { extractPaste, intakeEml, intakeMessage, markSent } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, NegMessage } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
@@ -27,6 +27,7 @@ const sorted = computed(() =>
 
 const showIntake = ref(false)
 const intakeTab = ref<'paste' | 'eml'>('paste')
+const inRaw = ref('')
 const inSubject = ref('')
 const inBody = ref('')
 const inFromName = ref('')
@@ -35,6 +36,63 @@ const inOccurredAt = ref('')
 const emlInput = ref<HTMLInputElement | null>(null)
 const intakeBusy = ref(false)
 const intakeError = ref<string | null>(null)
+
+/* Smart paste: one box, AI fills the fields, owner confirms. The fields stay editable —
+   extraction pre-fills, it never decides. */
+const extractBusy = ref(false)
+const fieldsVisible = ref(false)
+const extractNote = ref<string | null>(null)
+
+async function runExtraction() {
+  const text = inRaw.value.trim()
+  if (!text) return
+  extractBusy.value = true
+  intakeError.value = null
+  extractNote.value = null
+  try {
+    const e = await extractPaste(shopId.value, text)
+    inFromName.value = e.fromName ?? ''
+    inFromEmail.value = e.fromEmail ?? ''
+    inSubject.value = e.subject ?? ''
+    inBody.value = e.body
+    // datetime-local wants local "YYYY-MM-DDTHH:mm"
+    inOccurredAt.value = e.sentAt ? toLocalInput(e.sentAt) : ''
+    const notes: string[] = []
+    if (e.isForward) notes.push('forward unwrapped — sender is the original author')
+    if (e.isThread) notes.push('looks like a thread — only the newest message was kept')
+    if (!e.sentAt) notes.push('no date found — set it if you know when it arrived')
+    extractNote.value = notes.length
+      ? `AI-extracted (${notes.join('; ')}). Check the fields before logging.`
+      : 'AI-extracted — check the fields before logging.'
+  } catch {
+    // Degrade, never block: the paste becomes the body and the owner fills the rest.
+    inBody.value = text
+    extractNote.value = "Couldn't auto-extract — the paste was kept as the body; fill in the rest."
+  } finally {
+    extractBusy.value = false
+    fieldsVisible.value = true
+  }
+}
+
+function onPasteIntoBox() {
+  // Let v-model catch up with the pasted content first.
+  setTimeout(() => {
+    if (inRaw.value.trim().length >= 40 && !extractBusy.value) runExtraction()
+  }, 50)
+}
+
+function enterManually() {
+  fieldsVisible.value = true
+  extractNote.value = null
+  if (!inBody.value && inRaw.value.trim()) inBody.value = inRaw.value.trim()
+}
+
+function toLocalInput(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 async function submitPaste() {
   intakeBusy.value = true
@@ -47,11 +105,14 @@ async function submitPaste() {
       fromEmail: inFromEmail.value.trim() || null,
       occurredAt: inOccurredAt.value ? new Date(inOccurredAt.value).toISOString() : null,
     })
+    inRaw.value = ''
     inSubject.value = ''
     inBody.value = ''
     inFromName.value = ''
     inFromEmail.value = ''
     inOccurredAt.value = ''
+    fieldsVisible.value = false
+    extractNote.value = null
     showIntake.value = false
     emit('refresh')
   } catch (e) {
@@ -138,7 +199,35 @@ function fromLine(m: NegMessage): string {
       </div>
 
       <form v-if="intakeTab === 'paste'" @submit.prevent="submitPaste">
-        <div class="form-grid">
+        <label class="field">
+          <span>Paste the email</span>
+          <textarea
+            v-model="inRaw"
+            rows="6"
+            placeholder="Paste the whole email straight from Gmail or Outlook — headers, forwards and all. The fields below fill themselves."
+            @paste="onPasteIntoBox"
+          />
+        </label>
+        <div class="extract-row">
+          <p v-if="extractBusy" class="faint"><span class="spinner"></span> Reading the email…</p>
+          <p v-else-if="extractNote" class="extract-note">
+            <Wand2 :size="13" class="extract-icon" /> {{ extractNote }}
+          </p>
+          <p v-else class="faint">
+            Fields fill automatically when you paste —
+            <a href="#" @click.prevent="enterManually">or enter them manually</a>.
+          </p>
+          <button
+            v-if="inRaw.trim() && !extractBusy"
+            class="btn btn-sm"
+            type="button"
+            @click="runExtraction"
+          >
+            <Wand2 :size="13" /> Re-extract
+          </button>
+        </div>
+
+        <div v-if="fieldsVisible" class="form-grid">
           <label class="field">
             <span>From name</span>
             <input v-model="inFromName" type="text" placeholder="Jane Adjuster" />
@@ -153,7 +242,7 @@ function fromLine(m: NegMessage): string {
           </label>
           <label class="field full">
             <span>Body *</span>
-            <textarea v-model="inBody" rows="6" required placeholder="Paste the insurer's email here…" />
+            <textarea v-model="inBody" rows="6" required />
           </label>
           <label class="field">
             <span>Received</span>
@@ -163,7 +252,7 @@ function fromLine(m: NegMessage): string {
         <p v-if="intakeError" class="error-text">{{ intakeError }}</p>
         <div class="intake-actions">
           <button class="btn btn-ghost" type="button" @click="showIntake = false">Cancel</button>
-          <button class="btn btn-primary" type="submit" :disabled="intakeBusy">
+          <button class="btn btn-primary" type="submit" :disabled="intakeBusy || !fieldsVisible">
             <span v-if="intakeBusy" class="spinner"></span>
             {{ intakeBusy ? 'Analyzing…' : 'Add & analyze' }}
           </button>
@@ -311,6 +400,25 @@ function fromLine(m: NegMessage): string {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 6px;
+}
+.extract-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -4px 0 12px;
+  font-size: 12.5px;
+}
+.extract-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #7fb0f9;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.extract-icon {
+  flex-shrink: 0;
 }
 .empty-timeline {
   display: flex;

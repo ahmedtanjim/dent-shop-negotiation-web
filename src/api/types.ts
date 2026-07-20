@@ -130,6 +130,16 @@ export interface DraftResult {
   recommendsCounsel: boolean
 }
 
+export interface PasteExtraction {
+  fromName: string | null
+  fromEmail: string | null
+  subject: string | null
+  sentAt: string | null
+  body: string
+  isForward: boolean
+  isThread: boolean
+}
+
 export interface IntakeRequest {
   subject: string
   body: string
