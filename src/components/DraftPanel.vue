@@ -11,6 +11,8 @@ const props = defineProps<{ detail: CaseDetail }>()
 const emit = defineEmits<{
   refresh: []
   counsel: []
+  /** mirrors the busy state so the timeline can show a "drafting" skeleton card */
+  drafting: [busy: boolean]
 }>()
 
 const auth = useAuthStore()
@@ -47,6 +49,19 @@ const inboundMessages = computed(() =>
     .sort((a, b) => (b.occurredAt ?? b.createdAt).localeCompare(a.occurredAt ?? a.createdAt)),
 )
 
+// Default to replying to the newest insurer email — the common case. Tracks new arrivals;
+// a deliberate "Latest context" pick survives refreshes of the same message list.
+watch(
+  () => inboundMessages.value[0]?.id,
+  (newest, previous) => {
+    if (!newest) return
+    if (!replyToMessageId.value || replyToMessageId.value === previous) {
+      replyToMessageId.value = newest
+    }
+  },
+  { immediate: true },
+)
+
 const isLitigation = computed(() => props.detail.case.status === 'Litigation')
 
 const busy = ref(false)
@@ -78,6 +93,7 @@ function onGenerateClick() {
 async function generate() {
   confirmingEscalation.value = false
   busy.value = true
+  emit('drafting', true)
   error.value = null
   try {
     const result = await createDraft(shopId.value, caseId.value, {
@@ -94,6 +110,7 @@ async function generate() {
     error.value = e instanceof ApiError ? e.message : 'Draft generation failed.'
   } finally {
     busy.value = false
+    emit('drafting', false)
   }
 }
 </script>

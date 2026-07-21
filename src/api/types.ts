@@ -146,6 +146,8 @@ export interface PasteExtraction {
   body: string
   isForward: boolean
   isThread: boolean
+  /** only when explicitly written in the email — never guessed */
+  claimNumber: string | null
 }
 
 export interface IntakeRequest {
@@ -154,4 +156,6 @@ export interface IntakeRequest {
   fromName?: string | null
   fromEmail?: string | null
   occurredAt?: string | null
+  /** fills the case's claim number when the case doesn't have one yet */
+  claimNumber?: string | null
 }

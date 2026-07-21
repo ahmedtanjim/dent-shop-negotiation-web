@@ -23,6 +23,8 @@ const detail = ref<CaseDetail | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const counselBanner = ref(false)
+// True while DraftPanel has a draft in flight — the timeline shows its skeleton card.
+const externalDrafting = ref(false)
 
 async function load(showSpinner = false) {
   if (!auth.shopId) return
@@ -95,7 +97,13 @@ watch(
       <div class="ws-grid">
         <CaseSidebar data-tour="ws-sidebar" :detail="detail" @refresh="refresh" />
 
-        <TimelinePanel data-tour="ws-timeline" :detail="detail" @refresh="refresh" />
+        <TimelinePanel
+          data-tour="ws-timeline"
+          :detail="detail"
+          :external-drafting="externalDrafting"
+          @refresh="refresh"
+          @counsel="onCounsel"
+        />
 
         <div class="ws-right">
           <DraftPanel
@@ -103,6 +111,7 @@ watch(
             :detail="detail"
             @refresh="refresh"
             @counsel="onCounsel"
+            @drafting="externalDrafting = $event"
           />
           <CopilotChat data-tour="ws-copilot" :case-id="detail.case.id" />
         </div>

@@ -87,15 +87,15 @@ export function startWorkspaceTour() {
         popover: {
           title: 'The paper trail',
           description:
-            'Forward or drag the insurer’s .eml emails in and log your replies. Dates land on the ledger automatically — this timeline is your evidence.',
+            'Paste the insurer’s email — we read it, fill the fields, log it, and draft your reply automatically. Newest messages sit at the top; this timeline is your evidence.',
         },
       },
       {
         element: '[data-tour="ws-draft"]',
         popover: {
-          title: 'AI-drafted responses',
+          title: 'Need a different reply?',
           description:
-            'Pick an escalation tier and get a letter grounded in your facts, citing your state’s verified insurance law. Every citation is validated — and you review before anything is sent.',
+            'Every insurer email gets an automatic reply draft. Use this panel to redo it at another escalation tier or in the customer’s voice — grounded in your facts, and you review before anything is sent.',
         },
       },
       {

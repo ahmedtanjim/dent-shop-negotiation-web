@@ -3,7 +3,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Scale, LogOut, X, HelpCircle } from 'lucide-vue-next'
 import { subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import { startCasesTour } from '@/tour'
+import { startCasesTour, startWorkspaceTour } from '@/tour'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -15,7 +15,9 @@ function logout() {
 }
 
 function replayTour() {
-  if (route.name === 'cases') startCasesTour()
+  // Each screen has its own tour — replay the one for where the user actually is.
+  if (route.name === 'case') startWorkspaceTour()
+  else if (route.name === 'cases') startCasesTour()
   else router.push({ name: 'cases', query: { tour: '1' } })
 }
 
