@@ -130,6 +130,14 @@ export interface DraftResult {
   recommendsCounsel: boolean
 }
 
+export interface CustomerSearchResult {
+  id: string
+  fullName: string
+  phone: string | null
+  email: string | null
+  vehicleLabel: string | null
+}
+
 export interface PasteExtraction {
   fromName: string | null
   fromEmail: string | null

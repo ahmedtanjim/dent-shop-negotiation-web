@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { X } from 'lucide-vue-next'
+import { User, Check, X } from 'lucide-vue-next'
 import { createCase } from '@/api/negotiation'
+import { searchCustomers } from '@/api/customers'
 import { ApiError } from '@/api/client'
-import type { CaseListItem, UpsertCase } from '@/api/types'
+import type { CaseListItem, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { US_STATES } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 
@@ -29,6 +30,47 @@ const notes = ref('')
 
 const busy = ref(false)
 const error = ref<string | null>(null)
+
+/* ---------- customer picker ---------- */
+// Free-text underneath (a case can name a customer who isn't in the CRM yet), but
+// typing searches real CRM customers so the common case is pick-not-retype.
+const customerResults = ref<CustomerSearchResult[]>([])
+const customerDropdownOpen = ref(false)
+const customerSearchBusy = ref(false)
+const linkedCustomerId = ref<string | null>(null)
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+
+function onCustomerInput() {
+  linkedCustomerId.value = null // free typing detaches from any previously picked record
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(runCustomerSearch, 250)
+}
+
+async function runCustomerSearch() {
+  if (!auth.shopId) return
+  customerSearchBusy.value = true
+  try {
+    customerResults.value = await searchCustomers(auth.shopId, customerName.value)
+    customerDropdownOpen.value = true
+  } catch {
+    // Non-critical: the field still works as plain free text if search fails.
+    customerResults.value = []
+  } finally {
+    customerSearchBusy.value = false
+  }
+}
+
+function pickCustomer(c: CustomerSearchResult) {
+  customerName.value = c.fullName
+  if (!vehicleDescription.value.trim() && c.vehicleLabel) vehicleDescription.value = c.vehicleLabel
+  linkedCustomerId.value = c.id
+  customerDropdownOpen.value = false
+}
+
+function closeCustomerDropdownSoon() {
+  // Let a pending click on a dropdown option register before the blur closes it.
+  setTimeout(() => (customerDropdownOpen.value = false), 150)
+}
 
 function opt(v: string): string | null {
   const t = v.trim()
@@ -99,9 +141,38 @@ async function submit() {
             <span>Adjuster phone</span>
             <input v-model="adjusterPhone" type="text" />
           </label>
-          <label class="field">
+          <label class="field customer-field">
             <span>Customer</span>
-            <input v-model="customerName" type="text" />
+            <div class="customer-combo">
+              <input
+                v-model="customerName"
+                type="text"
+                placeholder="Start typing a name…"
+                autocomplete="off"
+                @input="onCustomerInput"
+                @focus="runCustomerSearch"
+                @blur="closeCustomerDropdownSoon"
+              />
+              <span v-if="linkedCustomerId" class="linked-badge" title="Linked to a CRM customer record">
+                <Check :size="12" /> CRM
+              </span>
+              <div v-if="customerDropdownOpen && customerResults.length" class="customer-dropdown">
+                <button
+                  v-for="c in customerResults"
+                  :key="c.id"
+                  type="button"
+                  class="customer-option"
+                  @mousedown.prevent="pickCustomer(c)"
+                >
+                  <User :size="13" class="customer-option-icon" />
+                  <span class="customer-option-main">
+                    <span class="customer-option-name">{{ c.fullName }}</span>
+                    <span v-if="c.vehicleLabel" class="customer-option-vehicle faint">{{ c.vehicleLabel }}</span>
+                  </span>
+                  <span v-if="c.phone" class="customer-option-phone faint">{{ c.phone }}</span>
+                </button>
+              </div>
+            </div>
           </label>
           <label class="field full">
             <span>Vehicle</span>
@@ -149,5 +220,82 @@ async function submit() {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
+}
+.customer-field {
+  position: relative;
+}
+.customer-combo {
+  position: relative;
+}
+.linked-badge {
+  position: absolute;
+  top: -22px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--green);
+  background: var(--green-soft);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.customer-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.customer-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 8px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+.customer-option:hover {
+  background: var(--panel-soft);
+}
+.customer-option-icon {
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.customer-option-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.customer-option-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.customer-option-vehicle {
+  font-size: 11.5px;
+}
+.customer-option-phone {
+  font-size: 11.5px;
+  flex-shrink: 0;
 }
 </style>
