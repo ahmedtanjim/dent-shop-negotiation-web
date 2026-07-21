@@ -178,6 +178,7 @@ function stepState(step: IntakePhase): 'todo' | 'active' | 'done' {
 }
 
 const draftFailNote = ref<string | null>(null)
+const intakeCard = ref<HTMLElement | null>(null)
 
 // A pushy tactic earns a firm first reply; anything else opens cooperative. The owner can
 // always regenerate at another tier from DraftPanel.
@@ -214,6 +215,13 @@ async function runIntake(intake: () => Promise<NegMessage>): Promise<boolean> {
   intakeError.value = null
   draftFailNote.value = null
   intakePhase.value = 'saving'
+  // The tall form collapses into the small stepper, which yanks the page height out from
+  // under the user (they were scrolled to the submit button at the bottom of the form).
+  // Follow the collapse: jump the stepper — the whole show — into view. Instant, not
+  // smooth: the same-frame layout shrink cancels a smooth animation, leaving the user
+  // stranded at the (new) bottom of the page.
+  await nextTick()
+  intakeCard.value?.scrollIntoView({ block: 'start' })
   // Save + analysis are one server call; flip the label once the save has surely landed
   // so the stepper narrates what the server is actually doing.
   const analyzeTimer = setTimeout(() => {
@@ -334,7 +342,7 @@ function fromLine(m: NegMessage): string {
     </div>
 
     <!-- intake panel -->
-    <div v-if="showIntake" class="card intake">
+    <div v-if="showIntake" ref="intakeCard" class="card intake">
       <!-- pipeline stepper replaces the form while the email is processed -->
       <div v-if="intakePhase !== 'idle'" class="intake-progress">
         <div v-for="s in STEPS" :key="s.key" class="pstep" :class="stepState(s.key)">
@@ -682,8 +690,13 @@ function fromLine(m: NegMessage): string {
   padding: 36px 20px;
   text-align: center;
 }
+.intake {
+  /* clear the sticky topbar when scrolled into view */
+  scroll-margin-top: 70px;
+}
 .msg {
   border-left: 3px solid var(--border);
+  scroll-margin-top: 70px;
 }
 .msg.inbound {
   border-left-color: var(--text-faint);
