@@ -108,6 +108,8 @@ export interface CaseDetail {
   messages: NegMessage[]
   facts: Fact[]
   documents: NegDocument[]
+  /** false = this state has no verified legal playbook; drafts cite no statutes */
+  hasPlaybook: boolean
 }
 
 export interface ChatMessage {

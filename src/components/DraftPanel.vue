@@ -125,6 +125,12 @@ async function generate() {
     </div>
 
     <template v-else>
+      <div v-if="!detail.hasPlaybook" class="notice-amber no-playbook">
+        No verified legal playbook for
+        <strong>{{ detail.case.state ?? 'this case’s state' }}</strong> yet — drafts will argue
+        from your documented facts but won’t cite statutes. State law coverage is expanding.
+      </div>
+
       <!-- tone -->
       <div class="group-label">Tone</div>
       <div class="tone-options">
@@ -313,6 +319,11 @@ async function generate() {
 }
 .escalation-confirm {
   margin-top: 4px;
+}
+.no-playbook {
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 .warn-icon {
   vertical-align: -2px;
