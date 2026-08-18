@@ -4,7 +4,7 @@ import type { Directive } from 'vue'
 import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2 } from 'lucide-vue-next'
 import { createDraft, extractPaste, intakeEml, intakeMessage, markSent } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, DraftTone, NegMessage, Tactic } from '@/api/types'
+import type { CaseDetail, NegMessage } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
@@ -180,22 +180,12 @@ function stepState(step: IntakePhase): 'todo' | 'active' | 'done' {
 const draftFailNote = ref<string | null>(null)
 const intakeCard = ref<HTMLElement | null>(null)
 
-// A pushy tactic earns a firm first reply; anything else opens cooperative. The owner can
-// always regenerate at another tier from DraftPanel.
-function toneForTactic(tactic: Tactic): DraftTone {
-  return tactic === 'Lowball' ||
-    tactic === 'Stall' ||
-    tactic === 'Denial' ||
-    tactic === 'RedundantRequest'
-    ? 'Firm'
-    : 'Cooperative'
-}
-
 async function autoDraftReply(inbound: NegMessage) {
   intakePhase.value = 'drafting'
   try {
+    // Tone is omitted: the assistant reads the escalation ladder (including the tactic it
+    // just classified on this inbound) and picks the tier the facts support.
     const result = await createDraft(shopId.value, caseId.value, {
-      tone: toneForTactic(inbound.tactic),
       voice: 'Shop',
       customerAuthorized: false,
       replyToMessageId: inbound.id,

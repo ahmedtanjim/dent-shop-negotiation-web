@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { User, Check, X } from 'lucide-vue-next'
 import { createCase } from '@/api/negotiation'
 import { searchCustomers } from '@/api/customers'
+import { getShopProfile } from '@/api/shops'
 import { ApiError } from '@/api/client'
 import type { CaseListItem, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { US_STATES } from '@/utils/format'
@@ -30,6 +31,19 @@ const notes = ref('')
 
 const busy = ref(false)
 const error = ref<string | null>(null)
+
+// Prefill the storage rate from the shop's DSM profile so it isn't retyped per case.
+onMounted(async () => {
+  if (!auth.shopId) return
+  try {
+    const profile = await getShopProfile(auth.shopId)
+    if (storagePerDay.value === null && profile.defaultStoragePerDay > 0) {
+      storagePerDay.value = profile.defaultStoragePerDay
+    }
+  } catch {
+    // Non-critical — the field simply stays empty.
+  }
+})
 
 /* ---------- customer picker ---------- */
 // Free-text underneath (a case can name a customer who isn't in the CRM yet), but
@@ -95,6 +109,7 @@ async function submit() {
       invoiceTotal: invoiceTotal.value ?? 0,
       storagePerDay: storagePerDay.value ?? 0,
       notes: opt(notes.value),
+      customerId: linkedCustomerId.value,
     }
     const created = await createCase(auth.shopId, body)
     emit('created', created)

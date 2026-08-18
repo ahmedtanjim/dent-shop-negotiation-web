@@ -46,6 +46,8 @@ export interface UpsertCase {
   /** decimal dollars on the wire */
   storagePerDay: number
   notes?: string | null
+  /** CRM customer link — set when picked from the customer search */
+  customerId?: string | null
 }
 
 export type MessageKind = 'Inbound' | 'Draft' | 'Sent'
@@ -110,6 +112,19 @@ export interface CaseDetail {
   documents: NegDocument[]
   /** false = this state has no verified legal playbook; drafts cite no statutes */
   hasPlaybook: boolean
+  /** linked CRM customer — context syncs live from the CRM record when set */
+  customerId: string | null
+}
+
+export interface ShopProfile {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  contactName: string | null
+  /** decimal dollars — the shop's standard daily storage rate, 0 = unset */
+  defaultStoragePerDay: number
 }
 
 export interface ChatMessage {
@@ -120,7 +135,8 @@ export interface ChatMessage {
 }
 
 export interface DraftRequest {
-  tone: DraftTone
+  /** omit for auto — the assistant picks the tier from the case's escalation ladder */
+  tone?: DraftTone
   voice: DraftVoice
   customerAuthorized: boolean
   replyToMessageId?: string | null

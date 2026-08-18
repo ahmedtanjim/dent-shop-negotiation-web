@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { PenLine, AlertTriangle } from 'lucide-vue-next'
+import { PenLine, Sparkles } from 'lucide-vue-next'
 import { createDraft } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, DraftTone, DraftVoice } from '@/api/types'
+import type { CaseDetail, DraftVoice } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 
@@ -19,25 +19,6 @@ const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
 
-const TONES: { value: DraftTone; label: string; desc: string }[] = [
-  {
-    value: 'Cooperative',
-    label: 'Cooperative',
-    desc: 'Professional and collaborative — keeps the adjuster on side.',
-  },
-  {
-    value: 'Firm',
-    label: 'Firm',
-    desc: 'Direct and assertive — cites the record and sets deadlines.',
-  },
-  {
-    value: 'Escalation',
-    label: 'Escalation',
-    desc: 'Formal escalation — puts the insurer on notice of bad-faith conduct.',
-  },
-]
-
-const tone = ref<DraftTone>('Cooperative')
 const voice = ref<DraftVoice>('Shop')
 const customerAuthorized = ref(false)
 const instructions = ref('')
@@ -66,11 +47,7 @@ const isLitigation = computed(() => props.detail.case.status === 'Litigation')
 
 const busy = ref(false)
 const error = ref<string | null>(null)
-const confirmingEscalation = ref(false)
 
-watch(tone, () => {
-  confirmingEscalation.value = false
-})
 watch(voice, (v) => {
   if (v === 'Shop') customerAuthorized.value = false
 })
@@ -81,23 +58,14 @@ const canSubmit = computed(() => {
   return true
 })
 
-function onGenerateClick() {
-  error.value = null
-  if (tone.value === 'Escalation' && !confirmingEscalation.value) {
-    confirmingEscalation.value = true
-    return
-  }
-  generate()
-}
-
+// No tone picker: tone is omitted so the assistant reads the escalation ladder and picks
+// the tier the facts support. Its choice comes back as the badge on the draft card.
 async function generate() {
-  confirmingEscalation.value = false
   busy.value = true
   emit('drafting', true)
   error.value = null
   try {
     const result = await createDraft(shopId.value, caseId.value, {
-      tone: tone.value,
       voice: voice.value,
       customerAuthorized: customerAuthorized.value,
       replyToMessageId: replyToMessageId.value || null,
@@ -131,21 +99,13 @@ async function generate() {
         from your documented facts but won’t cite statutes. State law coverage is expanding.
       </div>
 
-      <!-- tone -->
-      <div class="group-label">Tone</div>
-      <div class="tone-options">
-        <label
-          v-for="t in TONES"
-          :key="t.value"
-          class="tone-option"
-          :class="{ selected: tone === t.value, escalation: t.value === 'Escalation' }"
+      <!-- tone is automatic: the assistant reads the escalation ladder and picks the tier -->
+      <div class="auto-tone">
+        <Sparkles :size="13" class="auto-tone-icon" />
+        <span
+          >The assistant picks the right tone — cooperative, firm, or formal escalation — from
+          this case's history and fact ledger. Its choice shows on the draft.</span
         >
-          <input v-model="tone" type="radio" name="tone" :value="t.value" />
-          <div>
-            <p class="tone-name">{{ t.label }}</p>
-            <p class="tone-desc">{{ t.desc }}</p>
-          </div>
-        </label>
       </div>
 
       <!-- voice -->
@@ -186,28 +146,9 @@ async function generate() {
         />
       </label>
 
-      <div v-if="confirmingEscalation" class="notice-amber escalation-confirm">
-        <p>
-          <AlertTriangle :size="14" class="warn-icon" />
-          <strong>Escalation letters make formal accusations</strong> — make sure the fact ledger
-          supports them.
-        </p>
-        <div class="confirm-actions">
-          <button class="btn btn-sm" @click="confirmingEscalation = false">Back</button>
-          <button class="btn btn-warn btn-sm" :disabled="!canSubmit" @click="generate">
-            Generate escalation
-          </button>
-        </div>
-      </div>
-
       <p v-if="error" class="error-text">{{ error }}</p>
 
-      <button
-        v-if="!confirmingEscalation"
-        class="btn btn-primary generate"
-        :disabled="!canSubmit"
-        @click="onGenerateClick"
-      >
+      <button class="btn btn-primary generate" :disabled="!canSubmit" @click="generate">
         <span v-if="busy" class="spinner"></span>
         {{ busy ? 'Drafting…' : 'Generate draft' }}
       </button>
@@ -236,43 +177,23 @@ async function generate() {
   letter-spacing: 0.04em;
   margin: 8px 0 6px;
 }
-.tone-options {
+.auto-tone {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.tone-option {
-  display: flex;
-  gap: 10px;
   align-items: flex-start;
+  gap: 8px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
-  cursor: pointer;
   background: var(--bg-raised);
-  transition: border-color 0.15s;
-}
-.tone-option:hover {
-  border-color: var(--border);
-}
-.tone-option.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.tone-option.escalation.selected {
-  border-color: var(--amber);
-  background: var(--amber-soft);
-}
-.tone-option input {
-  margin-top: 3px;
-}
-.tone-name {
-  font-size: 13px;
-  font-weight: 700;
-}
-.tone-desc {
   font-size: 12px;
+  line-height: 1.45;
   color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.auto-tone-icon {
+  color: var(--violet);
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 .voice-options {
   display: flex;
@@ -317,23 +238,10 @@ async function generate() {
 .field {
   margin-top: 4px;
 }
-.escalation-confirm {
-  margin-top: 4px;
-}
 .no-playbook {
   margin-bottom: 8px;
   font-size: 12.5px;
   line-height: 1.45;
-}
-.warn-icon {
-  vertical-align: -2px;
-  margin-right: 4px;
-}
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
 }
 .generate {
   width: 100%;
