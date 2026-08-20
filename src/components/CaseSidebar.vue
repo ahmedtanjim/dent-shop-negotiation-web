@@ -42,6 +42,10 @@ const form = ref({
   notes: '',
 })
 
+// Snapshot of the last server state the form was reset to — refreshes fire constantly
+// (facts, documents, intake, status), and they must never clobber in-progress edits.
+const pristine = ref('')
+
 function resetForm() {
   const d = props.detail
   form.value = {
@@ -59,8 +63,20 @@ function resetForm() {
     storagePerDay: d.storagePerDayCents / 100,
     notes: d.notes ?? '',
   }
+  pristine.value = JSON.stringify(form.value)
 }
-watch(() => props.detail, resetForm, { immediate: true })
+const dirty = computed(() => JSON.stringify(form.value) !== pristine.value)
+watch(
+  () => props.detail,
+  () => {
+    if (!dirty.value) resetForm()
+  },
+  { immediate: true },
+)
+
+function discardEdits() {
+  resetForm()
+}
 
 function onCustomerPicked(c: CustomerSearchResult) {
   if (!form.value.vehicleDescription.trim() && c.vehicleLabel)
@@ -98,6 +114,8 @@ async function save() {
       notes: opt(f.notes),
     }
     await updateCase(shopId.value, caseId.value, body)
+    // Accept our own save as the new baseline so the refresh below re-syncs the form.
+    pristine.value = JSON.stringify(form.value)
     saved.value = true
     setTimeout(() => (saved.value = false), 2000)
     emit('refresh')
@@ -343,6 +361,10 @@ function docName(id: string | null): string | null {
           <textarea v-model="form.notes" rows="3" />
         </label>
         <p v-if="saveError" class="error-text">{{ saveError }}</p>
+        <div v-if="dirty" class="dirty-row">
+          <span class="dirty-hint">Unsaved changes</span>
+          <button class="btn btn-ghost btn-sm" type="button" @click="discardEdits">Discard</button>
+        </div>
         <button class="btn btn-primary save-btn" type="submit" :disabled="saving">
           <span v-if="saving" class="spinner"></span>
           {{ saved ? 'Saved' : 'Save details' }}
@@ -461,6 +483,17 @@ function docName(id: string | null): string | null {
 .save-btn {
   width: 100%;
   justify-content: center;
+}
+.dirty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px 0 2px;
+}
+.dirty-hint {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--amber);
 }
 .customer-field {
   position: relative;

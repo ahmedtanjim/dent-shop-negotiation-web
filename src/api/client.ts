@@ -31,7 +31,11 @@ function handleUnauthorized(): never {
   localStorage.removeItem(STORAGE_KEYS.shopId)
   localStorage.removeItem(STORAGE_KEYS.displayName)
   if (!window.location.pathname.startsWith('/login')) {
-    window.location.href = '/login'
+    // Carry the current location so signing back in returns the user to the page the
+    // stale token bounced them off — same contract as the router guard's ?redirect.
+    const here = window.location.pathname + window.location.search
+    const redirect = here && here !== '/' ? `?redirect=${encodeURIComponent(here)}` : ''
+    window.location.href = `/login${redirect}`
   }
   throw new ApiError(401, 'Your session has expired. Please sign in again.')
 }

@@ -192,10 +192,14 @@ async function autoDraftReply(inbound: NegMessage) {
       instructions: null,
     })
     if (result.recommendsCounsel) emit('counsel')
-  } catch {
-    // Non-fatal: the email is already saved — only the automatic draft failed.
-    draftFailNote.value =
-      'The email was saved, but the automatic reply draft failed — use “Draft a reply” on the right to retry.'
+  } catch (e) {
+    // Non-fatal: the email is already saved — only the automatic draft failed. Surface the
+    // server's actual reason (litigation, citation check, no authorization…) instead of a
+    // generic note that may point at a panel the litigation state has disabled.
+    const reason = e instanceof ApiError ? e.message : null
+    draftFailNote.value = reason
+      ? `The email was saved, but the automatic reply draft failed: ${reason}`
+      : 'The email was saved, but the automatic reply draft failed — use “Draft a reply” on the right to retry.'
   }
   emit('refresh')
 }
