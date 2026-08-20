@@ -11,10 +11,11 @@ import {
   uploadDocument,
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, CaseStatus, UpsertCase } from '@/api/types'
+import type { CaseDetail, CaseStatus, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { formatBytes, formatDate, US_STATES } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import StatusPill from '@/components/StatusPill.vue'
+import CustomerPicker from '@/components/CustomerPicker.vue'
 
 const props = defineProps<{ detail: CaseDetail }>()
 const emit = defineEmits<{ refresh: [] }>()
@@ -33,6 +34,7 @@ const form = ref({
   adjusterEmail: '',
   adjusterPhone: '',
   customerName: '',
+  customerId: null as string | null,
   vehicleDescription: '',
   state: '',
   invoiceTotal: 0,
@@ -50,6 +52,7 @@ function resetForm() {
     adjusterEmail: d.adjusterEmail ?? '',
     adjusterPhone: d.adjusterPhone ?? '',
     customerName: d.case.customerName ?? '',
+    customerId: d.customerId,
     vehicleDescription: d.vehicleDescription ?? '',
     state: d.case.state ?? '',
     invoiceTotal: d.case.invoiceTotalCents / 100,
@@ -58,6 +61,11 @@ function resetForm() {
   }
 }
 watch(() => props.detail, resetForm, { immediate: true })
+
+function onCustomerPicked(c: CustomerSearchResult) {
+  if (!form.value.vehicleDescription.trim() && c.vehicleLabel)
+    form.value.vehicleDescription = c.vehicleLabel
+}
 
 const saving = ref(false)
 const saveError = ref<string | null>(null)
@@ -82,6 +90,7 @@ async function save() {
       adjusterEmail: opt(f.adjusterEmail),
       adjusterPhone: opt(f.adjusterPhone),
       customerName: opt(f.customerName),
+      customerId: f.customerId,
       vehicleDescription: opt(f.vehicleDescription),
       state: opt(f.state.toUpperCase()),
       invoiceTotal: Number(f.invoiceTotal) || 0,
@@ -300,9 +309,13 @@ function docName(id: string | null): string | null {
           <span>Adjuster phone</span>
           <input v-model="form.adjusterPhone" type="text" />
         </label>
-        <label class="field">
+        <label class="field customer-field">
           <span>Customer</span>
-          <input v-model="form.customerName" type="text" />
+          <CustomerPicker
+            v-model="form.customerName"
+            v-model:customer-id="form.customerId"
+            @picked="onCustomerPicked"
+          />
         </label>
         <label class="field">
           <span>Vehicle</span>
@@ -448,6 +461,9 @@ function docName(id: string | null): string | null {
 .save-btn {
   width: 100%;
   justify-content: center;
+}
+.customer-field {
+  position: relative;
 }
 .ledger-hint {
   margin-bottom: 10px;
