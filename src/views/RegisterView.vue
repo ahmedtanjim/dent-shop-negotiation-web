@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Scale } from 'lucide-vue-next'
 import { register, sendEmailCode, verifyEmail } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -68,7 +67,7 @@ function submitRegister() {
   <div class="auth-page">
     <div class="auth-card card">
       <div class="auth-brand">
-        <Scale :size="26" />
+        <img src="@/assets/dsm-logo.png" class="auth-logo" alt="Dent Shop Manager" />
         <h1>Create your account</h1>
       </div>
 
@@ -180,6 +179,10 @@ function submitRegister() {
   gap: 10px;
   color: var(--accent);
   margin-bottom: 16px;
+}
+.auth-logo {
+  height: 36px;
+  width: auto;
 }
 .auth-brand h1 {
   font-size: 19px;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import { Scale, LogOut, X, HelpCircle } from 'lucide-vue-next'
+import { LogOut, X, HelpCircle } from 'lucide-vue-next'
 import { subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
@@ -30,7 +30,7 @@ function dismissNotice() {
   <div class="app-shell">
     <header v-if="auth.isAuthed" class="topbar">
       <RouterLink to="/" class="brand">
-        <Scale :size="18" class="brand-icon" />
+        <img src="@/assets/dsm-logo.png" class="brand-logo" alt="Dent Shop Manager" />
         <span>DSM <strong>Negotiator</strong></span>
       </RouterLink>
       <div class="topbar-right">
@@ -93,8 +93,9 @@ function dismissNotice() {
 .brand strong {
   font-weight: 700;
 }
-.brand-icon {
-  color: var(--accent);
+.brand-logo {
+  height: 24px;
+  width: auto;
 }
 .topbar-right {
   display: flex;

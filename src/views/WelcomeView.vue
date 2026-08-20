@@ -69,7 +69,7 @@ const features = [
     <header class="nav">
       <div class="nav-inner">
         <div class="brand">
-          <Scale :size="19" class="brand-icon" />
+          <img src="@/assets/dsm-logo.png" class="brand-logo" alt="Dent Shop Manager" />
           <span>DSM <strong>Negotiator</strong></span>
         </div>
         <div class="nav-right">
@@ -229,8 +229,9 @@ const features = [
 .brand strong {
   font-weight: 700;
 }
-.brand-icon {
-  color: var(--accent);
+.brand-logo {
+  height: 26px;
+  width: auto;
 }
 .nav-right {
   display: flex;

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Scale } from 'lucide-vue-next'
 import { login } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -35,7 +34,7 @@ async function submit() {
   <div class="auth-page">
     <div class="auth-card card">
       <div class="auth-brand">
-        <Scale :size="26" />
+        <img src="@/assets/dsm-logo.png" class="auth-logo" alt="Dent Shop Manager" />
         <h1>DSM Negotiator</h1>
       </div>
       <p class="muted auth-sub">AI-assisted insurance negotiation for auto-body shops.</p>
@@ -83,6 +82,10 @@ async function submit() {
   align-items: center;
   gap: 10px;
   color: var(--accent);
+}
+.auth-logo {
+  height: 36px;
+  width: auto;
 }
 .auth-brand h1 {
   font-size: 20px;
