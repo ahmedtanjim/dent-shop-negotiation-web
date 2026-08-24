@@ -7,6 +7,7 @@ import type {
   DraftRequest,
   DraftResult,
   Fact,
+  GeneratedDocs,
   IntakeRequest,
   NegDocument,
   NegMessage,
@@ -62,6 +63,26 @@ export function createDraft(
   body: DraftRequest,
 ): Promise<DraftResult> {
   return api.post<DraftResult>(`${base(shopId)}/cases/${caseId}/drafts`, body)
+}
+
+export function getGeneratedDocs(shopId: string, caseId: string): Promise<GeneratedDocs> {
+  return api.get<GeneratedDocs>(`${base(shopId)}/cases/${caseId}/generated`)
+}
+
+export async function downloadInvoicePdf(
+  shopId: string,
+  caseId: string,
+  customerName: string | null,
+): Promise<void> {
+  const blob = await api.blob(`${base(shopId)}/cases/${caseId}/generated/invoice.pdf`)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = customerName ? `TL ${customerName}.pdf` : 'total-loss-invoice.pdf'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 export function markSent(shopId: string, caseId: string, messageId: string): Promise<NegMessage> {

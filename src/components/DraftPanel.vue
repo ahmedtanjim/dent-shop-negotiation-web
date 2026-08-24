@@ -85,7 +85,7 @@ async function generate() {
 
 <template>
   <section class="card draft-panel">
-    <div class="panel-title"><PenLine :size="13" class="title-icon" /> Draft a reply</div>
+    <div class="panel-title"><PenLine :size="13" class="title-icon" /> Generate new correspondence</div>
 
     <div v-if="isLitigation" class="notice-amber">
       This case is in litigation — the assistant no longer drafts correspondence. Your attorney
@@ -99,12 +99,13 @@ async function generate() {
         from your documented facts but won’t cite statutes. State law coverage is expanding.
       </div>
 
-      <!-- tone is automatic: the assistant reads the escalation ladder and picks the tier -->
+      <!-- the owner's copy, verbatim (2026-08-24 feedback) -->
       <div class="auto-tone">
         <Sparkles :size="13" class="auto-tone-icon" />
         <span
-          >The assistant picks the right tone — cooperative, firm, or formal escalation — from
-          this case's history and fact ledger. Its choice shows on the draft.</span
+          >Use the prebuilt messages in Documents or generate new correspondence for the claim —
+          reply as the shop, or send your customer the response they need to tell their insurance
+          representative.</span
         >
       </div>
 

@@ -81,3 +81,19 @@
 .driver-popover-arrow-side-bottom.driver-popover-arrow {
   border-bottom-color: var(--panel);
 }
+
+/* the injected "Don't show again" button — quiet, left of the nav buttons */
+.driver-popover-btn-disable {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-family: var(--font);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 6px;
+  margin-right: auto;
+}
+.driver-popover-btn-disable:hover {
+  color: var(--text-muted);
+}
