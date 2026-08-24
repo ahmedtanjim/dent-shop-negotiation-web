@@ -1,9 +1,10 @@
-import { driver } from 'driver.js'
+import { driver, type Driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import './styles/tour.css'
 
 // Mirrors the Dent Shop Manager tour pattern: driver.js pointed at [data-tour] anchors,
 // auto-run once per browser via a localStorage flag, replayable from the topbar help button.
+// Every popover carries a "Don't show again" button that marks the tour seen and closes it.
 
 const CASES_KEY = 'dsm_neg_tour_done_v1'
 const WORKSPACE_KEY = 'dsm_neg_ws_tour_done_v1'
@@ -14,24 +15,44 @@ const markCasesTourSeen = () => localStorage.setItem(CASES_KEY, '1')
 export const workspaceTourSeen = () => localStorage.getItem(WORKSPACE_KEY) === '1'
 const markWorkspaceTourSeen = () => localStorage.setItem(WORKSPACE_KEY, '1')
 
-const shared = {
-  showProgress: true,
-  overlayOpacity: 0.6,
-  nextBtnText: 'Next →',
-  prevBtnText: '← Back',
-  doneBtnText: 'Finish',
+function shared(markSeen: () => void) {
+  let instance: Driver | null = null
+  const config = {
+    showProgress: true,
+    overlayOpacity: 0.6,
+    nextBtnText: 'Next →',
+    prevBtnText: '← Back',
+    doneBtnText: 'Finish',
+    onDestroyed: markSeen,
+    onPopoverRender: (popover: { footerButtons: HTMLElement }) => {
+      const btn = document.createElement('button')
+      btn.innerText = "Don't show again"
+      btn.className = 'driver-popover-btn-disable'
+      btn.addEventListener('click', () => {
+        markSeen()
+        instance?.destroy()
+      })
+      popover.footerButtons.prepend(btn)
+    },
+  }
+  return {
+    config,
+    setInstance: (d: Driver) => {
+      instance = d
+    },
+  }
 }
 
 export function startCasesTour() {
-  driver({
-    ...shared,
-    onDestroyed: markCasesTourSeen,
+  const { config, setInstance } = shared(markCasesTourSeen)
+  const d = driver({
+    ...config,
     steps: [
       {
         popover: {
           title: 'Welcome to DSM Negotiator 👋',
           description:
-            'Your AI co-pilot against insurer short pays and stall tactics. Here’s the 45-second lay of the land — you can replay this anytime from the ? button up top.',
+            'Your co-pilot against insurer short pays and stall tactics. Here’s the 45-second lay of the land — replay it anytime from the ? button up top.',
         },
       },
       {
@@ -39,7 +60,7 @@ export function startCasesTour() {
         popover: {
           title: 'One case per claim',
           description:
-            'Start a case for every insurance claim you’re negotiating — the customer, insurer, claim number, and invoice total live here.',
+            'Start a case for every insurance claim — pick the customer from your DSM and the vehicle, title, and state fill themselves.',
         },
       },
       {
@@ -47,7 +68,7 @@ export function startCasesTour() {
         popover: {
           title: 'Your negotiations at a glance',
           description:
-            'Status, insurer, invoice amount, and message count for every open fight. Click any row to enter its workspace.',
+            'Insurer, invoice amount, and message count for every open fight. Click any row to enter its workspace.',
         },
       },
       {
@@ -59,27 +80,29 @@ export function startCasesTour() {
         },
       },
     ],
-  }).drive()
+  })
+  setInstance(d)
+  d.drive()
 }
 
 export function startWorkspaceTour() {
-  driver({
-    ...shared,
-    onDestroyed: markWorkspaceTourSeen,
+  const { config, setInstance } = shared(markWorkspaceTourSeen)
+  const d = driver({
+    ...config,
     steps: [
       {
         popover: {
           title: 'Your case workspace',
           description:
-            'Everything for this claim lives on one screen: the case file, the message timeline, and the AI tools.',
+            'Everything for this claim lives on one screen: the case file, the insurer paper trail, and your ready-to-send documents.',
         },
       },
       {
-        element: '[data-tour="ws-sidebar"]',
+        element: '[data-tour="ws-documents"]',
         popover: {
-          title: 'The case file',
+          title: 'Your documents, ready to send',
           description:
-            'Facts, amounts, and documents. The AI only argues from what’s recorded here — the more complete your ledger, the stronger every letter.',
+            'The proven letters — the shop’s itemized breakdown, the customer’s directive and total-loss rebuttals — plus the Total Loss invoice PDF, all filled in from this case. Copy, review, send.',
         },
       },
       {
@@ -87,25 +110,27 @@ export function startWorkspaceTour() {
         popover: {
           title: 'The paper trail',
           description:
-            'Paste the insurer’s email — we read it, fill the fields, log it, and draft your reply automatically. Newest messages sit at the top; this timeline is your evidence.',
+            'Paste or upload the insurer’s email — we read it, log it, and fill in the adjuster’s details automatically. Newest messages sit at the top; this timeline is your evidence.',
+        },
+      },
+      {
+        element: '[data-tour="ws-sidebar"]',
+        popover: {
+          title: 'The case file',
+          description:
+            'Customer, vehicle, and the Total Loss invoice inputs — storage dates and fees. The documents rebuild themselves from whatever you save here.',
         },
       },
       {
         element: '[data-tour="ws-draft"]',
         popover: {
-          title: 'Need a different reply?',
+          title: 'Need something custom?',
           description:
-            'Every insurer email gets an automatic reply draft. Use this panel to redo it at another escalation tier or in the customer’s voice — grounded in your facts, and you review before anything is sent.',
-        },
-      },
-      {
-        element: '[data-tour="ws-copilot"]',
-        popover: {
-          title: 'Ask the copilot',
-          description:
-            '“What’s my next move?” — the copilot reads the whole case and answers with state-specific strategy.',
+            'When the insurer sends something the prebuilt letters don’t cover, generate new correspondence here — as the shop or in your customer’s voice. You review before anything is sent.',
         },
       },
     ],
-  }).drive()
+  })
+  setInstance(d)
+  d.drive()
 }

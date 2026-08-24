@@ -48,6 +48,16 @@ export interface UpsertCase {
   notes?: string | null
   /** CRM customer link — set when picked from the customer search */
   customerId?: string | null
+  /** TL-invoice fee override, decimal dollars; null = shop default */
+  adminFee?: number | null
+  /** TL-invoice fee override, decimal dollars; null = shop default */
+  lotFee?: number | null
+  /** TL-invoice tax override, percent; null = shop default */
+  salesTaxPercent?: number | null
+  /** first day of storage accrual (yyyy-mm-dd); null = storage not computed */
+  storageStartDate?: string | null
+  /** last day of storage accrual; null = still accruing through today */
+  storageEndDate?: string | null
 }
 
 export type MessageKind = 'Inbound' | 'Draft' | 'Sent'
@@ -114,6 +124,12 @@ export interface CaseDetail {
   hasPlaybook: boolean
   /** linked CRM customer — context syncs live from the CRM record when set */
   customerId: string | null
+  /** TL-invoice fee override, decimal dollars; null = shop default */
+  adminFee: number | null
+  lotFee: number | null
+  salesTaxPercent: number | null
+  storageStartDate: string | null
+  storageEndDate: string | null
 }
 
 export interface ShopProfile {
@@ -122,9 +138,47 @@ export interface ShopProfile {
   phone: string | null
   email: string | null
   address: string | null
+  mailingAddress: string | null
+  taxId: string | null
   contactName: string | null
+  contactPhone: string | null
   /** decimal dollars — the shop's standard daily storage rate, 0 = unset */
   defaultStoragePerDay: number
+  /** decimal dollars — TL-invoice defaults, 0 = unset */
+  adminFee: number
+  lotFee: number
+  /** percent, 0 = no tax */
+  salesTaxPercent: number
+}
+
+/** One generated boilerplate letter — deterministic fill-in, no AI. */
+export interface GeneratedDoc {
+  key: string
+  title: string
+  voice: DraftVoice
+  scenario: string
+  subject: string
+  body: string
+}
+
+/** The computed Total Loss invoice (decimal dollars). */
+export interface InvoiceBreakdown {
+  adminFee: number
+  lotFee: number
+  storageStart: string | null
+  storageEnd: string | null
+  storageDays: number
+  storagePerDay: number
+  storageTotal: number
+  taxPercent: number
+  tax: number
+  subtotal: number
+  total: number
+}
+
+export interface GeneratedDocs {
+  invoice: InvoiceBreakdown
+  documents: GeneratedDoc[]
 }
 
 export interface ChatMessage {

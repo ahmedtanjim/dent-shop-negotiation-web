@@ -501,7 +501,6 @@ function fromLine(m: NegMessage): string {
             {{ m.kind === 'Inbound' ? 'Insurer email' : m.kind === 'Draft' ? 'AI draft reply' : 'Sent' }}
           </span>
           <TacticBadge v-if="m.kind === 'Inbound' && m.tactic !== 'None'" :tactic="m.tactic" />
-          <span v-if="m.tone" class="pill pill-blue">{{ m.tone }}</span>
           <span v-if="m.voice" class="pill pill-gray">
             {{ m.voice === 'Customer' ? 'Customer voice' : 'Shop letter' }}
           </span>
@@ -522,10 +521,12 @@ function fromLine(m: NegMessage): string {
         {{ expandedIds.has(m.id) ? 'Collapse' : 'Read the full email' }}
       </button>
 
-      <div v-if="m.analysisSummary" class="ai-read">
+      <!-- "Why this draft" removed per owner feedback — the rationale stays internal;
+           only inbound emails keep their AI read (tactic + suggested next step). -->
+      <div v-if="m.analysisSummary && m.kind === 'Inbound'" class="ai-read">
         <Sparkles :size="14" class="ai-icon" />
         <div>
-          <p class="ai-label">{{ m.kind === 'Inbound' ? 'AI read' : 'Why this draft' }}</p>
+          <p class="ai-label">AI read</p>
           <p>{{ m.analysisSummary }}</p>
         </div>
       </div>

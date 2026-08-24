@@ -1,7 +1,25 @@
-const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+const usdFormat = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export function centsToUsd(cents: number): string {
-  return usd.format(cents / 100)
+  return usdFormat.format(cents / 100)
+}
+
+/** Format decimal dollars (the wire format for fees/invoices). */
+export function usd(dollars: number): string {
+  return usdFormat.format(dollars)
+}
+
+/** Format a date-only value (UTC midnight on the wire) without timezone day-shift. */
+export function formatDateOnly(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
 }
 
 export function formatDate(iso: string | null | undefined): string {

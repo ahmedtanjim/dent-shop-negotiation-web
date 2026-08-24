@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Plus, FolderOpen } from 'lucide-vue-next'
+import { Plus, FolderOpen, Settings2 } from 'lucide-vue-next'
 import { listCases } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseListItem } from '@/api/types'
@@ -9,6 +9,7 @@ import { centsToUsd, formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import StatusPill from '@/components/StatusPill.vue'
 import NewCaseModal from '@/components/NewCaseModal.vue'
+import ShopRatesModal from '@/components/ShopRatesModal.vue'
 import { casesTourSeen, startCasesTour } from '@/tour'
 
 const auth = useAuthStore()
@@ -19,6 +20,7 @@ const cases = ref<CaseListItem[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const showNew = ref(false)
+const showRates = ref(false)
 
 async function load() {
   if (!auth.shopId) return
@@ -45,7 +47,12 @@ function onCreated(c: CaseListItem) {
 onMounted(async () => {
   await load()
   // First-ever visit (or ?tour=1 replay): run the walkthrough once the anchors are mounted.
-  if (route.query.tour === '1' || !casesTourSeen()) setTimeout(startCasesTour, 600)
+  // The ?tour=1 is consumed immediately — leaving it in the URL replayed the guide on
+  // every reload, which is what the "don't show again" complaints were about.
+  if (route.query.tour === '1' || !casesTourSeen()) {
+    setTimeout(startCasesTour, 600)
+    if (route.query.tour === '1') router.replace({ query: {} })
+  }
 })
 </script>
 
@@ -56,9 +63,14 @@ onMounted(async () => {
         <h1>Negotiation cases</h1>
         <p class="muted">Track insurer correspondence, tactics, and drafts per case.</p>
       </div>
-      <button class="btn btn-primary" data-tour="new-case" @click="showNew = true">
-        <Plus :size="15" /> New case
-      </button>
+      <div class="head-actions">
+        <button class="btn" title="Shop rates — TL invoice defaults" @click="showRates = true">
+          <Settings2 :size="15" /> Shop rates
+        </button>
+        <button class="btn btn-primary" data-tour="new-case" @click="showNew = true">
+          <Plus :size="15" /> New case
+        </button>
+      </div>
     </div>
 
     <p v-if="error" class="error-text">{{ error }}</p>
@@ -105,6 +117,7 @@ onMounted(async () => {
     </div>
 
     <NewCaseModal v-if="showNew" @close="showNew = false" @created="onCreated" />
+    <ShopRatesModal v-if="showRates" @close="showRates = false" />
   </div>
 </template>
 
@@ -121,6 +134,10 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+}
+.head-actions {
+  display: flex;
+  gap: 8px;
 }
 .page-head h1 {
   font-size: 22px;

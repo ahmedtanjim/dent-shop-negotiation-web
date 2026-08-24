@@ -11,7 +11,7 @@ import StatusPill from '@/components/StatusPill.vue'
 import CaseSidebar from '@/components/CaseSidebar.vue'
 import TimelinePanel from '@/components/TimelinePanel.vue'
 import DraftPanel from '@/components/DraftPanel.vue'
-import CopilotChat from '@/components/CopilotChat.vue'
+import GeneratedDocsPanel from '@/components/GeneratedDocsPanel.vue'
 import { startWorkspaceTour, workspaceTourSeen } from '@/tour'
 
 const props = defineProps<{ id: string }>()
@@ -106,6 +106,7 @@ watch(
         />
 
         <div class="ws-right">
+          <GeneratedDocsPanel data-tour="ws-documents" :detail="detail" />
           <DraftPanel
             data-tour="ws-draft"
             :detail="detail"
@@ -113,7 +114,6 @@ watch(
             @counsel="onCounsel"
             @drafting="externalDrafting = $event"
           />
-          <CopilotChat data-tour="ws-copilot" :case-id="detail.case.id" />
         </div>
       </div>
     </template>
@@ -189,6 +189,8 @@ watch(
   gap: 14px;
   position: sticky;
   top: 68px;
+  max-height: calc(100vh - 84px);
+  overflow-y: auto;
 }
 @media (max-width: 1200px) {
   .ws-grid {

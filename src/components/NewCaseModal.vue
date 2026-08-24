@@ -16,23 +16,27 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 
+const customerName = ref('')
+const linkedCustomerId = ref<string | null>(null)
+const vehicleDescription = ref('')
 const title = ref('')
 const insurerName = ref('')
 const insurerClaimNumber = ref('')
-const adjusterName = ref('')
-const adjusterEmail = ref('')
-const adjusterPhone = ref('')
-const customerName = ref('')
-const vehicleDescription = ref('')
-const state = ref('OH')
+const state = ref('')
 const invoiceTotal = ref<number | null>(null)
 const storagePerDay = ref<number | null>(null)
+// Local calendar date (toISOString would flip to yesterday/tomorrow across UTC midnight).
+const now = new Date()
+const storageStartDate = ref(
+  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+)
 const notes = ref('')
 
 const busy = ref(false)
 const error = ref<string | null>(null)
 
-// Prefill the storage rate from the shop's DSM profile so it isn't retyped per case.
+// Prefill from the shop's DSM profile: the storage rate, and the state parsed from the
+// shop's own address ("… Bedford Heights OH 44146" → OH) so it isn't typed per case.
 onMounted(async () => {
   if (!auth.shopId) return
   try {
@@ -40,15 +44,22 @@ onMounted(async () => {
     if (storagePerDay.value === null && profile.defaultStoragePerDay > 0) {
       storagePerDay.value = profile.defaultStoragePerDay
     }
+    if (!state.value && profile.address) {
+      const m = profile.address
+        .toUpperCase()
+        .match(/[,\s]([A-Z]{2})(?:[\s,]*\d{5}(?:-\d{4})?)?\s*$/)
+      if (m && US_STATES.includes(m[1])) state.value = m[1]
+    }
   } catch {
-    // Non-critical — the field simply stays empty.
+    // Non-critical — the fields simply stay empty.
   }
 })
 
-const linkedCustomerId = ref<string | null>(null)
-
 function onCustomerPicked(c: CustomerSearchResult) {
   if (!vehicleDescription.value.trim() && c.vehicleLabel) vehicleDescription.value = c.vehicleLabel
+  // Auto-title so the form stays a two-field job for CRM customers.
+  if (!title.value.trim())
+    title.value = c.vehicleLabel ? `${c.fullName} — ${c.vehicleLabel}` : c.fullName
 }
 
 function opt(v: string): string | null {
@@ -65,14 +76,12 @@ async function submit() {
       title: title.value.trim(),
       insurerName: opt(insurerName.value),
       insurerClaimNumber: opt(insurerClaimNumber.value),
-      adjusterName: opt(adjusterName.value),
-      adjusterEmail: opt(adjusterEmail.value),
-      adjusterPhone: opt(adjusterPhone.value),
       customerName: opt(customerName.value),
       vehicleDescription: opt(vehicleDescription.value),
       state: opt(state.value.toUpperCase()),
       invoiceTotal: invoiceTotal.value ?? 0,
       storagePerDay: storagePerDay.value ?? 0,
+      storageStartDate: opt(storageStartDate.value),
       notes: opt(notes.value),
       customerId: linkedCustomerId.value,
     }
@@ -95,12 +104,21 @@ async function submit() {
       </div>
 
       <form @submit.prevent="submit">
-        <label class="field">
-          <span>Case title *</span>
-          <input v-model="title" type="text" required placeholder="e.g. Smith — State Farm supplement dispute" />
+        <!-- customer first: pick from DSM and the name, vehicle, and title fill themselves -->
+        <label class="field customer-field">
+          <span>Customer — start typing to pull from DSM</span>
+          <CustomerPicker
+            v-model="customerName"
+            v-model:customer-id="linkedCustomerId"
+            @picked="onCustomerPicked"
+          />
         </label>
 
         <div class="form-grid">
+          <label class="field full">
+            <span>Vehicle</span>
+            <input v-model="vehicleDescription" type="text" placeholder="2022 Ford F-150, white" />
+          </label>
           <label class="field">
             <span>Insurer</span>
             <input v-model="insurerName" type="text" placeholder="State Farm" />
@@ -110,30 +128,6 @@ async function submit() {
             <input v-model="insurerClaimNumber" type="text" />
           </label>
           <label class="field">
-            <span>Adjuster name</span>
-            <input v-model="adjusterName" type="text" />
-          </label>
-          <label class="field">
-            <span>Adjuster email</span>
-            <input v-model="adjusterEmail" type="email" />
-          </label>
-          <label class="field">
-            <span>Adjuster phone</span>
-            <input v-model="adjusterPhone" type="text" />
-          </label>
-          <label class="field customer-field">
-            <span>Customer</span>
-            <CustomerPicker
-              v-model="customerName"
-              v-model:customer-id="linkedCustomerId"
-              @picked="onCustomerPicked"
-            />
-          </label>
-          <label class="field full">
-            <span>Vehicle</span>
-            <input v-model="vehicleDescription" type="text" placeholder="2022 Ford F-150, white" />
-          </label>
-          <label class="field">
             <span>State</span>
             <input v-model="state" type="text" maxlength="2" list="us-states" placeholder="OH" />
             <datalist id="us-states">
@@ -141,8 +135,12 @@ async function submit() {
             </datalist>
           </label>
           <label class="field">
-            <span>Invoice total ($) *</span>
-            <input v-model.number="invoiceTotal" type="number" min="0" step="0.01" required />
+            <span>In shop since</span>
+            <input v-model="storageStartDate" type="date" />
+          </label>
+          <label class="field">
+            <span>Invoice total ($)</span>
+            <input v-model.number="invoiceTotal" type="number" min="0" step="0.01" />
           </label>
           <label class="field">
             <span>Storage per day ($)</span>
@@ -151,8 +149,13 @@ async function submit() {
         </div>
 
         <label class="field">
+          <span>Case title *</span>
+          <input v-model="title" type="text" required placeholder="Fills itself when you pick a customer" />
+        </label>
+
+        <label class="field">
           <span>Notes</span>
-          <textarea v-model="notes" rows="3" />
+          <textarea v-model="notes" rows="2" />
         </label>
 
         <p v-if="error" class="error-text">{{ error }}</p>
