@@ -252,11 +252,11 @@ async function removeDocument(id: string) {
 
         <div class="panel-title tl-title">Total Loss invoice inputs</div>
         <div class="form-grid">
-          <label class="field">
+          <label class="field full">
             <span>In shop since</span>
             <input v-model="form.storageStartDate" type="date" />
           </label>
-          <label class="field">
+          <label class="field full">
             <span>Storage ends (optional)</span>
             <input v-model="form.storageEndDate" type="date" />
           </label>

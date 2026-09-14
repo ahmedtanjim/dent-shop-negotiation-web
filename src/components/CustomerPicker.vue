@@ -51,7 +51,7 @@ function closeSoon() {
 </script>
 
 <template>
-  <div class="customer-combo">
+  <div class="customer-combo" :class="{ linked: customerId }">
     <input
       v-model="name"
       type="text"
@@ -87,10 +87,16 @@ function closeSoon() {
 .customer-combo {
   position: relative;
 }
+/* badge sits inside the input's right edge so it can never collide with a wrapping label */
+.customer-combo.linked input {
+  padding-right: 64px;
+}
 .linked-badge {
   position: absolute;
-  top: -22px;
-  right: 0;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  pointer-events: none;
   display: inline-flex;
   align-items: center;
   gap: 3px;
