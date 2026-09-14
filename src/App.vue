@@ -77,6 +77,8 @@ function dismissNotice() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   padding: 10px 24px;
   background: var(--bg-raised);
   border-bottom: 1px solid var(--border-soft);
@@ -120,7 +122,8 @@ function dismissNotice() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   background: var(--amber-soft);
   border-bottom: 1px solid rgba(245, 158, 11, 0.4);
   color: #fbc65d;

@@ -610,6 +610,7 @@ function fromLine(m: NegMessage): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   margin: -4px 0 12px;
   font-size: 12.5px;
@@ -688,6 +689,13 @@ function fromLine(m: NegMessage): string {
 .intake {
   /* clear the sticky topbar when scrolled into view */
   scroll-margin-top: 70px;
+  container-type: inline-size;
+}
+/* datetime-local needs ~210px; two columns in a narrow card would clip it */
+@container (max-width: 460px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .msg {
   border-left: 3px solid var(--border);

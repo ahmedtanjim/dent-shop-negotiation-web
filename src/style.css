@@ -369,6 +369,23 @@ table.data tbody tr:hover {
 .form-grid .full {
   grid-column: 1 / -1;
 }
+/* Each field spans three shared row tracks (label / control / optional hint), so a label that
+   wraps to two lines pushes its row neighbor's control down with it and the controls stay level. */
+@supports (grid-template-rows: subgrid) {
+  .form-grid > label.field {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+  }
+  .form-grid > label.field > span:first-child {
+    align-self: end;
+  }
+}
+@media (max-width: 520px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 ::-webkit-scrollbar {
   width: 10px;

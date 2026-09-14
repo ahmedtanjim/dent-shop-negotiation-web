@@ -110,7 +110,7 @@ async function save() {
 
 <style scoped>
 .rates-modal {
-  max-width: 460px;
+  max-width: 520px;
 }
 .hint {
   font-size: 13px;
