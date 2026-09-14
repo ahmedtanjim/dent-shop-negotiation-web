@@ -51,9 +51,14 @@ function dismissNotice() {
 
     <div v-if="subscriptionNotice" class="sub-banner">
       <span>{{ subscriptionNotice }}</span>
-      <button class="btn btn-ghost btn-sm" @click="dismissNotice">
-        <X :size="14" />
-      </button>
+      <span class="banner-actions">
+        <a class="btn btn-ghost btn-sm" href="https://app.dentshopmanager.com/billing" target="_blank" rel="noopener">
+          Go to Billing
+        </a>
+        <button class="btn btn-ghost btn-sm" @click="dismissNotice">
+          <X :size="14" />
+        </button>
+      </span>
     </div>
 
     <main class="app-main">
@@ -104,6 +109,12 @@ function dismissNotice() {
 }
 .user-name {
   font-size: 13px;
+}
+.banner-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .sub-banner {
   display: flex;
