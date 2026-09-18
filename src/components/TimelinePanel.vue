@@ -328,12 +328,15 @@ function fromLine(m: NegMessage): string {
 
 <template>
   <div class="timeline">
-    <div class="timeline-head">
-      <h2>Correspondence</h2>
-      <button class="btn" @click="showIntake = !showIntake">
-        <MailPlus :size="15" /> Add insurer email
-      </button>
+    <div class="seclbl">
+      Negotiation <span class="sub">their letters, your answers</span>
     </div>
+
+    <!-- intake trigger: the paste strip -->
+    <button v-if="!showIntake" class="paste-strip" @click="showIntake = true">
+      <span>New letter from the adjuster? Paste it — the assistant names the tactic and drafts your reply.</span>
+      <span class="btn"><MailPlus :size="15" /> Add insurer email</span>
+    </button>
 
     <!-- intake panel -->
     <div v-if="showIntake" ref="intakeCard" class="card intake">
@@ -569,14 +572,43 @@ function fromLine(m: NegMessage): string {
   gap: 14px;
   min-width: 0;
 }
-.timeline-head {
+.seclbl {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
-.timeline-head h2 {
-  font-size: 17px;
+.seclbl .sub {
+  font-weight: 400;
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-faint);
+}
+.paste-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: none;
+  padding: 14px 18px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text-faint);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.paste-strip:hover {
+  border-color: var(--accent);
+  color: var(--text-muted);
 }
 .tabs {
   display: flex;
@@ -619,7 +651,7 @@ function fromLine(m: NegMessage): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #7fb0f9;
+  color: #a3abff;
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -698,24 +730,19 @@ function fromLine(m: NegMessage): string {
   }
 }
 .msg {
-  border-left: 3px solid var(--border);
   scroll-margin-top: 70px;
 }
-.msg.inbound {
-  border-left-color: var(--text-faint);
-}
+/* the AI draft card: gradient hairline — the one signature flourish */
 .msg.draft {
-  border-color: rgba(139, 92, 246, 0.35);
-  border-left: 3px solid var(--violet);
+  border: 1px solid transparent;
   background:
-    linear-gradient(rgba(139, 92, 246, 0.06), rgba(139, 92, 246, 0.06)),
-    var(--panel);
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(135deg, rgba(123, 135, 255, 0.55), rgba(74, 219, 192, 0.35)) border-box;
 }
 .msg.sent {
-  border-color: rgba(34, 197, 94, 0.3);
-  border-left: 3px solid var(--green);
+  border-color: rgba(61, 214, 140, 0.3);
   background:
-    linear-gradient(rgba(34, 197, 94, 0.04), rgba(34, 197, 94, 0.04)),
+    linear-gradient(rgba(61, 214, 140, 0.04), rgba(61, 214, 140, 0.04)),
     var(--panel);
 }
 .msg.is-new {
@@ -742,7 +769,7 @@ function fromLine(m: NegMessage): string {
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--violet, #a78bfa);
+  color: var(--violet);
   margin: 6px 0 10px;
 }
 .shimmer-line {
@@ -751,9 +778,9 @@ function fromLine(m: NegMessage): string {
   margin-bottom: 8px;
   background: linear-gradient(
     90deg,
-    rgba(139, 92, 246, 0.1) 25%,
-    rgba(139, 92, 246, 0.25) 50%,
-    rgba(139, 92, 246, 0.1) 75%
+    rgba(123, 135, 255, 0.1) 25%,
+    rgba(123, 135, 255, 0.25) 50%,
+    rgba(123, 135, 255, 0.1) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
@@ -817,7 +844,7 @@ function fromLine(m: NegMessage): string {
   gap: 10px;
   margin-top: 10px;
   background: var(--accent-soft);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(123, 135, 255, 0.25);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   font-size: 13px;
@@ -832,7 +859,7 @@ function fromLine(m: NegMessage): string {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #7fb0f9;
+  color: #a3abff;
   margin-bottom: 2px;
 }
 .msg-actions {

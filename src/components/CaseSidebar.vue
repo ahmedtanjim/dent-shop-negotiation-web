@@ -8,7 +8,8 @@ import {
   uploadDocument,
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, CustomerSearchResult, UpsertCase } from '@/api/types'
+import type { CaseDetail, CustomerSearchResult } from '@/api/types'
+import { caseBodyFromDetail } from '@/utils/caseBody'
 import { formatBytes, US_STATES } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
@@ -20,29 +21,20 @@ const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
 
-/* ---------- editable case fields ---------- */
-// Adjuster fields have no inputs anymore (they fill from uploaded insurer emails),
-// but they stay in the form state so saving round-trips them instead of wiping them.
+/* ---------- editable case fields ----------
+   Identity fields only — the Total Loss invoice inputs (fees, dates, storage rate)
+   are edited inline on the invoice card. Saving round-trips those and the adjuster
+   fields from the server state instead of wiping them. */
 
 const form = ref({
   title: '',
   insurerName: '',
   insurerClaimNumber: '',
-  adjusterName: '',
-  adjusterEmail: '',
-  adjusterPhone: '',
   customerName: '',
   customerId: null as string | null,
   vehicleDescription: '',
   state: '',
   invoiceTotal: 0,
-  storagePerDay: 0,
-  // TL-invoice inputs. Fees/tax as strings: '' = use the shop default (null on the wire).
-  storageStartDate: '',
-  storageEndDate: '',
-  adminFee: '',
-  lotFee: '',
-  salesTaxPercent: '',
   notes: '',
 })
 
@@ -51,30 +43,17 @@ const form = ref({
 // stringified initial form so the very first watch tick reads as clean and populates.
 const pristine = ref(JSON.stringify(form.value))
 
-function dateOnly(iso: string | null): string {
-  return iso ? iso.slice(0, 10) : ''
-}
-
 function resetForm() {
   const d = props.detail
   form.value = {
     title: d.case.title,
     insurerName: d.case.insurerName ?? '',
     insurerClaimNumber: d.case.insurerClaimNumber ?? '',
-    adjusterName: d.adjusterName ?? '',
-    adjusterEmail: d.adjusterEmail ?? '',
-    adjusterPhone: d.adjusterPhone ?? '',
     customerName: d.case.customerName ?? '',
     customerId: d.customerId,
     vehicleDescription: d.vehicleDescription ?? '',
     state: d.case.state ?? '',
     invoiceTotal: d.case.invoiceTotalCents / 100,
-    storagePerDay: d.storagePerDayCents / 100,
-    storageStartDate: dateOnly(d.storageStartDate),
-    storageEndDate: dateOnly(d.storageEndDate),
-    adminFee: d.adminFee === null ? '' : String(d.adminFee),
-    lotFee: d.lotFee === null ? '' : String(d.lotFee),
-    salesTaxPercent: d.salesTaxPercent === null ? '' : String(d.salesTaxPercent),
     notes: d.notes ?? '',
   }
   pristine.value = JSON.stringify(form.value)
@@ -106,39 +85,22 @@ function opt(v: string): string | null {
   return t ? t : null
 }
 
-function optNum(v: string): number | null {
-  const t = v.trim()
-  if (!t) return null
-  const n = Number(t)
-  return Number.isFinite(n) ? n : null
-}
-
 async function save() {
   saving.value = true
   saveError.value = null
   saved.value = false
   try {
     const f = form.value
-    const body: UpsertCase = {
-      title: f.title.trim(),
-      insurerName: opt(f.insurerName),
-      insurerClaimNumber: opt(f.insurerClaimNumber),
-      adjusterName: opt(f.adjusterName),
-      adjusterEmail: opt(f.adjusterEmail),
-      adjusterPhone: opt(f.adjusterPhone),
-      customerName: opt(f.customerName),
-      customerId: f.customerId,
-      vehicleDescription: opt(f.vehicleDescription),
-      state: opt(f.state.toUpperCase()),
-      invoiceTotal: Number(f.invoiceTotal) || 0,
-      storagePerDay: Number(f.storagePerDay) || 0,
-      storageStartDate: opt(f.storageStartDate),
-      storageEndDate: opt(f.storageEndDate),
-      adminFee: optNum(f.adminFee),
-      lotFee: optNum(f.lotFee),
-      salesTaxPercent: optNum(f.salesTaxPercent),
-      notes: opt(f.notes),
-    }
+    const body = caseBodyFromDetail(props.detail)
+    body.title = f.title.trim()
+    body.insurerName = opt(f.insurerName)
+    body.insurerClaimNumber = opt(f.insurerClaimNumber)
+    body.customerName = opt(f.customerName)
+    body.customerId = f.customerId
+    body.vehicleDescription = opt(f.vehicleDescription)
+    body.state = opt(f.state.toUpperCase())
+    body.invoiceTotal = Number(f.invoiceTotal) || 0
+    body.notes = opt(f.notes)
     await updateCase(shopId.value, caseId.value, body)
     // Accept our own save as the new baseline so the refresh below re-syncs the form.
     pristine.value = JSON.stringify(form.value)
@@ -249,37 +211,8 @@ async function removeDocument(id: string) {
             <input v-model.number="form.invoiceTotal" type="number" min="0" step="0.01" />
           </label>
         </div>
-
-        <div class="panel-title tl-title">Total Loss invoice inputs</div>
-        <div class="form-grid">
-          <label class="field full">
-            <span>In shop since</span>
-            <input v-model="form.storageStartDate" type="date" />
-          </label>
-          <label class="field full">
-            <span>Storage ends (optional)</span>
-            <input v-model="form.storageEndDate" type="date" />
-          </label>
-          <label class="field">
-            <span>Storage / day ($)</span>
-            <input v-model.number="form.storagePerDay" type="number" min="0" step="0.01" />
-          </label>
-          <label class="field">
-            <span>Sales tax (%)</span>
-            <input v-model="form.salesTaxPercent" type="number" min="0" step="0.01" placeholder="Shop default" />
-          </label>
-          <label class="field">
-            <span>Admin fee ($)</span>
-            <input v-model="form.adminFee" type="number" min="0" step="0.01" placeholder="Shop default" />
-          </label>
-          <label class="field">
-            <span>Lot / gate fee ($)</span>
-            <input v-model="form.lotFee" type="number" min="0" step="0.01" placeholder="Shop default" />
-          </label>
-        </div>
         <p class="faint tl-hint">
-          Empty fee fields use your shop defaults (set from the cases page). Leave "storage ends"
-          empty while the car is still on your lot — it accrues through today.
+          Storage dates, fees, and the daily rate are edited on the invoice itself →
         </p>
 
         <label class="field">
