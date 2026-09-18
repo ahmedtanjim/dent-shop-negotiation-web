@@ -23,11 +23,45 @@
   --violet: #98a0ff;
   --violet-soft: rgba(123, 135, 255, 0.12);
   --white-btn: #fafbfd;
+  --btn-primary-fg: #0b0d12;
+  --btn-primary-hover: #e7eaf2;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -16px rgba(0, 0, 0, 0.7);
   --font: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+/* Light: black on white — same system, mirrored. The one solid button flips to
+   near-black; accents deepen so they hold contrast on white. */
+:root[data-theme='light'] {
+  --bg: #f7f8fa;
+  --bg-raised: #f2f4f8;
+  --panel: #ffffff;
+  --panel-soft: #eef0f4;
+  --border: rgba(16, 19, 25, 0.16);
+  --border-soft: rgba(16, 19, 25, 0.08);
+  --text: #101319;
+  --text-muted: #5a6372;
+  --text-faint: #9aa1ae;
+  --accent: #4753c4;
+  --accent-strong: #5e6ad2;
+  --accent-soft: rgba(71, 83, 196, 0.1);
+  --teal: #0d9488;
+  --danger: #d64533;
+  --danger-soft: rgba(214, 69, 51, 0.1);
+  --amber: #b45309;
+  --amber-soft: rgba(180, 83, 9, 0.1);
+  --green: #188a4e;
+  --green-soft: rgba(24, 138, 78, 0.1);
+  --violet: #4753c4;
+  --violet-soft: rgba(71, 83, 196, 0.1);
+  --white-btn: #101319;
+  --btn-primary-fg: #ffffff;
+  --btn-primary-hover: #272c38;
+  --shadow: 0 1px 2px rgba(16, 19, 25, 0.04), 0 10px 28px -22px rgba(16, 19, 25, 0.18);
+  color-scheme: light;
 }
 
 * {
@@ -161,20 +195,16 @@ input[type='radio'] {
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* The one solid button on a dark page is white — the primary action carries the page. */
+/* The one solid button carries the page: white on the dark theme, near-black on light. */
 .btn-primary {
   background: var(--white-btn);
   border-color: var(--white-btn);
-  color: #0b0d12;
+  color: var(--btn-primary-fg);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #e7eaf2;
-  border-color: #e7eaf2;
-  color: #0b0d12;
-}
-.btn-primary .spinner {
-  border-color: rgba(11, 13, 18, 0.25);
-  border-top-color: #0b0d12;
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
+  color: var(--btn-primary-fg);
 }
 .btn-danger {
   background: transparent;
@@ -226,8 +256,8 @@ input[type='radio'] {
 }
 .pill-blue {
   background: var(--accent-soft);
-  color: #a3abff;
-  border-color: rgba(123, 135, 255, 0.4);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .pill-green {
   background: var(--green-soft);
@@ -236,8 +266,8 @@ input[type='radio'] {
 }
 .pill-amber {
   background: var(--amber-soft);
-  color: #f7bb5c;
-  border-color: rgba(245, 166, 35, 0.35);
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 35%, transparent);
 }
 .pill-red {
   background: var(--danger-soft);
@@ -283,7 +313,7 @@ input[type='radio'] {
 }
 
 .error-text {
-  color: #f89b9b;
+  color: var(--danger);
   background: var(--danger-soft);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--radius-sm);
@@ -293,7 +323,7 @@ input[type='radio'] {
 }
 
 .notice-amber {
-  color: #fbc65d;
+  color: var(--amber);
   background: var(--amber-soft);
   border: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: var(--radius-sm);
@@ -365,8 +395,8 @@ table.data tbody tr:hover {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: #fff;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   vertical-align: -2px;

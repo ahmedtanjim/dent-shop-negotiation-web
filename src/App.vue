@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import { LogOut, X, HelpCircle } from 'lucide-vue-next'
+import { LogOut, X, HelpCircle, Sun, Moon } from 'lucide-vue-next'
 import { subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { theme, toggleTheme } from '@/utils/theme'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
 
 const auth = useAuthStore()
@@ -31,10 +32,21 @@ function dismissNotice() {
     <header v-if="auth.isAuthed" class="topbar">
       <RouterLink to="/" class="brand">
         <img src="@/assets/dsm-logo.png" class="brand-logo" alt="Dent Shop Manager" />
-        <span>DSM <strong>Negotiator</strong></span>
+        <span class="brand-word">
+          Dent Shop Manager
+          <span class="brand-sub"><span class="scale">⚖</span> <strong>Negotiator</strong></span>
+        </span>
       </RouterLink>
       <div class="topbar-right">
         <span class="muted user-name">{{ auth.displayName }}</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          :title="theme === 'dark' ? 'Switch to light' : 'Switch to dark'"
+          @click="toggleTheme"
+        >
+          <Sun v-if="theme === 'dark'" :size="15" />
+          <Moon v-else :size="15" />
+        </button>
         <button
           class="btn btn-ghost btn-sm"
           data-tour="help"
@@ -99,10 +111,30 @@ function dismissNotice() {
 }
 .brand strong {
   font-weight: 700;
+  color: var(--accent);
 }
 .brand-logo {
-  height: 24px;
+  height: 34px;
   width: auto;
+}
+.brand-word {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.brand-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.brand-sub .scale {
+  font-size: 11px;
 }
 .topbar-right {
   display: flex;
@@ -126,7 +158,7 @@ function dismissNotice() {
   gap: 8px 12px;
   background: var(--amber-soft);
   border-bottom: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fbc65d;
+  color: var(--amber);
   padding: 8px 24px;
   font-size: 13.5px;
   font-weight: 600;
