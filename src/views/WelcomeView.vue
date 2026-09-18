@@ -257,7 +257,7 @@ const features = [
   transform: translateX(-50%);
   width: 720px;
   height: 420px;
-  background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.18), transparent 65%);
+  background: radial-gradient(ellipse at center, rgba(94, 106, 210, 0.18), transparent 65%);
   pointer-events: none;
 }
 .hero-badge {
@@ -266,9 +266,9 @@ const features = [
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #7fb0f9;
+  color: #a3abff;
   background: var(--accent-soft);
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(123, 135, 255, 0.35);
   border-radius: 999px;
   padding: 5px 14px;
   margin-bottom: 22px;
@@ -280,7 +280,7 @@ const features = [
   font-weight: 700;
 }
 .grad {
-  background: linear-gradient(92deg, var(--accent) 10%, #8b5cf6 90%);
+  background: linear-gradient(92deg, var(--accent) 10%, var(--teal) 90%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -428,8 +428,8 @@ const features = [
   padding: 24px 22px;
 }
 .price-card.featured {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), var(--panel) 55%);
+  border-color: rgba(123, 135, 255, 0.5);
+  background: linear-gradient(180deg, rgba(123, 135, 255, 0.08), var(--panel) 55%);
 }
 .deal-pill {
   align-self: flex-start;

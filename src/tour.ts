@@ -85,6 +85,10 @@ export function startCasesTour() {
   d.drive()
 }
 
+/** The workspace is two tabs; the tour switches them as it walks the panels. */
+const setWorkspaceTab = (tab: 'case' | 'nego') =>
+  window.dispatchEvent(new CustomEvent('dsm-neg-ws-tab', { detail: tab }))
+
 export function startWorkspaceTour() {
   const { config, setInstance } = shared(markWorkspaceTourSeen)
   const d = driver({
@@ -94,35 +98,39 @@ export function startWorkspaceTour() {
         popover: {
           title: 'Your case workspace',
           description:
-            'Everything for this claim lives on one screen: the case file, the insurer paper trail, and your ready-to-send documents.',
+            'Two tabs: the case file with its invoice and ready-to-send documents, and the negotiation — the insurer paper trail and your AI-drafted answers.',
         },
       },
       {
         element: '[data-tour="ws-documents"]',
+        onHighlightStarted: () => setWorkspaceTab('case'),
         popover: {
-          title: 'Your documents, ready to send',
+          title: 'The invoice and your documents',
           description:
-            'The proven letters — the shop’s itemized breakdown, the customer’s directive and total-loss rebuttals — plus the Total Loss invoice PDF, all filled in from this case. Copy, review, send.',
-        },
-      },
-      {
-        element: '[data-tour="ws-timeline"]',
-        popover: {
-          title: 'The paper trail',
-          description:
-            'Paste or upload the insurer’s email — we read it, log it, and fill in the adjuster’s details automatically. Newest messages sit at the top; this timeline is your evidence.',
+            'The Total Loss invoice with every figure editable in place — storage dates, fees, tax — plus the proven letters filled in from this case. Edit a number and everything updates; download the PDF or copy a letter and send it.',
         },
       },
       {
         element: '[data-tour="ws-sidebar"]',
+        onHighlightStarted: () => setWorkspaceTab('case'),
         popover: {
           title: 'The case file',
           description:
-            'Customer, vehicle, and the Total Loss invoice inputs — storage dates and fees. The documents rebuild themselves from whatever you save here.',
+            'Customer, vehicle, insurer, claim number. The documents rebuild themselves from whatever you save here.',
+        },
+      },
+      {
+        element: '[data-tour="ws-timeline"]',
+        onHighlightStarted: () => setWorkspaceTab('nego'),
+        popover: {
+          title: 'The negotiation tab',
+          description:
+            'Paste or upload the insurer’s email — we read it, name the tactic, and draft your reply automatically. Newest messages sit at the top; this timeline is your evidence.',
         },
       },
       {
         element: '[data-tour="ws-draft"]',
+        onHighlightStarted: () => setWorkspaceTab('nego'),
         popover: {
           title: 'Need something custom?',
           description:
