@@ -413,8 +413,8 @@ const faqs = [
 </template>
 
 <style scoped>
-/* A marketing page in one deliberate world: paper and ink, set in the app's own face.
-   The parent logo's red appears only inside the letter — stamp and underlines. It overrides the app's theme tokens
+/* A marketing page in one deliberate world: paper, ink, and a single red — the parent
+   logo's red — spent on the one action that matters. It overrides the app's theme tokens
    locally so global .btn/.card styles inside still resolve correctly. */
 .landing {
   --paper: #f4f5f7;
@@ -430,7 +430,7 @@ const faqs = [
   --green: #1f7f48;
   --amber: #9a5b00;
   --marker: #fff2a8;
-  --disp: var(--font);
+  --disp: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
   --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
 
   --bg: var(--paper);
@@ -458,8 +458,7 @@ const faqs = [
 }
 h1, h2, h3 {
   font-family: var(--disp);
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.022em;
   text-wrap: balance;
 }
 .landing a:hover {
@@ -471,7 +470,7 @@ h1, h2, h3 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--ink);
+  background: var(--red);
   color: #fff;
   border-radius: 6px;
   padding: 13px 22px;
@@ -481,7 +480,7 @@ h1, h2, h3 {
   transition: background 0.15s, transform 0.15s;
 }
 .cta:hover {
-  background: #2a2e37;
+  background: var(--red-deep);
   color: #fff;
 }
 .cta:focus-visible {
@@ -547,7 +546,7 @@ h1, h2, h3 {
 }
 .brand-product {
   font-family: var(--disp);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 17px;
   letter-spacing: -0.01em;
 }
@@ -592,13 +591,13 @@ h1, h2, h3 {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--red);
   margin-bottom: 18px;
 }
 .hero h1 {
-  font-size: clamp(34px, 4.2vw, 52px);
-  line-height: 1.04;
-  font-weight: 600;
+  font-size: clamp(34px, 4.4vw, 54px);
+  line-height: 1.02;
+  font-weight: 700;
   margin-bottom: 22px;
 }
 .lede {
@@ -709,7 +708,7 @@ mark.quote {
   line-height: 1.4;
   color: var(--ink-2);
   padding-left: 12px;
-  border-left: 1px solid var(--rule-strong);
+  border-left: 2px solid var(--red);
 }
 .co b {
   display: block;
@@ -745,9 +744,8 @@ mark.quote {
 .proof-grid b {
   display: block;
   font-family: var(--disp);
-  font-size: 16.5px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-size: 17px;
+  letter-spacing: -0.01em;
   margin-bottom: 6px;
   color: #fff;
 }
@@ -776,9 +774,9 @@ mark.quote {
   margin: 0 0 28px;
 }
 .sec-head h2 {
-  font-size: clamp(26px, 3vw, 36px);
-  line-height: 1.1;
-  font-weight: 600;
+  font-size: clamp(28px, 3.2vw, 38px);
+  line-height: 1.08;
+  font-weight: 700;
   margin-bottom: 14px;
 }
 .sec-head p {
@@ -1073,9 +1071,8 @@ mark.quote {
 .never b {
   display: block;
   font-family: var(--disp);
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  letter-spacing: -0.01em;
   margin-bottom: 8px;
 }
 .never p {
@@ -1132,10 +1129,11 @@ mark.quote {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--red);
 }
 .plan h3 {
-  font-size: 17px;
+  font-size: 18px;
+  font-weight: 700;
 }
 .price {
   display: flex;
@@ -1145,9 +1143,9 @@ mark.quote {
 }
 .amt {
   font-family: var(--disp);
-  font-size: 42px;
-  font-weight: 600;
-  letter-spacing: -0.035em;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--ink);
   line-height: 1;
 }
@@ -1215,9 +1213,9 @@ mark.quote {
   text-align: center;
 }
 .final h2 {
-  font-size: clamp(26px, 3.4vw, 42px);
-  line-height: 1.1;
-  font-weight: 600;
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.08;
+  font-weight: 700;
   margin-bottom: 28px;
 }
 .final .hero-fine {
