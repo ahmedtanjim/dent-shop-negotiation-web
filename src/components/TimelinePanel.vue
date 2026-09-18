@@ -30,6 +30,37 @@ const sorted = computed(() =>
   }),
 )
 
+/* ---------- the docket ----------
+   One strict chronological record: №1 is the oldest entry, the top of the page is now.
+   The numbers give the sequence a name — "their №4 letter", "our №3 reply" — the way a
+   court docket numbers filings. */
+const docketNo = computed(() => {
+  const map = new Map<string, number>()
+  const n = sorted.value.length
+  sorted.value.forEach((m, i) => map.set(m.id, n - i))
+  return map
+})
+// The newest entry, when it's an unsent draft, is the one thing to act on.
+const latestDraftId = computed(() =>
+  sorted.value[0]?.kind === 'Draft' ? sorted.value[0].id : null,
+)
+
+function dirLabel(m: NegMessage): string {
+  if (m.kind === 'Inbound') return '↓ Received'
+  if (m.kind === 'Sent') return '↑ Sent'
+  return '✦ AI draft'
+}
+
+function whenLine(m: NegMessage): string {
+  const when = formatDateTime(m.occurredAt ?? m.createdAt)
+  if (m.kind === 'Inbound') return `${when} · from ${fromLine(m)}`
+  if (m.kind === 'Sent') {
+    const to = props.detail.case.insurerName
+    return to ? `${when} · to ${to}` : when
+  }
+  return `generated ${when} · not sent yet`
+}
+
 /* ---------- new-message highlight ---------- */
 // Diff message ids across refreshes: whatever just arrived gets a highlight pulse and is
 // scrolled into view, so a refresh never silently rearranges the page under the user.
@@ -329,7 +360,7 @@ function fromLine(m: NegMessage): string {
 <template>
   <div class="timeline">
     <div class="seclbl">
-      Negotiation <span class="sub">their letters, your answers</span>
+      Negotiation <span class="sub">the case record — №1 is where it started, the top is now</span>
     </div>
 
     <!-- intake trigger: the paste strip -->
@@ -465,55 +496,61 @@ function fromLine(m: NegMessage): string {
       </p>
     </div>
 
-    <!-- a draft is being written: visible placeholder where it will land (top = newest) -->
-    <div v-if="draftingVisible" class="card msg draft drafting-skeleton">
-      <header class="msg-head">
-        <div class="msg-badges">
-          <span class="pill pill-violet"><Sparkles :size="12" /> AI draft reply</span>
+    <div class="docket">
+      <!-- a draft is being written: visible placeholder where it will land (top = newest) -->
+      <div v-if="draftingVisible" class="entry you latest">
+        <span class="node writing"><Sparkles :size="13" /></span>
+        <div class="ehead"><span class="dir draft-dir">✦ AI draft</span></div>
+        <div class="card msg draft drafting-skeleton">
+          <p class="drafting-note">
+            <span class="spinner"></span> Writing your reply — it lands right here in a few seconds…
+          </p>
+          <div class="shimmer-line" style="width: 92%"></div>
+          <div class="shimmer-line" style="width: 78%"></div>
+          <div class="shimmer-line" style="width: 85%"></div>
         </div>
-      </header>
-      <p class="drafting-note">
-        <span class="spinner"></span> Writing your reply — it lands right here in a few seconds…
-      </p>
-      <div class="shimmer-line" style="width: 92%"></div>
-      <div class="shimmer-line" style="width: 78%"></div>
-      <div class="shimmer-line" style="width: 85%"></div>
-    </div>
+      </div>
 
-    <article
-      v-for="m in sorted"
-      :id="`msg-${m.id}`"
-      :key="m.id"
-      class="card msg"
-      :class="{
-        inbound: m.kind === 'Inbound',
-        draft: m.kind === 'Draft',
-        sent: m.kind === 'Sent',
-        'is-new': newIds.has(m.id),
-      }"
-    >
-      <header class="msg-head">
-        <div class="msg-badges">
-          <span
-            class="pill"
-            :class="m.kind === 'Inbound' ? 'pill-gray' : m.kind === 'Sent' ? 'pill-green' : 'pill-violet'"
+      <article
+        v-for="m in sorted"
+        :id="`msg-${m.id}`"
+        :key="m.id"
+        class="entry"
+        :class="{
+          them: m.kind === 'Inbound',
+          you: m.kind !== 'Inbound',
+          sentE: m.kind === 'Sent',
+          latest: m.id === latestDraftId && !draftingVisible,
+        }"
+      >
+        <span class="node">{{ docketNo.get(m.id) }}</span>
+        <div class="ehead">
+          <span class="dir">{{ dirLabel(m) }}</span>
+          <span class="when">{{ whenLine(m) }}</span>
+        </div>
+
+        <div
+          class="card msg"
+          :class="{
+            draft: m.kind === 'Draft',
+            sent: m.kind === 'Sent',
+            'is-new': newIds.has(m.id),
+          }"
+        >
+          <header
+            v-if="m.id === latestDraftId || (m.kind === 'Inbound' && m.tactic !== 'None') || m.voice"
+            class="msg-head"
           >
-            <Inbox v-if="m.kind === 'Inbound'" :size="12" />
-            <Sparkles v-else-if="m.kind === 'Draft'" :size="12" />
-            <Send v-else :size="12" />
-            {{ m.kind === 'Inbound' ? 'Insurer email' : m.kind === 'Draft' ? 'AI draft reply' : 'Sent' }}
-          </span>
-          <TacticBadge v-if="m.kind === 'Inbound' && m.tactic !== 'None'" :tactic="m.tactic" />
-          <span v-if="m.voice" class="pill pill-gray">
-            {{ m.voice === 'Customer' ? 'Customer voice' : 'Shop letter' }}
-          </span>
-        </div>
-        <time class="faint">{{ formatDateTime(m.occurredAt ?? m.createdAt) }}</time>
-      </header>
+            <div class="msg-badges">
+              <span v-if="m.id === latestDraftId" class="latest-pill">⚡ Latest — review &amp; send</span>
+              <TacticBadge v-if="m.kind === 'Inbound' && m.tactic !== 'None'" :tactic="m.tactic" />
+              <span v-if="m.voice && m.kind !== 'Inbound'" class="pill pill-gray">
+                {{ m.voice === 'Customer' ? 'Customer voice' : 'Shop letter' }}
+              </span>
+            </div>
+          </header>
 
-      <p v-if="m.kind === 'Inbound'" class="msg-from faint">From: {{ fromLine(m) }}</p>
-
-      <h3 class="msg-subject">{{ m.subject }}</h3>
+          <h3 class="msg-subject">{{ m.subject }}</h3>
       <pre class="msg-body" :class="{ expanded: expandedIds.has(m.id) }">{{ m.body }}</pre>
       <button
         v-if="m.body.length > LONG_BODY"
@@ -561,7 +598,9 @@ function fromLine(m: NegMessage): string {
           </button>
         </div>
       </footer>
-    </article>
+        </div>
+      </article>
+    </div>
   </div>
 </template>
 
@@ -708,7 +747,7 @@ function fromLine(m: NegMessage): string {
 .warn-note {
   font-size: 12.5px;
   font-weight: 600;
-  color: #fbc65d;
+  color: var(--amber);
 }
 .empty-timeline {
   display: flex;
@@ -729,7 +768,110 @@ function fromLine(m: NegMessage): string {
     grid-template-columns: 1fr;
   }
 }
-.msg {
+/* ---------- the docket spine ---------- */
+.docket {
+  position: relative;
+  padding-left: 42px;
+}
+.docket::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--border);
+}
+.entry {
+  position: relative;
+  margin-bottom: 22px;
+}
+.entry:last-child {
+  margin-bottom: 0;
+}
+.node {
+  position: absolute;
+  left: -42px;
+  top: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  z-index: 1;
+}
+.entry.you .node {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--accent);
+}
+.entry.sentE .node {
+  border-color: color-mix(in srgb, var(--green) 60%, transparent);
+  color: var(--green);
+}
+.entry.latest .node {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--panel);
+}
+.node.writing {
+  animation: pulse 1.4s infinite;
+}
+.ehead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 5px 0 8px;
+}
+.dir {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.entry.you .dir {
+  color: var(--accent);
+}
+.entry.sentE .dir {
+  color: var(--green);
+}
+.when {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.latest-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: var(--panel);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.msg,
+.entry {
   scroll-margin-top: 70px;
 }
 /* the AI draft card: gradient hairline — the one signature flourish */
@@ -873,7 +1015,7 @@ function fromLine(m: NegMessage): string {
 .legal-note {
   font-size: 12px;
   font-weight: 600;
-  color: #fbc65d;
+  color: var(--amber);
 }
 .msg-buttons {
   display: flex;

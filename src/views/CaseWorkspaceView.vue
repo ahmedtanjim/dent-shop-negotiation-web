@@ -364,7 +364,7 @@ watch(
   background: var(--amber-soft);
   border: 1px solid rgba(245, 166, 35, 0.5);
   border-radius: var(--radius);
-  color: #f7bb5c;
+  color: var(--amber);
   padding: 12px 16px;
   margin-bottom: 14px;
   font-size: 13.5px;
