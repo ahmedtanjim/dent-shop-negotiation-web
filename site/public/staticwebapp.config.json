@@ -1,0 +1,16 @@
+{
+  "navigationFallback": {
+    "rewrite": "/app/index.html",
+    "exclude": [
+      "/app/assets/*",
+      "/_astro/*",
+      "/*.{png,jpg,jpeg,gif,svg,ico,webp,woff,woff2,ttf,eot,map,css,js,txt,xml}"
+    ]
+  },
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/app/index.html",
+      "statusCode": 200
+    }
+  }
+}

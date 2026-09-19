@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:site": "npm --prefix site run build",
+    "build:all": "npm run build && npm run build:site && node scripts/merge-dist.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

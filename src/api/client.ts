@@ -1,6 +1,8 @@
 import { ref } from 'vue'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:5080'
+/** Where the app is mounted ('/app/' in production — the marketing site owns '/'). */
+export const APP_BASE = import.meta.env.BASE_URL.replace(/\/$/, '')
 /** The shop system (CRM) — where billing lives and where "back to the shop" links go. */
 export const CRM_URL = (import.meta.env.VITE_CRM_URL ?? 'https://app.dentshopmanager.com').replace(/\/$/, '')
 
@@ -35,12 +37,12 @@ function authHeader(): Record<string, string> {
 
 function handleUnauthorized(): never {
   for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key)
-  if (!window.location.pathname.startsWith('/login')) {
-    // Carry the current location so signing back in returns the user to the page the
-    // stale token bounced them off — same contract as the router guard's ?redirect.
-    const here = window.location.pathname + window.location.search
+  if (!window.location.pathname.startsWith(`${APP_BASE}/login`)) {
+    // Carry the current location (app-relative) so signing back in returns the user to
+    // the page the stale token bounced them off — same contract as the router's ?redirect.
+    const here = window.location.pathname.slice(APP_BASE.length) + window.location.search
     const redirect = here && here !== '/' ? `?redirect=${encodeURIComponent(here)}` : ''
-    window.location.href = `/login${redirect}`
+    window.location.href = `${APP_BASE}/login${redirect}`
   }
   throw new ApiError(401, 'Your session has expired. Please sign in again.')
 }

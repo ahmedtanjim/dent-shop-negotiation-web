@@ -1,0 +1,133 @@
+/* ai.dentshopmanager.com — paper-and-ink system shared with the DSM homepages.
+   Instrument Sans for everything, Source Serif 4 for the letter, JetBrains Mono for
+   figures. Red is reserved for the document stamp and the marked dates. */
+:root {
+  --paper: #f4f5f7;
+  --sheet: #ffffff;
+  --ink: #15171c;
+  --ink-2: #4c525e;
+  --ink-3: #6f7581;
+  --rule: #d6d9e0;
+  --rule-soft: #eceef2;
+  --red: #c8281e;
+  --green: #1f7f48;
+  --mark: #fff2a8;
+  --font: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+p {
+  margin: 0;
+}
+a {
+  color: var(--ink);
+}
+a:hover {
+  color: var(--red);
+}
+img {
+  display: block;
+  max-width: 100%;
+}
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 64px;
+}
+@media (max-width: 900px) {
+  .wrap {
+    padding: 0 20px;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink);
+  color: #ffffff;
+  padding: 14px 22px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  border: 1px solid var(--ink);
+  white-space: nowrap;
+}
+.btn:hover {
+  color: #ffffff;
+  background: #2a2d35;
+  border-color: #2a2d35;
+}
+.btn-sm {
+  padding: 11px 18px;
+  font-size: 15px;
+}
+.link-under {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}

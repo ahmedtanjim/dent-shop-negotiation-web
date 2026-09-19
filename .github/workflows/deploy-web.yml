@@ -1,6 +1,7 @@
 name: Deploy Web
 
-# Builds the Vue app (VITE_API_BASE baked in) and deploys it to Azure Static Web Apps
+# Builds the marketing site (./site, Astro → dist/) and the Vue app (VITE_API_BASE baked
+# in → dist/app/) and deploys the merged dist/ to Azure Static Web Apps
 # (dentshop-negotiator-dev). The deploy job targets the GitHub Environment 'dev' —
 # add Required reviewers to that environment (repo Settings → Environments → dev)
 # to get a manual approval gate.
@@ -21,8 +22,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - name: Type-check & build
-        run: npm run build
+      - run: npm ci --prefix site
+      - name: Type-check & build (app + site)
+        run: npm run build:all
 
   deploy:
     needs: test                  # only deploy if the build passes
@@ -30,14 +32,25 @@ jobs:
     environment: dev             # manual approval gate (configure reviewers in repo settings)
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm ci --prefix site
+      - name: Build app + site
+        run: npm run build:all
+        env:
+          # Baked into the Vite build so the SPA calls the right API.
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
 
-      - name: Build & deploy to Static Web Apps
+      # dist/ already holds both builds (and site/public/staticwebapp.config.json at its
+      # root), so the action only uploads — no Oryx build.
+      - name: Deploy to Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
           action: upload
-          app_location: "/"
-          output_location: "dist"
-        env:
-          # Baked into the Vite build so the SPA calls the right API.
-          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          app_location: "dist"
+          skip_app_build: true
+          output_location: ""

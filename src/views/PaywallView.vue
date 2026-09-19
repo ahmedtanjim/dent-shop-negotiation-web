@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Check, Copy, Lock, User } from 'lucide-vue-next'
 import { listMembers, openPortal, startCheckout } from '@/api/billing'
-import { ApiError, CRM_URL } from '@/api/client'
+import { ApiError, APP_BASE, CRM_URL } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { theme } from '@/utils/theme'
@@ -77,7 +77,7 @@ const error = ref<string | null>(null)
 
 function returnUrl() {
   const q = redirectTo.value !== '/' ? `?redirect=${encodeURIComponent(redirectTo.value)}` : ''
-  return `${window.location.origin}/upgrade${q}`
+  return `${window.location.origin}${APP_BASE}/upgrade${q}`
 }
 
 async function upgrade() {
@@ -124,7 +124,7 @@ const showNote = ref(false)
 
 const note = computed(() => {
   const who = ownerName.value ? `Hi ${ownerName.value.split(' ')[0]},` : 'Hi,'
-  const where = redirectTo.value !== '/' ? ` (${window.location.origin}${redirectTo.value})` : ''
+  const where = redirectTo.value !== '/' ? ` (${window.location.origin}${APP_BASE}${redirectTo.value})` : ''
   return (
     `${who} I tried to open the Negotiator${where} and it needs the AI plan — ` +
     `$1,999/yr with everything in Annual included. ` +

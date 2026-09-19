@@ -3,14 +3,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    {
-      path: '/welcome',
-      name: 'welcome',
-      component: () => import('@/views/WelcomeView.vue'),
-      meta: { public: true },
-    },
     {
       path: '/login',
       name: 'login',
@@ -52,9 +46,9 @@ router.beforeEach(async (to) => {
     return true
   }
   if (!auth.isAuthed) {
-    // Cold visitors to the root get the marketing landing page; deep links go to login.
-    if (to.fullPath === '/') return { name: 'welcome' }
-    return { name: 'login', query: { redirect: to.fullPath } }
+    // The marketing page lives outside the app (site root); inside it, everything
+    // needs a session. Deep links are carried through login.
+    return { name: 'login', query: to.fullPath !== '/' ? { redirect: to.fullPath } : {} }
   }
 
   // The plan gate. Read once per shop (fail-open on error — the API's 402 is the real
