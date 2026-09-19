@@ -127,9 +127,7 @@ const note = computed(() => {
   const where = redirectTo.value !== '/' ? ` (${window.location.origin}${redirectTo.value})` : ''
   return (
     `${who} I tried to open the Negotiator${where} and it needs the AI plan — ` +
-    (paying.value
-      ? `$999/yr on top of our ${planLabel.value}, half the standalone price. `
-      : `$1,999/yr with everything in Annual included. `) +
+    `$1,999/yr with everything in Annual included. ` +
     `You can add it from Billing in Dent Shop Manager: ${CRM_URL}/billing`
   )
 })
@@ -173,13 +171,8 @@ onMounted(async () => {
 
         <p v-if="auth.isOwner" class="lede muted">
           Total-loss invoices with storage that accrues by the day, adjuster emails sorted by
-          tactic, and letters that quote your state's insurance code. Add it to the subscription
-          you already have. Stripe prorates the difference and nothing restarts.
-        </p>
-        <p v-else-if="paying" class="lede muted">
-          Only the shop owner can change the plan. It's $999 a year on top of the
-          {{ planLabel }} your shop already has, half the standalone price, and it unlocks for
-          the whole team the moment they confirm.
+          tactic, and letters that quote your state's insurance code. One plan for the whole
+          shop: everything in Annual stays, Stripe prorates the difference, nothing restarts.
         </p>
         <p v-else class="lede muted">
           Only the shop owner can change the plan. It's the AI plan, $1,999 a year with
@@ -189,13 +182,12 @@ onMounted(async () => {
 
         <template v-if="auth.isOwner">
           <div class="price">
-            <span class="mono price-num">{{ paying ? '$999' : '$1,999' }}</span>
+            <span class="mono price-num">$1,999</span>
             <span class="muted">/ year</span>
-            <span v-if="paying" class="mono price-was muted">$1,999</span>
-            <span v-if="paying" class="pill pill-green">Half price for DSM shops</span>
+            <span class="pill pill-green">Everything in Annual included</span>
           </div>
           <p class="muted price-note">
-            {{ paying ? 'About $83 a month. One recovered supplement covers the year.' : 'Everything in Annual included. One recovered supplement covers the year.' }}
+            {{ paying ? `Your ${planLabel} folds in, prorated to the day. ` : '' }}About $167 a month. One recovered supplement covers the year.
           </p>
 
           <!-- Back from Stripe -->
@@ -211,14 +203,14 @@ onMounted(async () => {
           <div class="ctas">
             <button class="btn btn-primary btn-lg" type="button" :disabled="busy || activating" @click="upgrade">
               <span v-if="busy" class="spinner"></span>
-              Add the Negotiator · {{ paying ? '$999' : '$1,999' }}/yr <ArrowRight :size="16" />
+              Add the Negotiator · $1,999/yr <ArrowRight :size="16" />
             </button>
             <a class="btn btn-lg" :href="CRM_URL">Back to the shop system</a>
           </div>
           <p v-if="error" class="error-text">{{ error }}</p>
           <p class="fine muted">
-            Confirm on Stripe, prorated to your renewal date · cancel anytime · every letter is
-            yours to approve before it goes out.
+            Confirm on Stripe · your current plan is prorated, nothing is paid twice · cancel
+            anytime · every letter is yours to approve before it goes out.
           </p>
         </template>
 
@@ -350,11 +342,6 @@ h1 {
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1;
-}
-.price-was {
-  font-family: var(--mono);
-  font-size: 16px;
-  text-decoration: line-through;
 }
 .price-note {
   margin-top: -8px;
