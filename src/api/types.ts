@@ -231,3 +231,33 @@ export interface IntakeRequest {
   /** fills the case's claim number when the case doesn't have one yet */
   claimNumber?: string | null
 }
+
+// ---------- billing / entitlement (same contract the CRM web uses) ----------
+
+export type PlanTier = 'Free' | 'Monthly' | 'Annual' | 'Ai'
+
+export interface Entitlement {
+  plan: string
+  status: 'Trialing' | 'Active' | 'PastDue' | 'Canceled' | string
+  entitled: boolean
+  trialEndsAt: string | null
+  currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
+  daysLeft: number | null
+  /** Effective feature tier. Trials run at Ai; missing on an older API. */
+  tier?: PlanTier
+}
+
+export interface BillingState {
+  billingEnabled: boolean
+  entitlement: Entitlement
+  /** A real Stripe subscription (the portal works) vs one granted by a platform admin. */
+  hasStripeCustomer: boolean
+}
+
+export interface MemberSummary {
+  id: string
+  userId: string
+  displayName: string
+  role: string
+}
