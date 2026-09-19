@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { Check, Copy, RefreshCw } from 'lucide-vue-next'
 import type { GeneratedDoc, GeneratedDocs } from '@/api/types'
+import { copyLetter, letterToHtml, letterToPlainText } from '@/utils/letterMarkdown'
 
 const props = defineProps<{ docs: GeneratedDocs | null; loading: boolean; error: string | null }>()
 const emit = defineEmits<{ reload: [] }>()
@@ -13,11 +14,11 @@ const customerDocs = computed(
 
 /** First non-empty paragraph, trimmed to a card-sized excerpt. */
 function excerpt(d: GeneratedDoc): string {
-  const para = d.body
+  const para = letterToPlainText(d.body)
     .split(/\n{2,}/)
     .map((p) => p.replace(/\s+/g, ' ').trim())
     .filter((p) => p.length > 40)[0]
-  const text = para ?? d.body.replace(/\s+/g, ' ').trim()
+  const text = para ?? letterToPlainText(d.body).replace(/\s+/g, ' ').trim()
   return text.length > 190 ? `${text.slice(0, 190).trimEnd()}…` : text
 }
 
@@ -28,8 +29,7 @@ function toggle(key: string) {
 
 const copied = ref<string | null>(null)
 async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
-  const text = withSubject ? `Subject: ${d.subject}\n\n${d.body}` : d.body
-  await navigator.clipboard.writeText(text)
+  await copyLetter(withSubject ? d.subject : null, d.body)
   copied.value = d.key + (withSubject ? ':full' : ':body')
   setTimeout(() => (copied.value = null), 1800)
 }
@@ -52,7 +52,7 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
           <p v-if="open !== d.key" class="excerpt">"{{ excerpt(d) }}"</p>
           <div v-else class="full">
             <p class="subject mono">{{ d.subject }}</p>
-            <pre>{{ d.body }}</pre>
+            <div class="body" v-html="letterToHtml(d.body)"></div>
           </div>
           <div class="foot">
             <button class="btn btn-ghost btn-sm" @click="toggle(d.key)">
@@ -84,7 +84,7 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
           <p v-if="open !== d.key" class="excerpt">"{{ excerpt(d) }}"</p>
           <div v-else class="full">
             <p class="subject mono">{{ d.subject }}</p>
-            <pre>{{ d.body }}</pre>
+            <div class="body" v-html="letterToHtml(d.body)"></div>
           </div>
           <div class="foot">
             <button class="btn btn-ghost btn-sm" @click="toggle(d.key)">
@@ -184,8 +184,7 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
   word-break: break-word;
   color: var(--text-muted);
 }
-.full pre {
-  white-space: pre-wrap;
+.full .body {
   word-break: break-word;
   font-family: inherit;
   font-size: 13px;

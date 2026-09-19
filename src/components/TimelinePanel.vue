@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { copyLetter, letterToHtml } from '@/utils/letterMarkdown'
 import type { Directive } from 'vue'
 import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2 } from 'lucide-vue-next'
 import { createDraft, extractPaste, intakeEml, intakeMessage, markSent } from '@/api/negotiation'
@@ -315,7 +316,7 @@ const draftingVisible = computed(() => intakePhase.value === 'drafting' || !!pro
 const copiedId = ref<string | null>(null)
 async function copyMessage(m: NegMessage) {
   try {
-    await navigator.clipboard.writeText(`Subject: ${m.subject}\n\n${m.body}`)
+    await copyLetter(m.subject, m.body)
     copiedId.value = m.id
     setTimeout(() => {
       if (copiedId.value === m.id) copiedId.value = null
@@ -551,7 +552,9 @@ function fromLine(m: NegMessage): string {
           </header>
 
           <h3 class="msg-subject">{{ m.subject }}</h3>
-      <pre class="msg-body" :class="{ expanded: expandedIds.has(m.id) }">{{ m.body }}</pre>
+      <!-- Letters are light Markdown (bold headings, bullets); letterToHtml escapes first, so
+           inbound email text can never become markup. -->
+      <div class="msg-body" :class="{ expanded: expandedIds.has(m.id) }" v-html="letterToHtml(m.body)"></div>
       <button
         v-if="m.body.length > LONG_BODY"
         class="btn btn-ghost btn-sm expand-toggle"
@@ -963,8 +966,8 @@ function fromLine(m: NegMessage): string {
 .msg-body {
   font-family: inherit;
   font-size: 13.5px;
+  line-height: 1.55;
   color: var(--text);
-  white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
   background: var(--bg-raised);
@@ -977,6 +980,19 @@ function fromLine(m: NegMessage): string {
 .msg-body.expanded {
   max-height: none;
   overflow-y: visible;
+}
+/* v-html content is unscoped — style the rendered letter through :deep() */
+.msg-body :deep(p:last-child),
+.msg-body :deep(ul:last-child),
+.msg-body :deep(ol:last-child) {
+  margin-bottom: 0;
+}
+.msg-body :deep(strong) {
+  font-weight: 700;
+  color: var(--text);
+}
+.msg-body :deep(li) {
+  margin-bottom: 4px;
 }
 .expand-toggle {
   margin-top: 6px;
