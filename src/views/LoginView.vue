@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { login } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { SIGNUP_URL } from '@/api/handoff'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -58,7 +59,7 @@ async function submit() {
       </form>
 
       <p class="faint auth-alt">
-        New here? <RouterLink to="/register">Create a business account</RouterLink>
+        New here? <a :href="SIGNUP_URL">Create your shop</a>
       </p>
     </div>
   </div>

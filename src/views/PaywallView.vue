@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Check, Copy, Lock, User } from 'lucide-vue-next'
 import { listMembers, openPortal, startCheckout } from '@/api/billing'
 import { ApiError, CRM_URL } from '@/api/client'
+import { goToCrm } from '@/api/handoff'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { theme } from '@/utils/theme'
@@ -205,7 +206,7 @@ onMounted(async () => {
               <span v-if="busy" class="spinner"></span>
               Add the Negotiator · $1,999/yr <ArrowRight :size="16" />
             </button>
-            <a class="btn btn-lg" :href="CRM_URL">Back to the shop system</a>
+            <a class="btn btn-lg" :href="CRM_URL" @click.prevent="goToCrm('/')">Back to the shop system</a>
           </div>
           <p v-if="error" class="error-text">{{ error }}</p>
           <p class="fine muted">
@@ -231,7 +232,7 @@ onMounted(async () => {
             <textarea readonly rows="3" :value="note" @focus="($event.target as HTMLTextAreaElement).select()"></textarea>
           </label>
           <div class="ctas">
-            <a class="btn" :href="CRM_URL">Back to the shop system</a>
+            <a class="btn" :href="CRM_URL" @click.prevent="goToCrm('/')">Back to the shop system</a>
             <span class="fine muted">The note carries the price, the page you were opening, and a link straight to Billing.</span>
           </div>
         </template>

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
+import { SIGNUP_URL } from '@/api/handoff'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -18,10 +19,21 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      // One account for both apps: sign-up happens on the shop system, which brings
+      // the new owner back here once the AI plan is on.
       path: '/register',
       name: 'register',
-      component: () => import('@/views/RegisterView.vue'),
-      meta: { public: true },
+      redirect: () => {
+        window.location.replace(SIGNUP_URL)
+        return { name: 'login' }
+      },
+    },
+    {
+      // A session carried over from the shop system (?code=…&redirect=…).
+      path: '/auth/handoff',
+      name: 'handoff',
+      component: () => import('@/views/HandoffView.vue'),
+      meta: { handoff: true },
     },
     {
       // The paywall: shops below the AI tier land here instead of their cases. Also
@@ -47,6 +59,7 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  if (to.meta.handoff) return true // exchanges its own code, signed in or not
   if (to.meta.public) {
     if (auth.isAuthed) return { name: 'cases' }
     return true

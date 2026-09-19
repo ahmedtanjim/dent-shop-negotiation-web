@@ -5,6 +5,7 @@ import { LogOut, X, HelpCircle, Sun, Moon } from 'lucide-vue-next'
 import { aiPlanRequired, CRM_URL, subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
+import { goToCrm } from '@/api/handoff'
 import { theme, toggleTheme } from '@/utils/theme'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
 
@@ -79,7 +80,7 @@ function dismissNotice() {
     <div v-if="subscriptionNotice" class="sub-banner">
       <span>{{ subscriptionNotice }}</span>
       <span class="banner-actions">
-        <a class="btn btn-ghost btn-sm" :href="`${CRM_URL}/billing`" target="_blank" rel="noopener">
+        <a class="btn btn-ghost btn-sm" :href="`${CRM_URL}/billing`" target="_blank" rel="noopener" @click.prevent="goToCrm('/billing', true)">
           Go to Billing
         </a>
         <button class="btn btn-ghost btn-sm" @click="dismissNotice">
