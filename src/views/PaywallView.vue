@@ -118,6 +118,9 @@ async function awaitActivation() {
 // ---- everyone else: a note for the owner ----
 const ownerName = ref<string | null>(null)
 const copied = ref(false)
+/** Shown when the clipboard is blocked (embedded browsers, some kiosks): the note
+ *  itself, selectable, so the rep can still hand it over. */
+const showNote = ref(false)
 
 const note = computed(() => {
   const who = ownerName.value ? `Hi ${ownerName.value.split(' ')[0]},` : 'Hi,'
@@ -137,7 +140,7 @@ async function copyNote() {
     copied.value = true
     setTimeout(() => (copied.value = false), 2500)
   } catch {
-    error.value = 'Could not copy. Select the note below and copy it by hand.'
+    showNote.value = true
   }
 }
 
@@ -231,7 +234,10 @@ onMounted(async () => {
               {{ copied ? 'Copied' : 'Copy a note for the owner' }}
             </button>
           </div>
-          <p v-if="error" class="error-text">{{ error }}</p>
+          <label v-if="showNote" class="field note-field">
+            <span>Copying is blocked here — select the note and copy it by hand</span>
+            <textarea readonly rows="3" :value="note" @focus="($event.target as HTMLTextAreaElement).select()"></textarea>
+          </label>
           <div class="ctas">
             <a class="btn" :href="CRM_URL">Back to the shop system</a>
             <span class="fine muted">The note carries the price, the page you were opening, and a link straight to Billing.</span>
@@ -379,6 +385,13 @@ h1 {
 }
 
 /* non-owner */
+.note-field {
+  margin: 0;
+}
+.note-field textarea {
+  min-height: 0;
+  font-size: 13px;
+}
 .owner-row {
   display: flex;
   align-items: center;
