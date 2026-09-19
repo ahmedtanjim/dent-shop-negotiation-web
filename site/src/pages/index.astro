@@ -7,6 +7,9 @@ import Base from '../layouts/Base.astro'
 
 const APP = '/app'
 const CRM = 'https://app.dentshopmanager.com'
+// One account for both apps: new shops sign up on the shop system with the AI plan
+// preselected and come back here once it is on.
+const SIGNUP = `${CRM}/signup?plan=ai&next=negotiator`
 
 const callouts = [
   ['Cites the rule, then quotes it.', 'Every citation is checked before you see it.'],
@@ -184,7 +187,7 @@ const never = [
           </div>
         </div>
         <div class="price-ctas">
-          <a href={`${APP}/register`} class="btn">Create your shop</a>
+          <a href={SIGNUP} class="btn">Create your shop</a>
           <a href={`${CRM}/billing`} class="link-under">I have a shop, take me to Billing</a>
         </div>
       </div>
@@ -193,7 +196,7 @@ const never = [
     <section class="final">
       <div class="wrap final-inner">
         <h2>The insurer runs your claim through software.<br />Run your reply through a negotiator.</h2>
-        <a href={`${APP}/register`} class="btn">Get the Negotiator · $1,999/yr</a>
+        <a href={SIGNUP} class="btn">Get the Negotiator · $1,999/yr</a>
       </div>
     </section>
   </main>
