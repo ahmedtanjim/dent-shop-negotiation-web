@@ -1,8 +1,11 @@
 import { ref } from 'vue'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:5080'
-/** The shop system (CRM) — where billing lives and where "back to the shop" links go. */
-export const CRM_URL = (import.meta.env.VITE_CRM_URL ?? 'https://app.dentshopmanager.com').replace(/\/$/, '')
+/** The shop system (CRM) — where billing lives and where "back to the shop" links go.
+ *  In local dev it is the sibling Vite server (port 5173) unless VITE_CRM_URL says otherwise. */
+export const CRM_URL = (
+  import.meta.env.VITE_CRM_URL ?? (import.meta.env.DEV ? 'http://localhost:5173' : 'https://app.dentshopmanager.com')
+).replace(/\/$/, '')
 
 export const STORAGE_KEYS = {
   token: 'dsm_neg_token',
