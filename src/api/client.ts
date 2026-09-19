@@ -1,15 +1,22 @@
 import { ref } from 'vue'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:5080'
+/** The shop system (CRM) — where billing lives and where "back to the shop" links go. */
+export const CRM_URL = (import.meta.env.VITE_CRM_URL ?? 'https://app.dentshopmanager.com').replace(/\/$/, '')
 
 export const STORAGE_KEYS = {
   token: 'dsm_neg_token',
   shopId: 'dsm_neg_shop_id',
+  shopName: 'dsm_neg_shop_name',
   displayName: 'dsm_neg_display_name',
+  role: 'dsm_neg_role',
 } as const
 
-/** Set when a mutating request returns 402 (subscription lapsed). Shown as a banner in App.vue. */
+/** Set when a request returns 402 for a lapsed subscription. Shown as a banner in App.vue. */
 export const subscriptionNotice = ref<string | null>(null)
+/** Flipped when the API answers 402 `ai_required` — the shop is below the AI tier. App.vue
+ *  watches it and opens the paywall instead of leaving a red line on the page. */
+export const aiPlanRequired = ref(false)
 
 export class ApiError extends Error {
   constructor(
@@ -27,9 +34,7 @@ function authHeader(): Record<string, string> {
 }
 
 function handleUnauthorized(): never {
-  localStorage.removeItem(STORAGE_KEYS.token)
-  localStorage.removeItem(STORAGE_KEYS.shopId)
-  localStorage.removeItem(STORAGE_KEYS.displayName)
+  for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key)
   if (!window.location.pathname.startsWith('/login')) {
     // Carry the current location so signing back in returns the user to the page the
     // stale token bounced them off — same contract as the router guard's ?redirect.
@@ -66,13 +71,18 @@ async function request<T>(
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`
+    let code: string | null = null
     try {
       const data = await res.json()
       if (data && typeof data.message === 'string') message = data.message
+      if (data && typeof data.code === 'string') code = data.code
     } catch {
       /* non-JSON error body */
     }
-    if (res.status === 402) subscriptionNotice.value = message
+    if (res.status === 402) {
+      if (code === 'ai_required') aiPlanRequired.value = true
+      else subscriptionNotice.value = message
+    }
     throw new ApiError(res.status, message)
   }
 

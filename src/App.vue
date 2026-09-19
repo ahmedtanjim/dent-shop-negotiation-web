@@ -1,19 +1,34 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LogOut, X, HelpCircle, Sun, Moon } from 'lucide-vue-next'
-import { subscriptionNotice } from '@/api/client'
+import { aiPlanRequired, CRM_URL, subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useEntitlementStore } from '@/stores/entitlement'
 import { theme, toggleTheme } from '@/utils/theme'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
 
 const auth = useAuthStore()
+const ent = useEntitlementStore()
 const router = useRouter()
 const route = useRoute()
 
 function logout() {
   auth.logout()
+  ent.reset()
   router.push({ name: 'login' })
 }
+
+// A 402 `ai_required` mid-session (plan lapsed, or an older tab): re-read the plan and
+// open the paywall for the page the user was on, instead of leaving a red line behind.
+watch(aiPlanRequired, (hit) => {
+  if (!hit) return
+  aiPlanRequired.value = false
+  if (auth.shopId) void ent.load(auth.shopId, true)
+  if (route.name !== 'paywall') {
+    router.push({ name: 'paywall', query: route.fullPath !== '/' ? { redirect: route.fullPath } : {} })
+  }
+})
 
 function replayTour() {
   // Each screen has its own tour — replay the one for where the user actually is.
@@ -64,7 +79,7 @@ function dismissNotice() {
     <div v-if="subscriptionNotice" class="sub-banner">
       <span>{{ subscriptionNotice }}</span>
       <span class="banner-actions">
-        <a class="btn btn-ghost btn-sm" href="https://app.dentshopmanager.com/billing" target="_blank" rel="noopener">
+        <a class="btn btn-ghost btn-sm" :href="`${CRM_URL}/billing`" target="_blank" rel="noopener">
           Go to Billing
         </a>
         <button class="btn btn-ghost btn-sm" @click="dismissNotice">
