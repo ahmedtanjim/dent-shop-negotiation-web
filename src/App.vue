@@ -49,7 +49,7 @@ function dismissNotice() {
         <img src="@/assets/dsm-logo.png" class="brand-logo" alt="Dent Shop Manager" />
         <span class="brand-word">
           Dent Shop Manager
-          <span class="brand-sub"><span class="scale">⚖</span> <strong>Negotiator</strong></span>
+          <span class="brand-sub"><strong>Negotiator</strong></span>
         </span>
       </RouterLink>
       <div class="topbar-right">
@@ -147,9 +147,6 @@ function dismissNotice() {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-}
-.brand-sub .scale {
-  font-size: 11px;
 }
 .topbar-right {
   display: flex;
