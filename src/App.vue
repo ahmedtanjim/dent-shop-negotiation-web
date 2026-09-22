@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LogOut, X, HelpCircle, Sun, Moon } from 'lucide-vue-next'
-import { aiPlanRequired, CRM_URL, subscriptionNotice } from '@/api/client'
+import { aiCapNotice, aiPlanRequired, CRM_URL, subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { goToCrm } from '@/api/handoff'
@@ -41,6 +41,15 @@ function replayTour() {
 function dismissNotice() {
   subscriptionNotice.value = null
 }
+
+const capResets = computed(() => {
+  const iso = aiCapNotice.value?.resetsAt
+  if (!iso) return null
+  const d = new Date(iso)
+  return aiCapNotice.value?.scope === 'monthly'
+    ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+})
 </script>
 
 <template>
@@ -84,6 +93,15 @@ function dismissNotice() {
           Go to Billing
         </a>
         <button class="btn btn-ghost btn-sm" @click="dismissNotice">
+          <X :size="14" />
+        </button>
+      </span>
+    </div>
+
+    <div v-if="aiCapNotice" class="sub-banner" role="status">
+      <span>{{ aiCapNotice.message }}<template v-if="capResets"> Resets {{ aiCapNotice.scope === 'monthly' ? 'on' : 'at' }} {{ capResets }}.</template></span>
+      <span class="banner-actions">
+        <button class="btn btn-ghost btn-sm" @click="aiCapNotice = null">
           <X :size="14" />
         </button>
       </span>
