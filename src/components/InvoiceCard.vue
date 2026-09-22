@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { FileDown } from 'lucide-vue-next'
+import { CalendarDays, FileDown } from 'lucide-vue-next'
 import { downloadInvoicePdf, updateCase } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, InvoiceBreakdown } from '@/api/types'
@@ -83,6 +83,13 @@ const live = computed(() => {
   const tax = Math.round(subtotal * taxPct) / 100
   return { days, storage, subtotal, taxPct, tax, total: subtotal + tax }
 })
+/** The native date input only opens its calendar from the tiny picker icon; make the
+ *  whole chip (icon included) open it. showPicker needs a user gesture — a click is one. */
+function openPicker(e: MouseEvent) {
+  const input = (e.currentTarget as HTMLElement).querySelector('input')
+  if (!input || e.target === input) return
+  try { input.showPicker() } catch { input.focus() }
+}
 const storageMissing = computed(() => live.value.days === 0)
 const emitTotal = defineModel<number | null>('liveTotal')
 watch(live, (v) => (emitTotal.value = v.total), { immediate: true })
@@ -181,7 +188,10 @@ async function onPdf() {
       <div class="line">
         <span class="desc" :class="{ warn: storageMissing }">
           Storage since
-          <input v-model="f.since" class="blank date" type="date" aria-label="In shop since" @input="touched('since')" />
+          <span class="datefield" @click="openPicker">
+            <CalendarDays :size="13" aria-hidden="true" />
+            <input v-model="f.since" class="blank date" type="date" aria-label="In shop since" @input="touched('since')" />
+          </span>
           <template v-if="!storageMissing">
             · <span class="mono days">{{ live.days }}</span>&nbsp;days ·
           </template>
@@ -194,8 +204,11 @@ async function onPdf() {
       <div class="line sub">
         <span class="desc">
           Storage ends
-          <input v-model="f.until" class="blank date" type="date" aria-label="Storage ends (optional)"
-            @input="touched('until')" />
+          <span class="datefield" @click="openPicker">
+            <CalendarDays :size="13" aria-hidden="true" />
+            <input v-model="f.until" class="blank date" type="date" aria-label="Storage ends (optional)"
+              @input="touched('until')" />
+          </span>
           <span class="hint-inline">— leave empty while the car is on your lot; it accrues through today</span>
         </span>
       </div>
@@ -342,10 +355,40 @@ async function onPdf() {
   outline: 1.5px solid var(--accent);
 }
 .blank.date {
-  width: 136px;
+  width: 124px;
   text-align: left;
-  color-scheme: dark;
   font-size: 13px;
+  padding-left: 4px;
+}
+/* Dates are the one figure people don't guess is editable — keep them looking like a
+   field at all times, with a calendar glyph that opens the picker. The native picker
+   icon follows the theme's color-scheme (a forced dark scheme drew it white on the light
+   theme's white field). */
+.datefield {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 2px;
+  padding-left: 7px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  outline: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: outline-color 0.12s;
+}
+.datefield:hover,
+.datefield:focus-within {
+  outline: 1.5px solid var(--accent);
+}
+.datefield .blank.date {
+  outline: none;
+  background: transparent;
+  cursor: pointer;
+}
+.datefield .blank.date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
 }
 .blank.rate {
   width: 76px;
