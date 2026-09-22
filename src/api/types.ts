@@ -261,3 +261,30 @@ export interface MemberSummary {
   displayName: string
   role: string
 }
+
+/** One fair-use window of the shop's AI allowance (GET /ai-usage). Money is preformatted
+ *  by the API; the micros are there for math. */
+export interface AiUsageWindow {
+  costMicros: number
+  cost: string
+  calls: number
+  capCostMicros: number
+  capCost: string
+  capCalls: number
+  percentUsed: number
+  resetsAt: string
+  exceeded: boolean
+}
+
+export interface AiUsageFeature {
+  feature: string
+  calls: number
+  costMicros: number
+  cost: string
+}
+
+export interface AiUsageSummary {
+  today: AiUsageWindow
+  month: AiUsageWindow
+  byFeatureThisMonth: AiUsageFeature[]
+}

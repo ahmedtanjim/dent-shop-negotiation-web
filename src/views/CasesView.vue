@@ -3,8 +3,9 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Plus, FolderOpen, Settings2 } from 'lucide-vue-next'
 import { listCases } from '@/api/negotiation'
+import { getAiUsage } from '@/api/usage'
 import { ApiError } from '@/api/client'
-import type { CaseListItem } from '@/api/types'
+import type { AiUsageSummary, CaseListItem } from '@/api/types'
 import { centsToUsd, formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import StatusPill from '@/components/StatusPill.vue'
@@ -21,6 +22,21 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const showNew = ref(false)
 const showRates = ref(false)
+/** Fair-use meter: what the shop has spent of its AI allowance this month. Owners and
+ *  managers see it; a failed read simply hides it (the API's 429 is the real gate). */
+const usage = ref<AiUsageSummary | null>(null)
+const canSeeUsage = ['owner', 'manager', 'admin'].includes(auth.role?.toLowerCase() ?? '')
+
+async function loadUsage() {
+  if (!auth.shopId || !canSeeUsage) return
+  try {
+    usage.value = await getAiUsage(auth.shopId)
+  } catch {
+    usage.value = null
+  }
+}
+const resetsOn = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
 async function load() {
   if (!auth.shopId) return
@@ -45,6 +61,7 @@ function onCreated(c: CaseListItem) {
 }
 
 onMounted(async () => {
+  void loadUsage()
   await load()
   // First-ever visit (or ?tour=1 replay): run the walkthrough once the anchors are mounted.
   // The ?tour=1 is consumed immediately — leaving it in the URL replayed the guide on
@@ -74,6 +91,26 @@ onMounted(async () => {
     </div>
 
     <p v-if="error" class="error-text">{{ error }}</p>
+
+    <div v-if="usage" class="usage card" :class="{ over: usage.month.exceeded || usage.today.exceeded }" data-tour="ai-usage">
+      <div class="usage-row">
+        <span class="usage-label">AI usage this month</span>
+        <span class="usage-figures mono">
+          {{ usage.month.cost }} <span class="muted">of {{ usage.month.capCost }}</span>
+          · {{ usage.month.calls }} {{ usage.month.calls === 1 ? 'request' : 'requests' }}
+          <span class="muted">· resets {{ resetsOn(usage.month.resetsAt) }}</span>
+        </span>
+      </div>
+      <div class="usage-bar" role="progressbar" :aria-valuenow="usage.month.percentUsed" aria-valuemin="0" aria-valuemax="100">
+        <span :style="{ width: `${Math.max(usage.month.percentUsed, usage.month.calls ? 1 : 0)}%` }"></span>
+      </div>
+      <p v-if="usage.today.exceeded" class="usage-note">
+        Today's allowance ({{ usage.today.capCost }} or {{ usage.today.capCalls }} requests) is used up — drafting resumes at midnight UTC.
+      </p>
+      <p v-else-if="usage.month.exceeded" class="usage-note">
+        This month's allowance is used up — drafting resumes on {{ resetsOn(usage.month.resetsAt) }}.
+      </p>
+    </div>
 
     <div v-if="loading" class="empty muted"><span class="spinner"></span> Loading cases…</div>
 
@@ -150,6 +187,42 @@ onMounted(async () => {
 .table-card {
   padding: 0;
   overflow-x: auto;
+}
+.usage {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.usage-row {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 13px;
+}
+.usage-label {
+  font-weight: 600;
+}
+.usage-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.usage-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.usage.over .usage-bar span {
+  background: var(--amber);
+}
+.usage-note {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--amber);
+  font-weight: 600;
 }
 .title-cell {
   font-weight: 600;

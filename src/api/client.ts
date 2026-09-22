@@ -20,6 +20,9 @@ export const subscriptionNotice = ref<string | null>(null)
 /** Flipped when the API answers 402 `ai_required` — the shop is below the AI tier. App.vue
  *  watches it and opens the paywall instead of leaving a red line on the page. */
 export const aiPlanRequired = ref(false)
+/** Set when the API answers 429 `ai_cap_daily` / `ai_cap_monthly` — the shop has used its
+ *  fair-use AI allowance. App.vue shows it as a banner with the reset time. */
+export const aiCapNotice = ref<{ message: string; scope: string; resetsAt: string | null } | null>(null)
 
 export class ApiError extends Error {
   constructor(
@@ -75,16 +78,21 @@ async function request<T>(
   if (!res.ok) {
     let message = `Request failed (${res.status})`
     let code: string | null = null
+    let resetsAt: string | null = null
     try {
       const data = await res.json()
       if (data && typeof data.message === 'string') message = data.message
       if (data && typeof data.code === 'string') code = data.code
+      if (data && typeof data.resetsAt === 'string') resetsAt = data.resetsAt
     } catch {
       /* non-JSON error body */
     }
     if (res.status === 402) {
       if (code === 'ai_required') aiPlanRequired.value = true
       else subscriptionNotice.value = message
+    }
+    if (res.status === 429 && code?.startsWith('ai_cap_')) {
+      aiCapNotice.value = { message, scope: code.slice('ai_cap_'.length), resetsAt }
     }
     throw new ApiError(res.status, message)
   }
