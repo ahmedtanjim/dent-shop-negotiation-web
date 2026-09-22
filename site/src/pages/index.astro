@@ -1,0 +1,678 @@
+---
+import Base from '../layouts/Base.astro'
+
+// Every figure on this page is real product behaviour: the tactics, the ladder, the
+// boilerplate letters, the Total Loss Invoice math. The letter itself is a sample with
+// fictional parties; the rule it quotes is real.
+
+const APP = '/app'
+const CRM = 'https://app.dentshopmanager.com'
+// One account for both apps: new shops sign up on the shop system with the AI plan
+// preselected and come back here once it is on.
+const SIGNUP = `${CRM}/signup?plan=ai&next=negotiator`
+
+const callouts = [
+  ['Cites the rule, then quotes it.', 'Every citation is checked before you see it.'],
+  ['Dates from the case record.', 'Not from the model’s memory.'],
+  ['Rung 3 of 5: firm, not hostile.', 'Cooperative first. Final notice only when earned.'],
+  ['Nothing sends itself.', 'You review, you send, from your own email.'],
+]
+
+const proof = [
+  [
+    'Charge $10,000+ for total losses',
+    'Admin fee, lot fee, storage by the day and tax on one Total Loss Invoice, with the rebuttal letter ready when the insurer says the fees vanish with the car.',
+  ],
+  [
+    'Seven tactics it recognises',
+    'Info request, redundant request, stall, lowball, liability shift, denial, harassment. Each gets a different reply.',
+  ],
+  [
+    'Five rungs, never skipped',
+    'Cooperative, documented delivery, firm demand, bad-faith notice, final notice and retain counsel.',
+  ],
+]
+
+const docket = [
+  { n: '№4', dir: '↓ Received', text: 'Sep 19 · from Keystone Mutual. Supplement #2 approved, $1,140.00.', tag: 'Paid', cls: 'green' },
+  { n: '№3', dir: '↑ Sent', text: 'Sep 15 · to Ms. Alvarez. The firm letter above, sent from the shop’s own email.', tag: 'On the record', cls: '' },
+  { n: '№2', dir: '✦ AI draft', text: 'Sep 14 · tactic read as redundant request. Draft at rung 3, citations verified, waiting for your review.', tag: 'Firm · rung 3 of 5', cls: 'red', draft: true },
+  { n: '№1', dir: '↓ Received', text: 'Sep 12 · from Keystone Mutual. Asks for photos already delivered twice.', tag: 'Redundant request', cls: '' },
+]
+
+const never = [
+  'Send anything. Every letter leaves from your email, after you read it.',
+  'Cite a rule that is not on your state’s books.',
+  'Invent a date, a figure or a delivery that is not in the case record.',
+  'Give legal advice. It drafts; your attorney advises.',
+]
+---
+
+<Base
+  title="DSM Negotiator"
+  description="The insurance company has a legal playbook. Now your hail shop does too. AI-drafted negotiation letters that cite your state's insurance rules, plus the Total Loss Invoice that recovers your fees. $1,999 a year, shop system included."
+>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a href="/" class="lockup" aria-label="Dent Shop Manager Negotiator">
+        <img src="/dsm-logo.png" alt="" width="30" height="30" />
+        <span class="lockup-words"><span class="lockup-name">Dent Shop Manager</span><span class="lockup-sub">Negotiator</span></span>
+      </a>
+      <nav class="nav-links" aria-label="Page">
+        <a href="#how">How a case runs</a>
+        <a href="#total-loss">Total losses</a>
+        <a href="#pricing">Pricing</a>
+        <a href={`${APP}/login`} class="dim">Log in</a>
+        <a href="#pricing" class="btn btn-sm">Get the Negotiator</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <div class="hero-copy">
+        <span class="eyebrow">For hail &amp; PDR shops · your state's insurance rules, cited</span>
+        <h1>The insurance company has a legal playbook. Now your shop does too.</h1>
+        <p class="lede">
+          Stop letting the insurance company use fake authority to push you around. Let your AI legal
+          department handle the negotiations and billing disputes: paste the adjuster's email, get back a
+          letter that cites your state's claim-handling rules and your own case record. You read it. You
+          send it.
+        </p>
+        <div class="ctas">
+          <a href="#pricing" class="btn">Get the Negotiator · $1,999/yr</a>
+          <a href="#how" class="link-under">See a case run, start to paid ↓</a>
+        </div>
+        <ul class="callouts">
+          {callouts.map(([b, t]) => (
+            <li><b>{b}</b> {t}</li>
+          ))}
+        </ul>
+      </div>
+
+      <figure class="letter">
+        <span class="stamp" aria-label="Firm, rung 3 of 5">FIRM · RUNG 3 OF 5</span>
+        <div class="letter-meta">
+          <span>Re: Claim 24-OH-773192 · 2021 Ford F-150 · Supplement #2</span>
+          <span>To: Ms. R. Alvarez, Keystone Mutual · From: Northline Hail &amp; PDR</span>
+        </div>
+        <p>Ms. Alvarez,</p>
+        <p>
+          Northline Hail &amp; PDR received your <u>September 12</u> request for a second set of
+          photographs of the roof and hood. Those photographs were delivered on <u>August 30</u> and
+          again on <u>September 5</u>. The case file reflects both deliveries.
+        </p>
+        <p>
+          Ohio Adm. Code 3901-1-54(H)(1) requires Keystone Mutual to either
+          <mark>“pay the difference between the written estimate and a higher estimate obtained by the claimant or promptly provide the claimant with the name of at least one repair shop that will make the repairs for the amount of the written estimate.”</mark>
+          Neither has happened.
+        </p>
+        <p>
+          Please confirm by September 26 that Supplement #2, in the amount of $1,140.00, is approved, or
+          provide the name of the shop that will complete the repair at your figure.
+        </p>
+        <p class="sig">Northline Hail &amp; PDR<br />on behalf of the vehicle owner</p>
+        <figcaption>Sample letter. Parties are fictional; the rule and its quote are real.</figcaption>
+      </figure>
+    </section>
+
+    <section class="band">
+      <div class="wrap band-inner">
+        {proof.map(([h, t]) => (
+          <div class="band-item"><h2>{h}</h2><p>{t}</p></div>
+        ))}
+      </div>
+    </section>
+
+    <section id="how" class="wrap how">
+      <div class="how-copy">
+        <h2>One case, start to paid.</h2>
+        <p>
+          Every email in and out sits on one numbered docket, newest on top. The draft you have not sent
+          yet is always unmistakable.
+        </p>
+        <p>
+          Four boilerplate letters cover the rest: formal directive and notice of representation,
+          itemized breakdown reply, total-loss fee rebuttal, and the rebuttal when the owner keeps the
+          vehicle.
+        </p>
+      </div>
+      <ol class="docket">
+        {docket.map((d) => (
+          <li class:list={{ draft: d.draft }}>
+            <span class="mono n">{d.n}</span>
+            <span class="dir">{d.dir}</span>
+            <span class="text">{d.text}</span>
+            <span class:list={['tag', d.cls]}>{d.tag}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section id="total-loss" class="wrap tl">
+      <div class="tl-copy">
+        <span class="eyebrow">Total losses</span>
+        <h2>When the car totals, your fees don't vanish.</h2>
+        <p>
+          Admin fee, lot fee, storage for every day the car sits on your lot, and tax, on one Total Loss
+          Invoice the adjuster gets as a PDF. Storage keeps accruing until the car leaves. When the insurer
+          says the fees disappear with the vehicle, the rebuttal letter is already written, in your name or
+          the owner's.
+        </p>
+        <p class="tl-figure"><span class="mono">$15,122.25</span> on the demo case: two fees, 26 days of storage at $400, tax at 7.25%.</p>
+      </div>
+      <figure class="tl-shot">
+        <img src="/total-loss-invoice.png" alt="Total Loss Invoice: admin fee $1,200, lot fee $2,500, 26 days of storage at $400 a day, sales tax, total recovery balance $15,122.25, Download invoice PDF" width="840" height="425" loading="lazy" />
+        <figcaption>Live product, demo shop. The figures are the demo's; the math is what your invoice does.</figcaption>
+      </figure>
+    </section>
+
+    <section class="wrap bottom">
+      <div class="never">
+        <h3>What it will never do</h3>
+        <ul>
+          {never.map((t) => <li>{t}</li>)}
+        </ul>
+      </div>
+      <div id="pricing" class="pricing">
+        <h3>Pricing</h3>
+        <div class="price-cards">
+          <div class="price-card main">
+            <span class="price"><span class="mono">$1,999</span><small> / year</small></span>
+            <span class="price-note">One plan per shop location, billed yearly. The whole Dent Shop Manager shop system is included.</span>
+          </div>
+          <div class="price-card side">
+            <b>Already on the shop system?</b>
+            <span>Upgrade from Billing. Your current plan is prorated to the day, so nothing is paid twice.</span>
+          </div>
+        </div>
+        <div class="price-ctas">
+          <a href={SIGNUP} class="btn">Create your shop</a>
+          <a href={`${CRM}/billing`} class="link-under">I have a shop, take me to Billing</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="final">
+      <div class="wrap final-inner">
+        <h2>The insurer runs your claim through software.<br />Run your reply through a negotiator.</h2>
+        <a href={SIGNUP} class="btn">Get the Negotiator · $1,999/yr</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-inner">
+      <span>© {new Date().getFullYear()} Dent Shop Manager · Not a law firm. Drafts are reviewed and sent by you.</span>
+      <span class="foot-links">
+        <a href={`${CRM}/terms`}>Terms</a>
+        <a href={CRM}>Shop system</a>
+        <a href={`${APP}/login`}>Log in</a>
+      </span>
+    </div>
+  </footer>
+</Base>
+
+<style>
+  /* ---------- nav ---------- */
+  .nav {
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+  .lockup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+  }
+  .lockup-words {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .lockup-name {
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+  }
+  .lockup-sub {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .nav-links a {
+    text-decoration: none;
+  }
+  .nav-links .dim {
+    color: var(--ink-2);
+  }
+  @media (max-width: 900px) {
+    .nav-links a:not(.btn) {
+      display: none;
+    }
+  }
+
+  /* ---------- hero ---------- */
+  .hero {
+    display: grid;
+    grid-template-columns: 0.92fr 1.08fr;
+    gap: 56px;
+    padding-top: 64px;
+    padding-bottom: 56px;
+    align-items: start;
+  }
+  .hero-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding-top: 16px;
+  }
+  h1 {
+    font-size: clamp(36px, 4.2vw, 54px);
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+  }
+  .lede {
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 32em;
+  }
+  .ctas {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .callouts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 24px;
+    margin-top: 18px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .callouts li {
+    border-left: 1px solid #b9bec9;
+    padding-left: 12px;
+  }
+  .callouts b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .letter {
+    margin: 0;
+    position: relative;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 40px 44px 36px;
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 1px 0 #e6e8ee, 0 24px 48px -32px rgba(21, 23, 28, 0.35);
+  }
+  .stamp {
+    position: absolute;
+    top: 22px;
+    right: 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--red);
+    border: 1.5px solid var(--red);
+    padding: 6px 9px;
+    border-radius: 3px;
+    transform: rotate(-4deg);
+  }
+  .letter-meta {
+    font-family: var(--font);
+    font-size: 12px;
+    color: var(--ink-3);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-right: 140px;
+  }
+  .letter u {
+    text-decoration-color: var(--red);
+    text-underline-offset: 3px;
+  }
+  .letter mark {
+    background: var(--mark);
+    color: var(--ink);
+    padding: 0 2px;
+  }
+  .sig {
+    margin-top: 6px;
+  }
+  .letter figcaption {
+    font-family: var(--font);
+    font-size: 12px;
+    color: var(--ink-3);
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 12px;
+    margin-top: 4px;
+  }
+
+  /* ---------- proof band ---------- */
+  .band {
+    background: var(--ink);
+    color: #ffffff;
+  }
+  .band-inner {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 48px;
+    padding-top: 36px;
+    padding-bottom: 36px;
+  }
+  .band-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .band-item h2 {
+    font-size: 19px;
+  }
+  .band-item p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #b9bec9;
+  }
+
+  /* ---------- how ---------- */
+  .how {
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: 56px;
+    padding-top: 56px;
+    padding-bottom: 48px;
+    align-items: start;
+  }
+  .how-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .how h2,
+  .tl h2 {
+    font-size: 34px;
+    letter-spacing: -0.03em;
+  }
+  .how p,
+  .tl p {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .docket {
+    border-top: 1px solid var(--ink);
+  }
+  .docket li {
+    display: grid;
+    grid-template-columns: 40px 120px 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 15px;
+  }
+  .docket li.draft {
+    background: #fbfbfc;
+  }
+  .docket .n {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .docket .dir {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .docket .tag {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .docket .tag.green {
+    color: var(--green);
+  }
+  .docket .tag.red {
+    color: var(--red);
+  }
+
+  /* ---------- total loss ---------- */
+  .tl {
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: 56px;
+    padding-top: 40px;
+    padding-bottom: 56px;
+    align-items: center;
+    border-top: 1px solid var(--rule);
+  }
+  .tl-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .tl-figure {
+    color: var(--ink);
+  }
+  .tl-figure .mono {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-right: 6px;
+  }
+  .tl-shot {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .tl-shot img {
+    width: 100%;
+    height: auto;
+    border: 1px solid #c9cdd6;
+    border-radius: 8px;
+    background: var(--sheet);
+    box-shadow: 0 1px 0 #e6e8ee, 0 30px 60px -40px rgba(21, 23, 28, 0.45);
+  }
+  .tl-shot figcaption {
+    font-size: 12px;
+    color: var(--ink-3);
+    text-align: right;
+  }
+
+  /* ---------- never + pricing ---------- */
+  .bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    padding-top: 32px;
+    padding-bottom: 48px;
+    border-top: 1px solid var(--rule);
+    align-items: start;
+  }
+  .never,
+  .pricing {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .bottom h3 {
+    font-size: 22px;
+  }
+  .never li {
+    padding: 8px 0;
+    border-top: 1px solid var(--rule-soft);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .never li:last-child {
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .price-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .price-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .price-card.main {
+    background: var(--sheet);
+    border: 1px solid var(--ink);
+  }
+  .price-card.side {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+  }
+  .price-card b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .price {
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .price small {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-3);
+    letter-spacing: 0;
+  }
+  .price-ctas {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  /* ---------- final + footer ---------- */
+  .final {
+    border-top: 1px solid var(--ink);
+  }
+  .final-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: flex-start;
+    padding-top: 56px;
+    padding-bottom: 64px;
+  }
+  .final h2 {
+    font-size: clamp(28px, 3.4vw, 40px);
+    letter-spacing: -0.03em;
+  }
+  .foot {
+    border-top: 1px solid var(--rule);
+  }
+  .foot-inner {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px 24px;
+    flex-wrap: wrap;
+    padding-top: 22px;
+    padding-bottom: 22px;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .foot-links {
+    display: flex;
+    gap: 24px;
+  }
+  .foot a {
+    color: var(--ink-3);
+    text-decoration: none;
+  }
+  .foot a:hover {
+    color: var(--ink);
+  }
+
+  /* ---------- phone ---------- */
+  @media (max-width: 900px) {
+    .hero,
+    .how,
+    .tl,
+    .bottom {
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+    .hero {
+      padding-top: 36px;
+      padding-bottom: 40px;
+    }
+    .band-inner {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .letter {
+      padding: 28px 22px 24px;
+    }
+    .letter-meta {
+      padding-right: 0;
+      padding-top: 30px;
+    }
+    .stamp {
+      top: 16px;
+      right: 16px;
+    }
+    .docket li {
+      grid-template-columns: 40px 1fr;
+      gap: 6px 12px;
+    }
+    .docket .text {
+      grid-column: 2;
+    }
+    .docket .tag {
+      grid-column: 2;
+      white-space: normal;
+    }
+    .price-cards {
+      grid-template-columns: 1fr;
+    }
+    .ctas .btn,
+    .price-ctas .btn,
+    .final .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
