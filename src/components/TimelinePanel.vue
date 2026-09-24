@@ -330,7 +330,10 @@ async function copyMessage(m: NegMessage) {
 
 const sendingId = ref<string | null>(null)
 const actionError = ref<string | null>(null)
+/* Marking a draft sent is permanent (there is no un-send), so it asks first. */
+const confirmSendId = ref<string | null>(null)
 async function onMarkSent(m: NegMessage) {
+  confirmSendId.value = null
   sendingId.value = m.id
   actionError.value = null
   try {
@@ -588,7 +591,19 @@ function fromLine(m: NegMessage): string {
         </div>
       </div>
 
-      <footer v-if="m.kind === 'Draft'" class="msg-actions">
+      <footer v-if="m.kind === 'Draft' && confirmSendId === m.id" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-${m.id}`">
+        <p :id="`confirm-${m.id}`" class="confirm-q">
+          Did you send this from your own mailbox?
+          <span>It moves to the docket as sent{{ detail.case.insurerName ? ` to ${detail.case.insurerName}` : '' }}. This can't be undone.</span>
+        </p>
+        <div class="msg-buttons">
+          <button class="btn btn-sm" @click="confirmSendId = null">Not yet</button>
+          <button class="btn btn-primary btn-sm" @click="onMarkSent(m)">
+            <Send :size="14" /> Yes, mark as sent
+          </button>
+        </div>
+      </footer>
+      <footer v-else-if="m.kind === 'Draft'" class="msg-actions">
         <p class="legal-note">
           Not legal advice — review and edit this draft before sending it yourself.
         </p>
@@ -598,7 +613,7 @@ function fromLine(m: NegMessage): string {
             <Copy v-else :size="14" />
             {{ copiedId === m.id ? 'Copied' : 'Copy' }}
           </button>
-          <button class="btn btn-primary btn-sm" :disabled="sendingId === m.id" @click="onMarkSent(m)">
+          <button class="btn btn-primary btn-sm" :disabled="sendingId === m.id" @click="confirmSendId = m.id">
             <span v-if="sendingId === m.id" class="spinner"></span>
             <Send v-else :size="14" />
             Mark as sent
@@ -1044,6 +1059,22 @@ function fromLine(m: NegMessage): string {
   gap: 12px;
   margin-top: 12px;
   flex-wrap: wrap;
+}
+.confirm-send {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 12px;
+}
+.confirm-q {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.confirm-q span {
+  display: block;
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--text-muted);
 }
 .legal-note {
   font-size: 12px;
