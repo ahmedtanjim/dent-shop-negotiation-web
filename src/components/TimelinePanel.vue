@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
 import BlanksNotice from '@/components/BlanksNotice.vue'
 import { findBlanks } from '@/utils/placeholders'
+import { readEmlPreview, type EmlPreview } from '@/utils/emlHeaders'
 
 const props = defineProps<{
   detail: CaseDetail
@@ -299,6 +300,24 @@ async function submitPaste() {
   }
 }
 
+/* Preview what the chosen .eml is before it's uploaded and drafted against. */
+const emlPreview = ref<EmlPreview | null>(null)
+const emlPreviewNote = ref<string | null>(null)
+async function onEmlChosen() {
+  emlPreview.value = null
+  emlPreviewNote.value = null
+  intakeError.value = null
+  const file = emlInput.value?.files?.[0]
+  if (!file) return
+  try {
+    const p = await readEmlPreview(file)
+    if (!p.from && !p.subject) emlPreviewNote.value = "This doesn't look like an email file (.eml) — check you picked the right one."
+    else emlPreview.value = p
+  } catch {
+    emlPreviewNote.value = null
+  }
+}
+
 async function submitEml() {
   const file = emlInput.value?.files?.[0]
   if (!file) {
@@ -306,7 +325,10 @@ async function submitEml() {
     return
   }
   const ok = await runIntake(() => intakeEml(shopId.value, caseId.value, file))
-  if (ok && emlInput.value) emlInput.value.value = ''
+  if (ok && emlInput.value) {
+    emlInput.value.value = ''
+    emlPreview.value = null
+  }
 }
 
 // The skeleton card shows whenever ANY draft is being written — the auto-draft here or a
@@ -473,8 +495,14 @@ function fromLine(m: NegMessage): string {
         <form v-else @submit.prevent="submitEml">
           <label class="field">
             <span>.eml file</span>
-            <input ref="emlInput" type="file" accept=".eml,message/rfc822" required />
+            <input ref="emlInput" type="file" accept=".eml,message/rfc822" required @change="onEmlChosen" />
           </label>
+          <dl v-if="emlPreview" class="eml-preview" aria-label="The email you picked">
+            <div><dt>From</dt><dd>{{ emlPreview.from ?? '—' }}</dd></div>
+            <div><dt>Subject</dt><dd>{{ emlPreview.subject ?? '—' }}</dd></div>
+            <div><dt>Sent</dt><dd>{{ emlPreview.date ?? '—' }}</dd></div>
+          </dl>
+          <p v-if="emlPreviewNote" class="warn-note">{{ emlPreviewNote }}</p>
           <p class="faint">
             Export the email from your mail client as .eml — sender, date, subject and body are read
             automatically.
@@ -991,6 +1019,30 @@ function fromLine(m: NegMessage): string {
 .msg-subject {
   font-size: 14.5px;
   margin-bottom: 8px;
+}
+.eml-preview {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  font-size: 13px;
+  display: grid;
+  gap: 4px;
+}
+.eml-preview div {
+  display: flex;
+  gap: 10px;
+}
+.eml-preview dt {
+  width: 58px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+.eml-preview dd {
+  margin: 0;
+  color: var(--text);
+  word-break: break-word;
 }
 .draft-blanks {
   margin: 4px 0 10px;
