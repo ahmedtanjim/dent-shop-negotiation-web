@@ -51,6 +51,11 @@ function handleUnauthorized(): never {
   throw new ApiError(401, 'Your session has expired. Please sign in again.')
 }
 
+/** Endpoints that establish a session — a 401 from them is a bad credential, not an expired token. */
+function isSignInPath(path: string): boolean {
+  return path.startsWith('/api/auth/login') || path.startsWith('/api/auth/handoff/exchange')
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -73,7 +78,10 @@ async function request<T>(
     throw new ApiError(0, 'Could not reach the server. Is the API running?')
   }
 
-  if (res.status === 401) handleUnauthorized()
+  // A 401 only means "your session is stale" when we actually sent a session. Sign-in
+  // calls (password login, hand-off exchange) carry no token, so their 401 is a plain
+  // wrong-credentials answer and falls through to show the API's own message.
+  if (res.status === 401 && headers.Authorization && !isSignInPath(path)) handleUnauthorized()
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`
