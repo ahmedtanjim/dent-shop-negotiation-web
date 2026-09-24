@@ -111,7 +111,9 @@ router.beforeEach(async (to) => {
   const ent = useEntitlementStore()
   await ent.load(auth.shopId!)
   if (to.name === 'paywall') {
-    if (ent.isAi && !to.query.status) {
+    // An AI shop bounced here by an old ?redirect link goes straight on; one that opens
+    // /upgrade on purpose sees "Your AI plan is active" instead of a silent redirect.
+    if (ent.isAi && !to.query.status && typeof to.query.redirect === 'string') {
       const back = typeof to.query.redirect === 'string' && to.query.redirect.startsWith('/') ? to.query.redirect : '/'
       return back
     }

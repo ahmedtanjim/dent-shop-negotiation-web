@@ -48,6 +48,11 @@ const renews = computed(() => {
   if (!iso || !paying.value) return null
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 })
+const activeRenews = computed(() => {
+  const e = ent.entitlement
+  if (!e?.currentPeriodEnd || e.cancelAtPeriodEnd) return null
+  return new Date(e.currentPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+})
 const statusLine = computed(() => {
   const parts = [auth.shopName ?? 'Your shop', planLabel.value]
   if (!auth.isOwner && auth.role) parts.push(`you're signed in as ${roleLabel(auth.role)}`)
@@ -161,7 +166,30 @@ onMounted(async () => {
     <img :src="theme === 'dark' ? bgDark : bgLight" class="bg" alt="" aria-hidden="true" />
     <div class="scrim" aria-hidden="true"></div>
 
-    <section class="sheet card" :class="{ solo: !auth.isOwner }" aria-labelledby="pw-title">
+    <!-- Already on the AI plan (and not mid-Stripe-return): say so, don't sell it. -->
+    <section v-if="ent.isAi && !status" class="sheet card solo" aria-labelledby="pw-active-title">
+      <div class="pitch">
+        <div class="eyebrow">
+          <span class="pill pill-green"><Check :size="11" /> AI plan · active</span>
+          <span class="muted status-line">{{ auth.shopName ?? 'Your shop' }}<template v-if="activeRenews"> · renews {{ activeRenews }}</template></span>
+        </div>
+        <h1 id="pw-active-title">Your AI plan is active.</h1>
+        <p class="lede muted">
+          The Negotiator is unlocked for your whole team: cases, the Total Loss Invoice, letters
+          and AI drafting. Nothing to buy here.
+        </p>
+        <div class="ctas">
+          <RouterLink :to="redirectTo" class="btn btn-primary btn-lg">
+            Go to your cases <ArrowRight :size="16" />
+          </RouterLink>
+          <a v-if="auth.isOwner" class="btn btn-lg" :href="`${CRM_URL}/billing`" @click.prevent="goToCrm('/billing')">
+            Billing in the shop system
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section v-else class="sheet card" :class="{ solo: !auth.isOwner }" aria-labelledby="pw-title">
       <div class="pitch">
         <div class="eyebrow">
           <span class="pill pill-violet"><Lock :size="11" /> AI plan</span>
