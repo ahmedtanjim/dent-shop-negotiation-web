@@ -87,11 +87,18 @@ function parseMoney(v: string, label: string): Parsed {
   return p
 }
 
+function parsePercent(v: string, label: string): Parsed {
+  const p = parseAmount(v, label, 3, '7.25')
+  if (p.value !== null && p.value > 100)
+    return { value: null, error: `${label} must be between 0 and 100%.` }
+  return p
+}
+
 const parsed = computed(() => ({
   admin: parseMoney(f.value.admin, 'Admin fee'),
   lot: parseMoney(f.value.lot, 'Lot / gate fee'),
   perDay: parseMoney(f.value.perDay, 'Storage per day'),
-  tax: parseAmount(f.value.tax, 'Sales tax', 3, '7.25'),
+  tax: parsePercent(f.value.tax, 'Sales tax'),
 }))
 type Figure = keyof typeof parsed.value
 const errors = computed(() => {
