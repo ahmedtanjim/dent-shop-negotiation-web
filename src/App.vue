@@ -199,4 +199,12 @@ const capResets = computed(() => {
   display: flex;
   flex-direction: column;
 }
+/* Touch: top-bar icon buttons get a 44 px target (they were 37×25). */
+@media (max-width: 640px), (pointer: coarse) {
+  .topbar-right .btn {
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+  }
+}
 </style>

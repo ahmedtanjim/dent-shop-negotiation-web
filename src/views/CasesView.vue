@@ -157,13 +157,13 @@ onMounted(async () => {
                 {{ c.title }}
               </RouterLink>
             </td>
-            <td><StatusPill :status="c.status" /></td>
-            <td>{{ c.insurerName || '—' }}</td>
-            <td class="mono">{{ c.insurerClaimNumber || '—' }}</td>
-            <td>{{ c.customerName || '—' }}</td>
-            <td class="num mono">{{ centsToUsd(c.invoiceTotalCents) }}</td>
-            <td class="num">{{ c.messageCount }}</td>
-            <td class="muted">{{ formatDateTime(c.updatedAt) }}</td>
+            <td data-label="Status"><StatusPill :status="c.status" /></td>
+            <td data-label="Insurer">{{ c.insurerName || '—' }}</td>
+            <td data-label="Claim #" class="mono">{{ c.insurerClaimNumber || '—' }}</td>
+            <td data-label="Customer">{{ c.customerName || '—' }}</td>
+            <td data-label="Repair est." class="num mono">{{ centsToUsd(c.invoiceTotalCents) }}</td>
+            <td data-label="Msgs" class="num">{{ c.messageCount }}</td>
+            <td data-label="Updated" class="muted">{{ formatDateTime(c.updatedAt) }}</td>
           </tr>
         </tbody>
       </table>
@@ -279,5 +279,51 @@ tbody tr:focus-within {
   gap: 10px;
   padding: 48px 24px;
   text-align: center;
+}
+/* Phones: each case becomes a stacked card instead of a 700 px table that scrolls
+   sideways. */
+@media (max-width: 640px) {
+  .table-card {
+    overflow-x: visible;
+  }
+  table.data thead {
+    display: none;
+  }
+  table.data,
+  table.data tbody,
+  table.data tr,
+  table.data td {
+    display: block;
+    width: 100%;
+  }
+  table.data tbody tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  table.data td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+    border: none;
+    text-align: right;
+  }
+  table.data td[data-label]::before {
+    content: attr(data-label);
+    font-family: var(--font);
+    color: var(--text-faint);
+    font-size: 12px;
+    text-align: left;
+  }
+  table.data td.title-cell {
+    max-width: none;
+    padding-bottom: 6px;
+    text-align: left;
+  }
+  .case-link {
+    display: block;
+    min-height: 32px;
+    line-height: 1.4;
+  }
 }
 </style>
