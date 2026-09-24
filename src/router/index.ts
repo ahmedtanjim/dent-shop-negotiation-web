@@ -2,9 +2,16 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { SIGNUP_URL } from '@/api/handoff'
+import { CRM_URL } from '@/api/client'
 
 const router = createRouter({
   history: createWebHistory(),
+  // /welcome#pricing lands on the pricing section; every other navigation starts at the top.
+  scrollBehavior(to, _from, saved) {
+    if (saved) return saved
+    if (to.hash) return { el: to.hash, top: 72 }
+    return { top: 0 }
+  },
   routes: [
     {
       path: '/welcome',
@@ -53,13 +60,40 @@ const router = createRouter({
       component: () => import('@/views/CaseWorkspaceView.vue'),
       props: true,
     },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    {
+      // The Terms of Service are shared with the shop system and live there.
+      path: '/terms',
+      name: 'terms',
+      component: () => import('@/views/NotFoundView.vue'), // never shown — the hop happens first
+      meta: { anyone: true },
+      beforeEnter: () => {
+        window.location.replace(`${CRM_URL}/terms`)
+        return false
+      },
+    },
+    {
+      // Prices are on the landing page; a signed-in shop sees its plan on /upgrade.
+      path: '/pricing',
+      name: 'pricing',
+      redirect: () => {
+        const auth = useAuthStore()
+        return auth.isAuthed ? { name: 'paywall' } : { name: 'welcome', hash: '#pricing' }
+      },
+    },
+    {
+      // Typos, stale links and pages that don't exist (e.g. /privacy) say so plainly.
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue'),
+      meta: { anyone: true },
+    },
   ],
 })
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.meta.handoff) return true // exchanges its own code, signed in or not
+  if (to.meta.anyone) return true // the 404 page and the /terms hop, signed in or not
   if (to.meta.public) {
     if (auth.isAuthed) return { name: 'cases' }
     return true
