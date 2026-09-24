@@ -101,9 +101,21 @@ const parsed = computed(() => ({
   tax: parsePercent(f.value.tax, 'Sales tax'),
 }))
 type Figure = keyof typeof parsed.value
+
+/** Today on the user's own calendar, yyyy-mm-dd — the latest day storage can end. */
+function localToday(): string {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+}
+const today = ref(localToday())
+
 const errors = computed(() => {
-  const out: Partial<Record<Figure, string>> = {}
+  const out: Partial<Record<Figure | 'until', string>> = {}
   for (const [k, p] of Object.entries(parsed.value)) if (p.error) out[k as Figure] = p.error
+  // A future end date would bill days that haven't happened yet.
+  if (f.value.until && f.value.until > today.value)
+    out.until =
+      "Storage can't end in the future. Leave \"Storage ends\" empty while the car is on your lot; it accrues through today."
   return out
 })
 const hasErrors = computed(() => Object.keys(errors.value).length > 0)
@@ -146,10 +158,10 @@ function openPicker(e: MouseEvent) {
 const storageIssue = computed<string | null>(() => {
   const start = utcDay(f.value.since)
   const end = utcDay(f.value.until)
-  const today = Math.floor(Date.now() / 86400000)
+  const todayDay = Math.floor(Date.now() / 86400000)
   if (start === null) return 'no start date (set "Storage since")'
   if (val('perDay') <= 0) return 'the daily rate is $0 (enter your storage rate)'
-  if (start > today) return 'the start date is in the future'
+  if (start > todayDay) return 'the start date is in the future'
   if (end !== null && end < start) return 'the end date is before the start date'
   return live.value.days === 0 ? 'no storage days in the date range' : null
 })
@@ -270,14 +282,14 @@ async function onPdf() {
           $ <input v-model="f.perDay" class="blank rate" :class="{ invalid: errors.perDay }" :aria-invalid="!!errors.perDay" inputmode="decimal" aria-label="Storage per day, dollars"
             @input="touched('perDay')" /> /day
         </span>
-        <span class="val mono">{{ errors.perDay ? '—' : usd(live.storage) }}</span>
+        <span class="val mono">{{ errors.perDay || errors.until ? '—' : usd(live.storage) }}</span>
       </div>
       <div class="line sub">
         <span class="desc">
           Storage ends
           <span class="datefield" @click="openPicker">
             <CalendarDays :size="13" aria-hidden="true" />
-            <input v-model="f.until" class="blank date" type="date" aria-label="Storage ends (optional)"
+            <input v-model="f.until" class="blank date" :class="{ invalid: errors.until }" :aria-invalid="!!errors.until" type="date" :max="today" aria-label="Storage ends (optional)"
               @input="touched('until')" />
           </span>
           <span class="hint-inline">— leave empty while the car is on your lot; it accrues through today</span>
