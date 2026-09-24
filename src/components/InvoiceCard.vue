@@ -90,9 +90,22 @@ function openPicker(e: MouseEvent) {
   if (!input || e.target === input) return
   try { input.showPicker() } catch { input.focus() }
 }
-const storageMissing = computed(() => live.value.days === 0)
+/** Why storage bills nothing — named precisely, never a generic "set the date". */
+const storageIssue = computed<string | null>(() => {
+  const start = utcDay(f.value.since)
+  const end = utcDay(f.value.until)
+  const today = Math.floor(Date.now() / 86400000)
+  if (start === null) return 'no start date (set "Storage since")'
+  if (num(f.value.perDay) <= 0) return 'the daily rate is $0 (enter your storage rate)'
+  if (start > today) return 'the start date is in the future'
+  if (end !== null && end < start) return 'the end date is before the start date'
+  return live.value.days === 0 ? 'no storage days in the date range' : null
+})
+const storageMissing = computed(() => storageIssue.value !== null)
 const emitTotal = defineModel<number | null>('liveTotal')
 watch(live, (v) => (emitTotal.value = v.total), { immediate: true })
+const emitIssue = defineModel<string | null>('storageIssue')
+watch(storageIssue, (v) => (emitIssue.value = v), { immediate: true })
 
 /* ---------- debounced auto-save ---------- */
 
@@ -195,7 +208,7 @@ async function onPdf() {
           <template v-if="!storageMissing">
             · <span class="mono days">{{ live.days }}</span>&nbsp;days ·
           </template>
-          <template v-else> · set the date — </template>
+          <template v-else> · </template>
           $ <input v-model="f.perDay" class="blank rate" inputmode="decimal" aria-label="Storage per day, dollars"
             @input="touched('perDay')" /> /day
         </span>
@@ -212,6 +225,7 @@ async function onPdf() {
           <span class="hint-inline">— leave empty while the car is on your lot; it accrues through today</span>
         </span>
       </div>
+      <p v-if="storageIssue" class="issue" role="status">Storage bills $0: {{ storageIssue }}.</p>
       <div class="line">
         <span class="desc">
           Sales tax ·
@@ -326,6 +340,12 @@ async function onPdf() {
 }
 .days {
   font-size: 12.5px;
+}
+.issue {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--amber);
 }
 .hint-inline {
   color: var(--text-faint);

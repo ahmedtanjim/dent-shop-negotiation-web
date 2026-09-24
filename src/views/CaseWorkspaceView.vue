@@ -77,6 +77,8 @@ const invoice = computed(() => docs.value?.invoice ?? null)
 // The header's balance follows the invoice card's live math while an edit is in
 // flight, so the big number reacts to every keystroke like the mockup promised.
 const liveTotal = ref<number | null>(null)
+// The invoice card names exactly why storage bills nothing ($0 rate, end before start…).
+const storageIssue = ref<string | null>(null)
 const heroTotal = computed(() => liveTotal.value ?? invoice.value?.total ?? null)
 const accruing = computed(
   () =>
@@ -149,8 +151,8 @@ watch(
           <span v-if="accruing" class="accruing">
             <span class="dot"></span>Accruing · {{ usd(invoice!.storagePerDay) }}/day
           </span>
-          <span v-else-if="invoice && invoice.storageDays === 0" class="accruing off">
-            Storage not accruing — set the date on the invoice
+          <span v-else-if="invoice && storageIssue" class="accruing off">
+            Storage not accruing — {{ storageIssue }}
           </span>
         </div>
       </header>
@@ -192,6 +194,7 @@ watch(
           <div data-tour="ws-documents" class="docs-col">
             <InvoiceCard
               v-model:live-total="liveTotal"
+              v-model:storage-issue="storageIssue"
               :detail="detail"
               :invoice="invoice"
               @refresh="refresh"
