@@ -10,6 +10,7 @@ import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
 import BlanksNotice from '@/components/BlanksNotice.vue'
+import DateField from '@/components/DateField.vue'
 import { findBlanks } from '@/utils/placeholders'
 import { readEmlPreview, type EmlPreview } from '@/utils/emlHeaders'
 
@@ -473,7 +474,7 @@ function fromLine(m: NegMessage): string {
             </label>
             <label class="field">
               <span>Received</span>
-              <input v-model="inOccurredAt" type="datetime-local" />
+              <DateField v-model="inOccurredAt" type="datetime-local" label="Received" />
             </label>
             <label class="field">
               <span>Claim #</span>

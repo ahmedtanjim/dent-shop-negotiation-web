@@ -9,6 +9,7 @@ import { oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
+import DateField from '@/components/DateField.vue'
 
 const emit = defineEmits<{
   close: []
@@ -156,7 +157,7 @@ async function submit() {
           </label>
           <label class="field">
             <span>In shop since</span>
-            <input v-model="storageStartDate" type="date" />
+            <DateField v-model="storageStartDate" label="In shop since" />
           </label>
           <label class="field">
             <span>Repair estimate ($)</span>

@@ -46,7 +46,7 @@ const headline = computed(() =>
 const renews = computed(() => {
   const iso = ent.entitlement?.currentPeriodEnd
   if (!iso || !paying.value) return null
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 })
 const activeRenews = computed(() => {
   const e = ent.entitlement

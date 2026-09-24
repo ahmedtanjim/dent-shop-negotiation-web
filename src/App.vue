@@ -47,8 +47,8 @@ const capResets = computed(() => {
   if (!iso) return null
   const d = new Date(iso)
   return aiCapNotice.value?.scope === 'monthly'
-    ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 })
 </script>
 
