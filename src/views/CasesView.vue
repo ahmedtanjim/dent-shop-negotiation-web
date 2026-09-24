@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Plus, FolderOpen, Settings2 } from 'lucide-vue-next'
 import { listCases } from '@/api/negotiation'
 import { getAiUsage } from '@/api/usage'
-import { ApiError } from '@/api/client'
+import { ApiError, CRM_URL } from '@/api/client'
 import type { AiUsageSummary, CaseListItem } from '@/api/types'
 import { centsToUsd, formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
@@ -35,8 +35,10 @@ async function loadUsage() {
     usage.value = null
   }
 }
+// Windows reset at midnight UTC (monthly on the 1st), so show the UTC calendar day —
+// in US time zones the local date is still the evening before ("Sep 30" for Oct 1).
 const resetsOn = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
 async function load() {
   if (!auth.shopId) return
@@ -109,6 +111,14 @@ onMounted(async () => {
       </p>
       <p v-else-if="usage.month.exceeded" class="usage-note">
         This month's allowance is used up — drafting resumes on {{ resetsOn(usage.month.resetsAt) }}.
+      </p>
+      <p class="usage-explain">
+        Your plan includes a fair-use AI allowance: up to {{ usage.today.capCost }} of AI work a
+        day ({{ usage.today.capCalls }} requests) and {{ usage.month.capCost }} a month. The
+        dollars are what reading emails and drafting letters cost to run, counted against that
+        allowance. They are not added to your bill. Today so far: {{ usage.today.cost }}.
+        If you reach a limit, AI drafting pauses until it resets; everything else keeps working.
+        <a :href="`${CRM_URL}/terms`" target="_blank" rel="noopener">Fair-use terms</a>
       </p>
     </div>
 
@@ -217,6 +227,13 @@ onMounted(async () => {
 }
 .usage.over .usage-bar span {
   background: var(--amber);
+}
+.usage-explain {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 820px;
 }
 .usage-note {
   margin-top: 8px;
