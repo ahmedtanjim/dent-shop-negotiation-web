@@ -94,7 +94,7 @@ async function generate() {
 
     <template v-else>
       <div v-if="!detail.hasPlaybook" class="notice-amber no-playbook">
-        No verified legal playbook for
+        No attorney-reviewed citations for
         <strong>{{ detail.case.state ?? 'this case’s state' }}</strong> yet — drafts will argue
         from your documented facts but won’t cite statutes. State law coverage is expanding.
       </div>
