@@ -43,8 +43,12 @@ function resetFields() {
   }
   edited.value = new Set()
 }
+// Re-sync from the server when the computed invoice arrives. A refresh loads the case
+// first and the invoice second, so syncing on the case alone briefly filled the inputs
+// from the previous (stale) invoice — the tax field flashed an old value. The invoice
+// always reloads after the case, so it is the one signal to follow.
 watch(
-  () => [props.detail, props.invoice] as const,
+  () => props.invoice,
   () => {
     // A refresh only re-syncs the figures when no edit is waiting to save.
     if (edited.value.size === 0) resetFields()

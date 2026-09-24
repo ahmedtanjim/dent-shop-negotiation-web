@@ -105,8 +105,10 @@ async function request<T>(
     throw new ApiError(res.status, message)
   }
 
-  if (res.status === 204) return undefined as T
+  // Always drain the body (even a 204's empty one): an unread response is reported by
+  // the browser as a cancelled request (net::ERR_ABORTED) on every autosave.
   const text = await res.text()
+  if (res.status === 204) return undefined as T
   return (text ? JSON.parse(text) : undefined) as T
 }
 
