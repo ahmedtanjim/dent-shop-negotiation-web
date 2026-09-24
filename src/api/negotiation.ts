@@ -74,12 +74,17 @@ export async function downloadInvoicePdf(
   caseId: string,
   customerName: string | null,
 ): Promise<void> {
-  const blob = await api.blob(`${base(shopId)}/cases/${caseId}/generated/invoice.pdf`)
+  const { blob, filename } = await api.download(`${base(shopId)}/cases/${caseId}/generated/invoice.pdf`)
+  // Prefer the server's name (Content-Disposition); fall back to the same rule locally.
+  const name = customerName?.replace(/\s+/g, ' ').trim()
+  saveBlob(blob, filename ?? (name ? `TL ${name}.pdf` : 'total-loss-invoice.pdf'))
+}
+
+function saveBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  const name = customerName?.replace(/\s+/g, ' ').trim()
-  a.download = name ? `TL ${name}.pdf` : 'total-loss-invoice.pdf'
+  a.download = fileName
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -127,15 +132,8 @@ export async function downloadDocument(
   caseId: string,
   doc: NegDocument,
 ): Promise<void> {
-  const blob = await api.blob(`${base(shopId)}/cases/${caseId}/documents/${doc.id}`)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = doc.fileName
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  const { blob } = await api.download(`${base(shopId)}/cases/${caseId}/documents/${doc.id}`)
+  saveBlob(blob, doc.fileName)
 }
 
 export function deleteDocument(shopId: string, caseId: string, documentId: string): Promise<void> {

@@ -28,11 +28,50 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    /** machine-readable reason when the API sends one (e.g. `shop_profile_incomplete`) */
+    public readonly code: string | null = null,
+    /** the parsed JSON error body, for callers that need more than the message */
+    public readonly body: Record<string, unknown> | null = null,
   ) {
     super(message)
     this.name = 'ApiError'
   }
 }
+
+/** Read an error response's JSON body ({ message, code, … }); tolerant of non-JSON. */
+async function readError(res: Response, fallback: string): Promise<{ message: string; code: string | null; body: Record<string, unknown> | null }> {
+  try {
+    const data = await res.json()
+    if (data && typeof data === 'object') {
+      return {
+        message: typeof data.message === 'string' ? data.message : fallback,
+        code: typeof data.code === 'string' ? data.code : null,
+        body: data as Record<string, unknown>,
+      }
+    }
+  } catch {
+    /* non-JSON error body */
+  }
+  return { message: fallback, code: null, body: null }
+}
+
+/** The file name from a Content-Disposition header (RFC 5987 filename* first). Readable
+ *  cross-origin only when the API exposes the header (CORS WithExposedHeaders). */
+function dispositionFileName(header: string | null): string | null {
+  if (!header) return null
+  const star = header.match(/filename\*\s*=\s*(?:UTF-8|utf-8)''([^;]+)/)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      /* fall through */
+    }
+  }
+  const plain = header.match(/filename\s*=\s*("?)([^";]+)\1/)
+  return plain ? plain[2].trim() : null
+}
+
+const NETWORK_ERROR = 'Could not reach the server. Is the API running?'
 
 function authHeader(): Record<string, string> {
   const token = localStorage.getItem(STORAGE_KEYS.token)
@@ -75,7 +114,7 @@ async function request<T>(
   try {
     res = await fetch(`${API_BASE}${path}`, { method, headers, body: payload })
   } catch {
-    throw new ApiError(0, 'Could not reach the server. Is the API running?')
+    throw new ApiError(0, NETWORK_ERROR)
   }
 
   // A 401 only means "your session is stale" when we actually sent a session. Sign-in
@@ -84,17 +123,8 @@ async function request<T>(
   if (res.status === 401 && headers.Authorization && !isSignInPath(path)) handleUnauthorized()
 
   if (!res.ok) {
-    let message = `Request failed (${res.status})`
-    let code: string | null = null
-    let resetsAt: string | null = null
-    try {
-      const data = await res.json()
-      if (data && typeof data.message === 'string') message = data.message
-      if (data && typeof data.code === 'string') code = data.code
-      if (data && typeof data.resetsAt === 'string') resetsAt = data.resetsAt
-    } catch {
-      /* non-JSON error body */
-    }
+    const { message, code, body } = await readError(res, `Request failed (${res.status})`)
+    const resetsAt = typeof body?.resetsAt === 'string' ? body.resetsAt : null
     if (res.status === 402) {
       if (code === 'ai_required') aiPlanRequired.value = true
       else subscriptionNotice.value = message
@@ -102,7 +132,7 @@ async function request<T>(
     if (res.status === 429 && code?.startsWith('ai_cap_')) {
       aiCapNotice.value = { message, scope: code.slice('ai_cap_'.length), resetsAt }
     }
-    throw new ApiError(res.status, message)
+    throw new ApiError(res.status, message, code, body)
   }
 
   // Always drain the body (even a 204's empty one): an unread response is reported by
@@ -119,11 +149,20 @@ export const api = {
   del: <T = void>(path: string) => request<T>('DELETE', path),
   postForm: <T>(path: string, form: FormData) => request<T>('POST', path, undefined, form),
 
-  /** Fetch a binary response (file download) with the bearer token attached. */
-  async blob(path: string): Promise<Blob> {
-    const res = await fetch(`${API_BASE}${path}`, { headers: authHeader() })
+  /** Fetch a file with the bearer token attached. A failed download surfaces the API's
+   *  own message and code (e.g. `shop_profile_incomplete`), not just "Download failed". */
+  async download(path: string): Promise<{ blob: Blob; filename: string | null }> {
+    let res: Response
+    try {
+      res = await fetch(`${API_BASE}${path}`, { headers: authHeader() })
+    } catch {
+      throw new ApiError(0, NETWORK_ERROR)
+    }
     if (res.status === 401) handleUnauthorized()
-    if (!res.ok) throw new ApiError(res.status, `Download failed (${res.status})`)
-    return res.blob()
+    if (!res.ok) {
+      const { message, code, body } = await readError(res, `Download failed (${res.status}).`)
+      throw new ApiError(res.status, message, code, body)
+    }
+    return { blob: await res.blob(), filename: dispositionFileName(res.headers.get('Content-Disposition')) }
   },
 }

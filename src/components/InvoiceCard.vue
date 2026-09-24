@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { FileDown } from 'lucide-vue-next'
 import DateField from '@/components/DateField.vue'
 import { downloadInvoicePdf, updateCase } from '@/api/negotiation'
-import { ApiError } from '@/api/client'
+import { ApiError, CRM_URL } from '@/api/client'
+import { goToCrm } from '@/api/handoff'
 import type { CaseDetail, InvoiceBreakdown } from '@/api/types'
 import { caseBodyFromDetail } from '@/utils/caseBody'
 import { usd } from '@/utils/format'
@@ -187,13 +188,26 @@ async function save() {
 /* ---------- PDF ---------- */
 
 const pdfBusy = ref(false)
+/** The API refuses the PDF while the shop profile lacks what the invoice prints
+ *  (400 `shop_profile_incomplete` + the missing fields) — shown with a way to fix it. */
+const profileGap = ref<{ message: string; missing: string[] } | null>(null)
 async function onPdf() {
   pdfBusy.value = true
   saveError.value = null
+  profileGap.value = null
   try {
     await downloadInvoicePdf(shopId.value, caseId.value, props.detail.case.customerName)
   } catch (e) {
-    saveError.value = e instanceof ApiError ? e.message : 'PDF download failed.'
+    if (e instanceof ApiError && e.code === 'shop_profile_incomplete') {
+      const missing = Array.isArray(e.body?.missing)
+        ? (e.body.missing as { label?: unknown }[])
+            .map((m) => (typeof m.label === 'string' ? m.label : null))
+            .filter((l): l is string => !!l)
+        : []
+      profileGap.value = { message: e.message, missing }
+    } else {
+      saveError.value = e instanceof ApiError ? e.message : 'PDF download failed.'
+    }
   } finally {
     pdfBusy.value = false
   }
@@ -281,6 +295,16 @@ async function onPdf() {
     </div>
 
     <p v-if="saveError" class="error-text">{{ saveError }}</p>
+    <div v-if="profileGap" class="error-text profile-gap" role="alert">
+      <p>{{ profileGap.message }}</p>
+      <ul v-if="profileGap.missing.length">
+        <li v-for="m in profileGap.missing" :key="m">{{ m }}</li>
+      </ul>
+      <p>
+        <a :href="`${CRM_URL}/settings`" target="_blank" rel="noopener" @click.prevent="goToCrm('/settings', true)">
+          Complete the shop profile in Settings</a>, then download the PDF again.
+      </p>
+    </div>
 
     <div class="inv-foot">
       <span class="hint">
@@ -399,6 +423,18 @@ async function onPdf() {
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--text-faint);
+}
+.profile-gap p {
+  margin: 0;
+}
+.profile-gap ul {
+  margin: 4px 0 6px 1.2em;
+  padding: 0;
+}
+.profile-gap a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
 }
 .issue {
   margin: 6px 0 0;
