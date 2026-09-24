@@ -150,7 +150,13 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-for="c in cases" :key="c.id" @click="open(c)">
-            <td class="title-cell">{{ c.title }}</td>
+            <!-- the title is a real link: Tab reaches every case, Enter opens it, and
+                 ⌘/middle-click opens it in a new tab; the rest of the row stays clickable -->
+            <td class="title-cell">
+              <RouterLink :to="{ name: 'case', params: { id: c.id } }" class="case-link" @click.stop>
+                {{ c.title }}
+              </RouterLink>
+            </td>
             <td><StatusPill :status="c.status" /></td>
             <td>{{ c.insurerName || '—' }}</td>
             <td class="mono">{{ c.insurerClaimNumber || '—' }}</td>
@@ -244,6 +250,20 @@ onMounted(async () => {
 .title-cell {
   font-weight: 600;
   max-width: 280px;
+}
+.case-link {
+  color: var(--text);
+  border-radius: 4px;
+}
+.case-link:hover {
+  text-decoration: underline;
+}
+.case-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+tbody tr:focus-within {
+  background: var(--accent-soft);
 }
 .num {
   text-align: right;
