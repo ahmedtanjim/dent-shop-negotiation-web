@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Eye, EyeOff, Moon, Sun } from 'lucide-vue-next'
 import { login } from '@/api/auth'
@@ -21,8 +21,21 @@ const show = ref(false)
 const busy = ref(false)
 const error = ref<string | null>(null)
 
+// One inline style for every problem (no native browser bubbles), cleared as soon as
+// the user edits either field.
+watch([email, password], () => (error.value = null))
+
 async function submit() {
   error.value = null
+  const e = email.value.trim()
+  if (!e || !password.value) {
+    error.value = 'Enter your email and password.'
+    return
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+    error.value = 'That email address doesn’t look right. Check for a typo.'
+    return
+  }
   busy.value = true
   try {
     const res = await login(email.value.trim(), password.value)
@@ -85,7 +98,7 @@ async function submit() {
         </button>
       </header>
 
-      <form class="login" @submit.prevent="submit">
+      <form class="login" novalidate @submit.prevent="submit">
         <div class="head">
           <h1>Sign in to the Negotiator.</h1>
           <p class="muted">Same email and password as the shop system.</p>
@@ -123,7 +136,7 @@ async function submit() {
           </span>
         </label>
 
-        <p v-if="error" class="error-text">{{ error }}</p>
+        <p v-if="error" class="error-text" role="alert">{{ error }}</p>
 
         <button class="btn btn-primary submit" type="submit" :disabled="busy">
           <span v-if="busy" class="spinner"></span>
