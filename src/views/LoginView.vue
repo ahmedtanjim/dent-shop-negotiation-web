@@ -93,12 +93,30 @@ async function submit() {
 
         <label class="f">
           <span class="lbl">Email</span>
-          <input v-model="email" type="email" autocomplete="email" placeholder="you@yourshop.com" required autofocus />
+          <input
+            id="login-email"
+            v-model="email"
+            name="email"
+            type="email"
+            autocomplete="username email"
+            autocapitalize="none"
+            spellcheck="false"
+            placeholder="you@yourshop.com"
+            required
+            autofocus
+          />
         </label>
         <label class="f">
           <span class="lbl"><span>Password</span><a class="forgot" :href="`${CRM_URL}/forgot`">Forgot it?</a></span>
           <span class="pw">
-            <input v-model="password" :type="show ? 'text' : 'password'" autocomplete="current-password" required />
+            <input
+              id="login-password"
+              v-model="password"
+              name="password"
+              :type="show ? 'text' : 'password'"
+              autocomplete="current-password"
+              required
+            />
             <button class="eye" type="button" :aria-label="show ? 'Hide password' : 'Show password'" @click="show = !show">
               <EyeOff v-if="show" :size="16" /><Eye v-else :size="16" />
             </button>
