@@ -186,6 +186,9 @@ const features = [
 <style scoped>
 .landing {
   flex: 1;
+  /* The hero glow is wider than a phone; clip it here (clip, not hidden, so the sticky
+     nav keeps working and no scroll container is created). */
+  overflow-x: clip;
 }
 .small {
   font-size: 12.5px;
