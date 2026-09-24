@@ -14,6 +14,7 @@ import LetterColumns from '@/components/LetterColumns.vue'
 import TimelinePanel from '@/components/TimelinePanel.vue'
 import DraftPanel from '@/components/DraftPanel.vue'
 import { startWorkspaceTour, workspaceTourSeen } from '@/tour'
+import { setTitle } from '@/router'
 
 const props = defineProps<{ id: string }>()
 
@@ -51,6 +52,7 @@ async function load(showSpinner = false) {
   error.value = null
   try {
     detail.value = await getCase(auth.shopId, props.id)
+    setTitle(detail.value.case.title)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Could not load the case.'
   } finally {

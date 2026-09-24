@@ -17,13 +17,13 @@ const router = createRouter({
       path: '/welcome',
       name: 'welcome',
       component: () => import('@/views/WelcomeView.vue'),
-      meta: { public: true },
+      meta: { public: true, title: 'AI insurance negotiation for hail & PDR shops' },
     },
     {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
-      meta: { public: true },
+      meta: { public: true, title: 'Sign in' },
     },
     {
       // One account for both apps: sign-up happens on the shop system, which brings
@@ -40,7 +40,7 @@ const router = createRouter({
       path: '/auth/handoff',
       name: 'handoff',
       component: () => import('@/views/HandoffView.vue'),
-      meta: { handoff: true },
+      meta: { handoff: true, title: 'Signing you in' },
     },
     {
       // The paywall: shops below the AI tier land here instead of their cases. Also
@@ -48,17 +48,20 @@ const router = createRouter({
       path: '/upgrade',
       name: 'paywall',
       component: () => import('@/views/PaywallView.vue'),
+      meta: { title: 'AI plan' },
     },
     {
       path: '/',
       name: 'cases',
       component: () => import('@/views/CasesView.vue'),
+      meta: { title: 'Cases' },
     },
     {
       path: '/cases/:id',
       name: 'case',
       component: () => import('@/views/CaseWorkspaceView.vue'),
       props: true,
+      meta: { title: 'Case' }, // the view swaps in the case's own title once loaded
     },
     {
       // The Terms of Service are shared with the shop system and live there.
@@ -85,7 +88,7 @@ const router = createRouter({
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
-      meta: { anyone: true },
+      meta: { anyone: true, title: 'Page not found' },
     },
   ],
 })
@@ -124,5 +127,12 @@ router.beforeEach(async (to) => {
   }
   return true
 })
+
+/** "Cases · DSM Negotiator" — each tab says where it is. */
+export const APP_NAME = 'DSM Negotiator'
+export function setTitle(page?: string | null) {
+  document.title = page ? `${page} · ${APP_NAME}` : APP_NAME
+}
+router.afterEach((to) => setTitle(typeof to.meta.title === 'string' ? to.meta.title : null))
 
 export default router
