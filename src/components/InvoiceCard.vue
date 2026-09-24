@@ -6,6 +6,7 @@ import { ApiError } from '@/api/client'
 import type { CaseDetail, InvoiceBreakdown } from '@/api/types'
 import { caseBodyFromDetail } from '@/utils/caseBody'
 import { usd } from '@/utils/format'
+import { parseMoney, parsePercent } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ detail: CaseDetail; invoice: InvoiceBreakdown | null }>()
@@ -55,44 +56,8 @@ watch(
    Storage days are inclusive of both endpoints; an open-ended range accrues through
    today; tax rounds half away from zero. */
 
-/* ---------- strict parsing ----------
-   A figure is taken exactly as typed or not at all: "$1,250.50" is fine, but "-50" or
-   "1e6" is an error shown under the line — never silently turned into 50 or 16. Nothing
-   saves while any figure is invalid. `value` null = the field is empty. */
-
-interface Parsed {
-  value: number | null
-  error: string | null
-}
-
-function parseAmount(v: string, label: string, maxDecimals: number, unit: string): Parsed {
-  const t = v.trim().replace(/^\$\s*/, '').replace(/,/g, '').replace(/\s*%$/, '')
-  if (t === '') return { value: null, error: null }
-  if (t.startsWith('-')) return { value: null, error: `${label} can't be negative.` }
-  if (!/^\d*\.?\d*$/.test(t) || t === '.')
-    return { value: null, error: `${label}: type a plain number, like ${unit}.` }
-  const decimals = t.split('.')[1]?.length ?? 0
-  if (decimals > maxDecimals)
-    return {
-      value: null,
-      error: `${label}: use at most ${maxDecimals} decimal places (${unit}).`,
-    }
-  return { value: Number(t), error: null }
-}
-const MONEY_MAX = 1_000_000
-function parseMoney(v: string, label: string): Parsed {
-  const p = parseAmount(v, label, 2, '1250.00')
-  if (p.value !== null && p.value > MONEY_MAX)
-    return { value: null, error: `${label} is over $1,000,000 — check the figure.` }
-  return p
-}
-
-function parsePercent(v: string, label: string): Parsed {
-  const p = parseAmount(v, label, 3, '7.25')
-  if (p.value !== null && p.value > 100)
-    return { value: null, error: `${label} must be between 0 and 100%.` }
-  return p
-}
+/* Figures are parsed strictly (utils/amount): "-50" or "1e6" is an error under the
+   invoice, never a silent 50 / 16, and nothing saves while any figure is invalid. */
 
 const parsed = computed(() => ({
   admin: parseMoney(f.value.admin, 'Admin fee'),

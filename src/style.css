@@ -456,3 +456,18 @@ mark.blank-mark {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+
+/* Inline field validation (forms use novalidate — no native browser bubbles). */
+label.field > .field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--danger);
+}
+input.invalid,
+select.invalid,
+textarea.invalid {
+  border-color: var(--danger);
+}

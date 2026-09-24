@@ -11,6 +11,7 @@ import { ApiError } from '@/api/client'
 import type { CaseDetail, CustomerSearchResult } from '@/api/types'
 import { caseBodyFromDetail } from '@/utils/caseBody'
 import { formatBytes, oneLine, US_STATES } from '@/utils/format'
+import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
 
@@ -34,7 +35,7 @@ const form = ref({
   customerId: null as string | null,
   vehicleDescription: '',
   state: '',
-  invoiceTotal: 0,
+  invoiceTotal: '',
   notes: '',
 })
 
@@ -53,7 +54,7 @@ function resetForm() {
     customerId: d.customerId,
     vehicleDescription: d.vehicleDescription ?? '',
     state: d.case.state ?? '',
-    invoiceTotal: d.case.invoiceTotalCents / 100,
+    invoiceTotal: d.case.invoiceTotalCents ? (d.case.invoiceTotalCents / 100).toFixed(2) : '',
     notes: d.notes ?? '',
   }
   pristine.value = JSON.stringify(form.value)
@@ -85,7 +86,19 @@ function opt(v: string): string | null {
   return t ? t : null
 }
 
+// Strict: "-50" or "1e6" is an error here, never a silent number.
+const estimate = computed(() => parseMoney(form.value.invoiceTotal, 'Repair estimate'))
+// A state saved before the list existed ("TE") still shows, so it can be corrected.
+const stateOptions = computed(() =>
+  form.value.state && !US_STATES.includes(form.value.state) ? [form.value.state, ...US_STATES] : US_STATES,
+)
+
 async function save() {
+  if (estimate.value.error) return
+  if (!oneLine(form.value.title)) {
+    saveError.value = 'Give the case a title.'
+    return
+  }
   saving.value = true
   saveError.value = null
   saved.value = false
@@ -100,8 +113,8 @@ async function save() {
     body.customerName = oneLine(f.customerName)
     body.customerId = f.customerId
     body.vehicleDescription = oneLine(f.vehicleDescription)
-    body.state = opt(f.state.toUpperCase())
-    body.invoiceTotal = Number(f.invoiceTotal) || 0
+    body.state = opt(f.state)
+    body.invoiceTotal = estimate.value.value ?? 0
     body.notes = opt(f.notes)
     await updateCase(shopId.value, caseId.value, body)
     // Accept our own save as the new baseline so the refresh below re-syncs the form.
@@ -170,7 +183,7 @@ async function removeDocument(id: string) {
     <!-- case fields -->
     <section class="card">
       <div class="panel-title">Case details</div>
-      <form @submit.prevent="save">
+      <form novalidate @submit.prevent="save">
         <label class="field customer-field">
           <span>Customer</span>
           <CustomerPicker
@@ -203,14 +216,16 @@ async function removeDocument(id: string) {
         <div class="form-grid">
           <label class="field">
             <span>State</span>
-            <input v-model="form.state" type="text" maxlength="2" list="sidebar-states" />
-            <datalist id="sidebar-states">
-              <option v-for="s in US_STATES" :key="s" :value="s" />
-            </datalist>
+            <select v-model="form.state">
+              <option value="">—</option>
+              <option v-for="s in stateOptions" :key="s" :value="s">{{ s }}</option>
+            </select>
           </label>
           <label class="field">
             <span>Repair estimate ($)</span>
-            <input v-model.number="form.invoiceTotal" type="number" min="0" step="0.01" />
+            <input v-model="form.invoiceTotal" type="text" inputmode="decimal" placeholder="0.00"
+              :class="{ invalid: estimate.error }" :aria-invalid="!!estimate.error" />
+            <small v-if="estimate.error" class="field-error">{{ estimate.error }}</small>
           </label>
         </div>
         <p class="faint tl-hint">

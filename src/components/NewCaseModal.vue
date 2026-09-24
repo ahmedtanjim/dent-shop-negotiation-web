@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { X } from 'lucide-vue-next'
 import { createCase } from '@/api/negotiation'
 import { getShopProfile } from '@/api/shops'
 import { ApiError } from '@/api/client'
 import type { CaseListItem, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { oneLine, US_STATES } from '@/utils/format'
+import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
 
@@ -23,8 +24,9 @@ const title = ref('')
 const insurerName = ref('')
 const insurerClaimNumber = ref('')
 const state = ref('')
-const invoiceTotal = ref<number | null>(null)
-const storagePerDay = ref<number | null>(null)
+// Money fields are typed text, parsed strictly on submit (no native number bubbles).
+const invoiceTotal = ref('')
+const storagePerDay = ref('')
 // Local calendar date (toISOString would flip to yesterday/tomorrow across UTC midnight).
 const now = new Date()
 const storageStartDate = ref(
@@ -41,8 +43,8 @@ onMounted(async () => {
   if (!auth.shopId) return
   try {
     const profile = await getShopProfile(auth.shopId)
-    if (storagePerDay.value === null && profile.defaultStoragePerDay > 0) {
-      storagePerDay.value = profile.defaultStoragePerDay
+    if (!storagePerDay.value && profile.defaultStoragePerDay > 0) {
+      storagePerDay.value = profile.defaultStoragePerDay.toFixed(2)
     }
     if (!state.value && profile.address) {
       const m = profile.address
@@ -67,8 +69,24 @@ function opt(v: string): string | null {
   return t ? t : null
 }
 
+/* Inline validation — shown after the first Create click, then live as the user fixes. */
+const submitted = ref(false)
+const parsedInvoice = computed(() => parseMoney(invoiceTotal.value, 'Repair estimate'))
+const parsedRate = computed(() => parseMoney(storagePerDay.value, 'Storage per day'))
+const errors = computed(() => {
+  const out: Record<string, string> = {}
+  if (!oneLine(title.value)) out.title = 'Give the case a title — it fills itself when you pick a customer.'
+  if (parsedInvoice.value.error) out.invoice = parsedInvoice.value.error
+  if (parsedRate.value.error) out.rate = parsedRate.value.error
+  if (state.value && !US_STATES.includes(state.value)) out.state = 'Pick the state from the list.'
+  return out
+})
+const showErr = (k: string) => (submitted.value ? errors.value[k] : undefined)
+
 async function submit() {
   if (!auth.shopId) return
+  submitted.value = true
+  if (Object.keys(errors.value).length) return
   error.value = null
   busy.value = true
   try {
@@ -79,9 +97,9 @@ async function submit() {
       insurerClaimNumber: oneLine(insurerClaimNumber.value),
       customerName: oneLine(customerName.value),
       vehicleDescription: oneLine(vehicleDescription.value),
-      state: opt(state.value.toUpperCase()),
-      invoiceTotal: invoiceTotal.value ?? 0,
-      storagePerDay: storagePerDay.value ?? 0,
+      state: opt(state.value),
+      invoiceTotal: parsedInvoice.value.value ?? 0,
+      storagePerDay: parsedRate.value.value ?? 0,
       storageStartDate: opt(storageStartDate.value),
       notes: opt(notes.value),
       customerId: linkedCustomerId.value,
@@ -104,7 +122,7 @@ async function submit() {
         <button class="btn btn-ghost btn-sm" @click="emit('close')"><X :size="16" /></button>
       </div>
 
-      <form @submit.prevent="submit">
+      <form novalidate @submit.prevent="submit">
         <!-- customer first: pick from DSM and the name, vehicle, and title fill themselves -->
         <label class="field customer-field">
           <span>Customer — start typing to pull from DSM</span>
@@ -130,10 +148,11 @@ async function submit() {
           </label>
           <label class="field">
             <span>State</span>
-            <input v-model="state" type="text" maxlength="2" list="us-states" placeholder="OH" />
-            <datalist id="us-states">
-              <option v-for="s in US_STATES" :key="s" :value="s" />
-            </datalist>
+            <select v-model="state" :class="{ invalid: showErr('state') }">
+              <option value="">— choose —</option>
+              <option v-for="s in US_STATES" :key="s" :value="s">{{ s }}</option>
+            </select>
+            <small v-if="showErr('state')" class="field-error">{{ showErr('state') }}</small>
           </label>
           <label class="field">
             <span>In shop since</span>
@@ -141,17 +160,23 @@ async function submit() {
           </label>
           <label class="field">
             <span>Repair estimate ($)</span>
-            <input v-model.number="invoiceTotal" type="number" min="0" step="0.01" />
+            <input v-model="invoiceTotal" type="text" inputmode="decimal" placeholder="0.00"
+              :class="{ invalid: showErr('invoice') }" :aria-invalid="!!showErr('invoice')" />
+            <small v-if="showErr('invoice')" class="field-error">{{ showErr('invoice') }}</small>
           </label>
           <label class="field">
             <span>Storage per day ($)</span>
-            <input v-model.number="storagePerDay" type="number" min="0" step="0.01" />
+            <input v-model="storagePerDay" type="text" inputmode="decimal" placeholder="0.00"
+              :class="{ invalid: showErr('rate') }" :aria-invalid="!!showErr('rate')" />
+            <small v-if="showErr('rate')" class="field-error">{{ showErr('rate') }}</small>
           </label>
         </div>
 
         <label class="field">
           <span>Case title *</span>
-          <input v-model="title" type="text" required placeholder="Fills itself when you pick a customer" />
+          <input v-model="title" type="text" required placeholder="Fills itself when you pick a customer"
+            :class="{ invalid: showErr('title') }" :aria-invalid="!!showErr('title')" />
+          <small v-if="showErr('title')" class="field-error">{{ showErr('title') }}</small>
         </label>
 
         <label class="field">
@@ -159,6 +184,9 @@ async function submit() {
           <textarea v-model="notes" rows="2" />
         </label>
 
+        <p v-if="submitted && Object.keys(errors).length" class="error-text" role="alert">
+          Fix the highlighted {{ Object.keys(errors).length === 1 ? 'field' : 'fields' }} to create the case.
+        </p>
         <p v-if="error" class="error-text">{{ error }}</p>
 
         <div class="actions">
