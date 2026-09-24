@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import { Check, Copy, RefreshCw } from 'lucide-vue-next'
 import type { GeneratedDoc, GeneratedDocs } from '@/api/types'
 import { copyLetter, letterToHtml, letterToPlainText } from '@/utils/letterMarkdown'
+import { findBlanks } from '@/utils/placeholders'
+import BlanksNotice from '@/components/BlanksNotice.vue'
 
 const props = defineProps<{ docs: GeneratedDocs | null; loading: boolean; error: string | null }>()
 const emit = defineEmits<{ reload: [] }>()
@@ -10,6 +12,10 @@ const emit = defineEmits<{ reload: [] }>()
 const shopDocs = computed(() => props.docs?.documents.filter((d) => d.voice === 'Shop') ?? [])
 const customerDocs = computed(
   () => props.docs?.documents.filter((d) => d.voice === 'Customer') ?? [],
+)
+/** Blanks left in any letter (missing shop-profile fields, mostly) — listed once, above. */
+const blanks = computed(() =>
+  findBlanks(...(props.docs?.documents.flatMap((d) => [d.subject, d.body]) ?? [])),
 )
 
 /** First non-empty paragraph, trimmed to a card-sized excerpt. */
@@ -44,6 +50,7 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
     </p>
 
     <div v-else-if="docs" class="stacks">
+      <BlanksNotice :blanks="blanks" class="letters-blanks" />
       <div class="col col-shop">
         <div class="seclbl">Shop sends <span class="sub">from your own mailbox</span></div>
         <article v-for="d in shopDocs" :key="d.key" class="card letter" :class="{ open: open === d.key }">
@@ -52,7 +59,7 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
           <p v-if="open !== d.key" class="excerpt">"{{ excerpt(d) }}"</p>
           <div v-else class="full">
             <p class="subject mono">{{ d.subject }}</p>
-            <div class="body" v-html="letterToHtml(d.body)"></div>
+            <div class="body" v-html="letterToHtml(d.body, { highlightBlanks: true })"></div>
           </div>
           <div class="foot">
             <button class="btn btn-ghost btn-sm" @click="toggle(d.key)">
@@ -84,7 +91,7 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
           <p v-if="open !== d.key" class="excerpt">"{{ excerpt(d) }}"</p>
           <div v-else class="full">
             <p class="subject mono">{{ d.subject }}</p>
-            <div class="body" v-html="letterToHtml(d.body)"></div>
+            <div class="body" v-html="letterToHtml(d.body, { highlightBlanks: true })"></div>
           </div>
           <div class="foot">
             <button class="btn btn-ghost btn-sm" @click="toggle(d.key)">
@@ -105,6 +112,9 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
 </template>
 
 <style scoped>
+.letters-blanks {
+  grid-column: 1 / -1;
+}
 .loading {
   font-size: 13.5px;
   padding: 6px 0;

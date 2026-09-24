@@ -9,6 +9,8 @@ import type { CaseDetail, NegMessage } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
+import BlanksNotice from '@/components/BlanksNotice.vue'
+import { findBlanks } from '@/utils/placeholders'
 
 const props = defineProps<{
   detail: CaseDetail
@@ -554,7 +556,19 @@ function fromLine(m: NegMessage): string {
           <h3 class="msg-subject">{{ m.subject }}</h3>
       <!-- Letters are light Markdown (bold headings, bullets); letterToHtml escapes first, so
            inbound email text can never become markup. -->
-      <div class="msg-body" :class="{ expanded: expandedIds.has(m.id) }" v-html="letterToHtml(m.body)"></div>
+      <!-- our own letters (drafts, sent) highlight any blank the drafter left; the insurer's
+           text is shown exactly as received -->
+      <BlanksNotice
+        v-if="m.kind === 'Draft'"
+        :blanks="findBlanks(m.subject, m.body)"
+        what="new drafts"
+        class="draft-blanks"
+      />
+      <div
+        class="msg-body"
+        :class="{ expanded: expandedIds.has(m.id) }"
+        v-html="letterToHtml(m.body, { highlightBlanks: m.kind !== 'Inbound' })"
+      ></div>
       <button
         v-if="m.body.length > LONG_BODY"
         class="btn btn-ghost btn-sm expand-toggle"
@@ -962,6 +976,9 @@ function fromLine(m: NegMessage): string {
 .msg-subject {
   font-size: 14.5px;
   margin-bottom: 8px;
+}
+.draft-blanks {
+  margin: 4px 0 10px;
 }
 .msg-body {
   font-family: inherit;

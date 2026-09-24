@@ -444,3 +444,15 @@ table.data tbody tr:hover {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* A bracketed blank in a letter or draft ([OWNER NAME], [CONFIRM: …]) — rendered by
+   letterToHtml({ highlightBlanks }) so it never reads as finished text. */
+mark.blank-mark {
+  background: rgba(245, 166, 35, 0.26);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 3px;
+  font-weight: 600;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
