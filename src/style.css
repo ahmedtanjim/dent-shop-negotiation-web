@@ -471,3 +471,70 @@ select.invalid,
 textarea.invalid {
   border-color: var(--danger);
 }
+
+/* ---------- print ----------
+   Printing a case gives a clean black-on-white record: the light palette whatever the
+   screen theme, no app chrome or controls, letters and emails printed in full. */
+@media print {
+  :root,
+  :root[data-theme='light'],
+  :root[data-theme='dark'] {
+    --bg: #ffffff;
+    --bg-raised: #ffffff;
+    --panel: #ffffff;
+    --panel-soft: #ffffff;
+    --border: #c9ccd3;
+    --border-soft: #dfe1e6;
+    --text: #111318;
+    --text-muted: #3d4350;
+    --text-faint: #5f6672;
+    --accent: #3b46b0;
+    --amber: #8a4a07;
+    --green: #146c3d;
+    --danger: #b3261e;
+    --shadow: none;
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111318;
+  }
+  /* app chrome and anything you can only click */
+  .topbar,
+  .sub-banner,
+  .tabs,
+  .crumb,
+  .glow,
+  .hero-glow,
+  .btn,
+  button,
+  .paste-strip,
+  .nego-right,
+  .usage,
+  .datefield svg,
+  .intake-actions,
+  .foot,
+  .msg-actions,
+  .expand-toggle {
+    display: none !important;
+  }
+  .card {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  /* long letters and emails print in full, not clamped */
+  .msg-body,
+  .letter .body {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  mark.blank-mark {
+    background: none;
+    outline: 1px dashed currentColor;
+  }
+}
