@@ -119,8 +119,11 @@ async function submit() {
             autofocus
           />
         </label>
-        <label class="f">
-          <span class="lbl"><span>Password</span><a class="forgot" :href="`${CRM_URL}/forgot`">Forgot it?</a></span>
+        <!-- "Forgot it?" sits top-right visually but comes after the password in the DOM,
+             so Tab goes Email → Password → Show → Forgot (it used to jump ahead of the
+             password field). -->
+        <div class="f f-pw">
+          <label class="lbl" for="login-password"><span>Password</span></label>
           <span class="pw">
             <input
               id="login-password"
@@ -134,7 +137,8 @@ async function submit() {
               <EyeOff v-if="show" :size="16" /><Eye v-else :size="16" />
             </button>
           </span>
-        </label>
+          <a class="forgot" :href="`${CRM_URL}/forgot`">Forgot it?</a>
+        </div>
 
         <p v-if="error" class="error-text" role="alert">{{ error }}</p>
 
@@ -340,6 +344,15 @@ h1 {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
+}
+.f-pw {
+  position: relative;
+}
+.f-pw .forgot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 13px;
 }
 .forgot {
   font-weight: 500;
