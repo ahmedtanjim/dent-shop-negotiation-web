@@ -55,9 +55,54 @@ watch(
    Storage days are inclusive of both endpoints; an open-ended range accrues through
    today; tax rounds half away from zero. */
 
-function num(v: string): number {
-  const n = parseFloat(v.replace(/[^0-9.]/g, ''))
-  return Number.isFinite(n) ? n : 0
+/* ---------- strict parsing ----------
+   A figure is taken exactly as typed or not at all: "$1,250.50" is fine, but "-50" or
+   "1e6" is an error shown under the line — never silently turned into 50 or 16. Nothing
+   saves while any figure is invalid. `value` null = the field is empty. */
+
+interface Parsed {
+  value: number | null
+  error: string | null
+}
+
+function parseAmount(v: string, label: string, maxDecimals: number, unit: string): Parsed {
+  const t = v.trim().replace(/^\$\s*/, '').replace(/,/g, '').replace(/\s*%$/, '')
+  if (t === '') return { value: null, error: null }
+  if (t.startsWith('-')) return { value: null, error: `${label} can't be negative.` }
+  if (!/^\d*\.?\d*$/.test(t) || t === '.')
+    return { value: null, error: `${label}: type a plain number, like ${unit}.` }
+  const decimals = t.split('.')[1]?.length ?? 0
+  if (decimals > maxDecimals)
+    return {
+      value: null,
+      error: `${label}: use at most ${maxDecimals} decimal places (${unit}).`,
+    }
+  return { value: Number(t), error: null }
+}
+const MONEY_MAX = 1_000_000
+function parseMoney(v: string, label: string): Parsed {
+  const p = parseAmount(v, label, 2, '1250.00')
+  if (p.value !== null && p.value > MONEY_MAX)
+    return { value: null, error: `${label} is over $1,000,000 — check the figure.` }
+  return p
+}
+
+const parsed = computed(() => ({
+  admin: parseMoney(f.value.admin, 'Admin fee'),
+  lot: parseMoney(f.value.lot, 'Lot / gate fee'),
+  perDay: parseMoney(f.value.perDay, 'Storage per day'),
+  tax: parseAmount(f.value.tax, 'Sales tax', 3, '7.25'),
+}))
+type Figure = keyof typeof parsed.value
+const errors = computed(() => {
+  const out: Partial<Record<Figure, string>> = {}
+  for (const [k, p] of Object.entries(parsed.value)) if (p.error) out[k as Figure] = p.error
+  return out
+})
+const hasErrors = computed(() => Object.keys(errors.value).length > 0)
+/** The typed figure as a number — 0 when empty or invalid (invalid never saves). */
+function val(k: Figure): number {
+  return parsed.value[k].value ?? 0
 }
 
 function utcDay(dateStr: string): number | null {
@@ -67,9 +112,9 @@ function utcDay(dateStr: string): number | null {
 }
 
 const live = computed(() => {
-  const admin = num(f.value.admin)
-  const lot = num(f.value.lot)
-  const rate = num(f.value.perDay)
+  const admin = val('admin')
+  const lot = val('lot')
+  const rate = val('perDay')
   const start = utcDay(f.value.since)
   let days = 0
   if (start !== null && rate > 0) {
@@ -78,7 +123,7 @@ const live = computed(() => {
   }
   const storage = days * rate
   const subtotal = admin + lot + storage
-  const taxPct = num(f.value.tax)
+  const taxPct = val('tax')
   // Server rounds tax in integer cents, half away from zero: round(subtotalCents · pct/100).
   const tax = Math.round(subtotal * taxPct) / 100
   return { days, storage, subtotal, taxPct, tax, total: subtotal + tax }
@@ -96,14 +141,19 @@ const storageIssue = computed<string | null>(() => {
   const end = utcDay(f.value.until)
   const today = Math.floor(Date.now() / 86400000)
   if (start === null) return 'no start date (set "Storage since")'
-  if (num(f.value.perDay) <= 0) return 'the daily rate is $0 (enter your storage rate)'
+  if (val('perDay') <= 0) return 'the daily rate is $0 (enter your storage rate)'
   if (start > today) return 'the start date is in the future'
   if (end !== null && end < start) return 'the end date is before the start date'
   return live.value.days === 0 ? 'no storage days in the date range' : null
 })
 const storageMissing = computed(() => storageIssue.value !== null)
 const emitTotal = defineModel<number | null>('liveTotal')
-watch(live, (v) => (emitTotal.value = v.total), { immediate: true })
+// While a figure is invalid the header keeps the last saved balance.
+watch(
+  [live, hasErrors],
+  ([v, bad]) => (emitTotal.value = bad ? (props.invoice?.total ?? null) : v.total),
+  { immediate: true },
+)
 const emitIssue = defineModel<string | null>('storageIssue')
 watch(storageIssue, (v) => (emitIssue.value = v), { immediate: true })
 
@@ -121,21 +171,22 @@ function touched(field: string) {
 }
 onBeforeUnmount(() => clearTimeout(timer))
 
-function optOverride(field: string, entered: string, original: number | null): number | null {
+function optOverride(field: Figure, original: number | null): number | null {
   if (!edited.value.has(field)) return original
-  const t = entered.trim()
-  return t === '' ? null : num(entered)
+  return parsed.value[field].value
 }
 
 async function save() {
+  // Invalid figures stay on screen with their message; nothing is sent until they're fixed.
+  if (hasErrors.value) return
   saving.value = true
   saveError.value = null
   const d = props.detail
   const body = caseBodyFromDetail(d)
-  body.adminFee = optOverride('admin', f.value.admin, d.adminFee)
-  body.lotFee = optOverride('lot', f.value.lot, d.lotFee)
-  body.salesTaxPercent = optOverride('tax', f.value.tax, d.salesTaxPercent)
-  body.storagePerDay = edited.value.has('perDay') ? num(f.value.perDay) : d.storagePerDayCents / 100
+  body.adminFee = optOverride('admin', d.adminFee)
+  body.lotFee = optOverride('lot', d.lotFee)
+  body.salesTaxPercent = optOverride('tax', d.salesTaxPercent)
+  body.storagePerDay = edited.value.has('perDay') ? val('perDay') : d.storagePerDayCents / 100
   if (edited.value.has('since')) body.storageStartDate = f.value.since || null
   if (edited.value.has('until')) body.storageEndDate = f.value.until || null
   try {
@@ -187,14 +238,14 @@ async function onPdf() {
       <div class="line">
         <span class="desc">Admin / blueprinting fee</span>
         <span class="val"
-          >$ <input v-model="f.admin" class="blank" inputmode="decimal" aria-label="Admin fee, dollars"
+          >$ <input v-model="f.admin" class="blank" :class="{ invalid: errors.admin }" :aria-invalid="!!errors.admin" inputmode="decimal" aria-label="Admin fee, dollars"
             @input="touched('admin')"
         /></span>
       </div>
       <div class="line">
         <span class="desc">Commercial lot / gate fee</span>
         <span class="val"
-          >$ <input v-model="f.lot" class="blank" inputmode="decimal" aria-label="Lot or gate fee, dollars"
+          >$ <input v-model="f.lot" class="blank" :class="{ invalid: errors.lot }" :aria-invalid="!!errors.lot" inputmode="decimal" aria-label="Lot or gate fee, dollars"
             @input="touched('lot')"
         /></span>
       </div>
@@ -209,10 +260,10 @@ async function onPdf() {
             · <span class="mono days">{{ live.days }}</span>&nbsp;days ·
           </template>
           <template v-else> · </template>
-          $ <input v-model="f.perDay" class="blank rate" inputmode="decimal" aria-label="Storage per day, dollars"
+          $ <input v-model="f.perDay" class="blank rate" :class="{ invalid: errors.perDay }" :aria-invalid="!!errors.perDay" inputmode="decimal" aria-label="Storage per day, dollars"
             @input="touched('perDay')" /> /day
         </span>
-        <span class="val mono">{{ usd(live.storage) }}</span>
+        <span class="val mono">{{ errors.perDay ? '—' : usd(live.storage) }}</span>
       </div>
       <div class="line sub">
         <span class="desc">
@@ -229,15 +280,20 @@ async function onPdf() {
       <div class="line">
         <span class="desc">
           Sales tax ·
-          <input v-model="f.tax" class="blank pct" inputmode="decimal" aria-label="Sales tax percent"
+          <input v-model="f.tax" class="blank pct" :class="{ invalid: errors.tax }" :aria-invalid="!!errors.tax" inputmode="decimal" aria-label="Sales tax percent"
             @input="touched('tax')" /> %
         </span>
-        <span class="val mono">{{ usd(live.tax) }}</span>
+        <span class="val mono">{{ hasErrors ? '—' : usd(live.tax) }}</span>
       </div>
       <div class="line total">
         <span class="desc">Total recovery balance</span>
-        <span class="val mono">{{ usd(live.total) }}</span>
+        <span class="val mono">{{ hasErrors ? '—' : usd(live.total) }}</span>
       </div>
+    </div>
+
+    <div v-if="hasErrors" class="field-errs" role="alert">
+      <p v-for="(msg, k) in errors" :key="k" class="field-err">{{ msg }}</p>
+      <p class="field-err-note">Nothing is saved until the figure is fixed.</p>
     </div>
 
     <p v-if="saveError" class="error-text">{{ saveError }}</p>
@@ -340,6 +396,25 @@ async function onPdf() {
 }
 .days {
   font-size: 12.5px;
+}
+.blank.invalid,
+.blank.invalid:hover,
+.blank.invalid:focus {
+  outline: 1.5px solid var(--danger);
+}
+.field-errs {
+  margin-top: 8px;
+}
+.field-err {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.field-err-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
 }
 .issue {
   margin: 6px 0 0;
