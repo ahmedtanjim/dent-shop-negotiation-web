@@ -93,11 +93,11 @@ const features = [
       </p>
       <div class="hero-ctas">
         <RouterLink :to="{ name: 'register' }" class="btn btn-primary btn-lg">
-          Start your free trial <ArrowRight :size="16" />
+          Get the Negotiator <ArrowRight :size="16" />
         </RouterLink>
         <RouterLink :to="{ name: 'login' }" class="btn btn-lg">I have an account</RouterLink>
       </div>
-      <p class="hero-note muted">7-day free trial · Your team included · Cancel anytime</p>
+      <p class="hero-note muted">$1,999/year · Dent Shop Manager Annual plan included · Your whole team</p>
 
       <div class="hero-stats">
         <div class="stat">
@@ -150,30 +150,18 @@ const features = [
       <h2 class="section-title">One recovered supplement pays for the year</h2>
       <p class="section-sub muted">Flat annual pricing, per shop location. Every seat included.</p>
       <div class="pricing">
-        <div class="price-card card">
+        <div class="price-card card featured">
           <h3>DSM Negotiator</h3>
           <div class="price"><span class="price-num">$1,999</span><span class="muted">/year</span></div>
           <ul>
+            <li><Check :size="14" /> Dent Shop Manager Annual plan included</li>
             <li><Check :size="14" /> Unlimited cases &amp; team seats</li>
             <li><Check :size="14" /> AI drafting, copilot chat &amp; .eml intake</li>
             <li><Check :size="14" /> State-specific legal backing, kept current</li>
             <li><Check :size="14" /> Fact ledger, documents &amp; full paper trail</li>
           </ul>
-          <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Start free trial</RouterLink>
-        </div>
-        <div class="price-card card featured">
-          <span class="pill pill-blue deal-pill">For Dent Shop Manager subscribers</span>
-          <h3>Bundle price</h3>
-          <div class="price">
-            <span class="price-num">$999</span><span class="muted">/year</span>
-            <span class="price-was muted">$1,999</span>
-          </div>
-          <ul>
-            <li><Check :size="14" /> Everything in DSM Negotiator</li>
-            <li><Check :size="14" /> 50% off with your active DSM subscription</li>
-            <li><Check :size="14" /> One login for your whole shop</li>
-          </ul>
-          <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Start free trial</RouterLink>
+          <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Get the Negotiator</RouterLink>
+          <p class="price-note faint">One price, billed yearly. Already on Dent Shop Manager? Your plan upgrades to this one, no second subscription.</p>
         </div>
       </div>
     </section>
@@ -416,7 +404,7 @@ const features = [
 /* pricing */
 .pricing {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 380px));
+  grid-template-columns: minmax(0, 420px);
   gap: 16px;
   justify-content: center;
   margin-top: 32px;
@@ -431,9 +419,6 @@ const features = [
   border-color: rgba(123, 135, 255, 0.5);
   background: linear-gradient(180deg, rgba(123, 135, 255, 0.08), var(--panel) 55%);
 }
-.deal-pill {
-  align-self: flex-start;
-}
 .price-card h3 {
   font-size: 16px;
 }
@@ -447,10 +432,10 @@ const features = [
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.price-was {
-  text-decoration: line-through;
-  font-size: 15px;
-  margin-left: 6px;
+.price-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 .price-card ul {
   list-style: none;
