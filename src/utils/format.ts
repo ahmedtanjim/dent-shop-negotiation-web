@@ -55,3 +55,10 @@ export const US_STATES = [
   'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
   'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
 ]
+
+/** A single-line field as it should be stored: runs of spaces/tabs/newlines collapsed to
+ *  one space, trimmed; empty becomes null. ("E2E-NEG  jane   doe" → "E2E-NEG jane doe") */
+export function oneLine(v: string | null | undefined): string | null {
+  const t = (v ?? '').replace(/\s+/g, ' ').trim()
+  return t ? t : null
+}

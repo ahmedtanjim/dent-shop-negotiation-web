@@ -10,7 +10,7 @@ import {
 import { ApiError } from '@/api/client'
 import type { CaseDetail, CustomerSearchResult } from '@/api/types'
 import { caseBodyFromDetail } from '@/utils/caseBody'
-import { formatBytes, US_STATES } from '@/utils/format'
+import { formatBytes, oneLine, US_STATES } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
 
@@ -92,12 +92,14 @@ async function save() {
   try {
     const f = form.value
     const body = caseBodyFromDetail(props.detail)
-    body.title = f.title.trim()
-    body.insurerName = opt(f.insurerName)
-    body.insurerClaimNumber = opt(f.insurerClaimNumber)
-    body.customerName = opt(f.customerName)
+    // Single-line fields are stored with their whitespace collapsed — they end up in
+    // letter subjects and the PDF file name.
+    body.title = oneLine(f.title) ?? ''
+    body.insurerName = oneLine(f.insurerName)
+    body.insurerClaimNumber = oneLine(f.insurerClaimNumber)
+    body.customerName = oneLine(f.customerName)
     body.customerId = f.customerId
-    body.vehicleDescription = opt(f.vehicleDescription)
+    body.vehicleDescription = oneLine(f.vehicleDescription)
     body.state = opt(f.state.toUpperCase())
     body.invoiceTotal = Number(f.invoiceTotal) || 0
     body.notes = opt(f.notes)

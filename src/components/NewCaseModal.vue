@@ -5,7 +5,7 @@ import { createCase } from '@/api/negotiation'
 import { getShopProfile } from '@/api/shops'
 import { ApiError } from '@/api/client'
 import type { CaseListItem, CustomerSearchResult, UpsertCase } from '@/api/types'
-import { US_STATES } from '@/utils/format'
+import { oneLine, US_STATES } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
 
@@ -73,11 +73,12 @@ async function submit() {
   busy.value = true
   try {
     const body: UpsertCase = {
-      title: title.value.trim(),
-      insurerName: opt(insurerName.value),
-      insurerClaimNumber: opt(insurerClaimNumber.value),
-      customerName: opt(customerName.value),
-      vehicleDescription: opt(vehicleDescription.value),
+      // single-line fields collapse stray spaces — they reach subjects and file names
+      title: oneLine(title.value) ?? '',
+      insurerName: oneLine(insurerName.value),
+      insurerClaimNumber: oneLine(insurerClaimNumber.value),
+      customerName: oneLine(customerName.value),
+      vehicleDescription: oneLine(vehicleDescription.value),
       state: opt(state.value.toUpperCase()),
       invoiceTotal: invoiceTotal.value ?? 0,
       storagePerDay: storagePerDay.value ?? 0,

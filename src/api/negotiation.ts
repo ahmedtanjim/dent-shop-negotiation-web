@@ -78,7 +78,8 @@ export async function downloadInvoicePdf(
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = customerName ? `TL ${customerName}.pdf` : 'total-loss-invoice.pdf'
+  const name = customerName?.replace(/\s+/g, ' ').trim()
+  a.download = name ? `TL ${name}.pdf` : 'total-loss-invoice.pdf'
   document.body.appendChild(a)
   a.click()
   a.remove()
