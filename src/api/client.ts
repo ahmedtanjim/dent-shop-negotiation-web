@@ -71,7 +71,7 @@ function dispositionFileName(header: string | null): string | null {
   return plain ? plain[2].trim() : null
 }
 
-const NETWORK_ERROR = 'Could not reach the server. Is the API running?'
+const NETWORK_ERROR = "Can't reach Dent Shop Manager right now. Check your internet connection and try again."
 
 function authHeader(): Record<string, string> {
   const token = localStorage.getItem(STORAGE_KEYS.token)
