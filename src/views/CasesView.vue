@@ -133,7 +133,7 @@ onMounted(async () => {
             <th>Insurer</th>
             <th>Claim #</th>
             <th>Customer</th>
-            <th class="num">Invoice</th>
+            <th class="num">Repair est.</th>
             <th class="num">Msgs</th>
             <th>Updated</th>
           </tr>

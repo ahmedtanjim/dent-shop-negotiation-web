@@ -207,12 +207,13 @@ async function removeDocument(id: string) {
             </datalist>
           </label>
           <label class="field">
-            <span>Invoice ($)</span>
+            <span>Repair estimate ($)</span>
             <input v-model.number="form.invoiceTotal" type="number" min="0" step="0.01" />
           </label>
         </div>
         <p class="faint tl-hint">
-          Storage dates, fees, and the daily rate are edited on the invoice itself →
+          The repair estimate is for reference only. The recovery balance is the Total Loss
+          Invoice: its storage dates, fees, and daily rate are edited on the invoice itself →
         </p>
 
         <label class="field">

@@ -5,7 +5,7 @@ import { ArrowLeft, AlertTriangle, X } from 'lucide-vue-next'
 import { getCase, getGeneratedDocs } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, GeneratedDocs } from '@/api/types'
-import { usd } from '@/utils/format'
+import { centsToUsd, usd } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import StatusPill from '@/components/StatusPill.vue'
 import CaseSidebar from '@/components/CaseSidebar.vue'
@@ -140,6 +140,12 @@ watch(
         <div class="balance">
           <div class="lbl">Total recovery balance</div>
           <div class="amt mono">{{ heroTotal !== null ? usd(heroTotal) : '—' }}</div>
+          <div class="basis">
+            From the Total Loss Invoice: fees + storage + tax.
+            <template v-if="detail.case.invoiceTotalCents > 0">
+              <br />Repair estimate {{ centsToUsd(detail.case.invoiceTotalCents) }} is tracked separately.
+            </template>
+          </div>
           <span v-if="accruing" class="accruing">
             <span class="dot"></span>Accruing · {{ usd(invoice!.storagePerDay) }}/day
           </span>
@@ -311,6 +317,12 @@ watch(
   line-height: 1.1;
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
+}
+.balance .basis {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-faint);
 }
 .accruing {
   display: inline-flex;

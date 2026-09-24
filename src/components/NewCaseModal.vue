@@ -139,7 +139,7 @@ async function submit() {
             <input v-model="storageStartDate" type="date" />
           </label>
           <label class="field">
-            <span>Invoice total ($)</span>
+            <span>Repair estimate ($)</span>
             <input v-model.number="invoiceTotal" type="number" min="0" step="0.01" />
           </label>
           <label class="field">
