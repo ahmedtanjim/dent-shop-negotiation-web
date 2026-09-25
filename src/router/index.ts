@@ -118,10 +118,11 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
-  // The plan gate. Read once per shop (fail-open on error — the API's 402 is the real
-  // gate); below the AI tier every page becomes the paywall, and an AI shop that lands
-  // on the paywall by an old link goes straight through. Stripe's return (?status=…)
-  // always renders the paywall so it can confirm the switch and redirect itself.
+  // The plan gate. Read once per shop; below the AI tier every page becomes the paywall,
+  // and an AI shop that lands on the paywall by an old link goes straight through.
+  // Stripe's return (?status=…) always renders the paywall so it can confirm the switch
+  // and redirect itself. When the lookup fails the plan is unknown: pages stay open (the
+  // API's 402 is the real gate) and the paywall offers a retry, never "AI plan active".
   const ent = useEntitlementStore()
   await ent.load(auth.shopId!)
   if (to.name === 'paywall') {
@@ -133,7 +134,7 @@ router.beforeEach(async (to) => {
     }
     return true
   }
-  if (!ent.isAi) {
+  if (ent.known && !ent.isAi) {
     return { name: 'paywall', query: to.fullPath !== '/' ? { redirect: to.fullPath } : {} }
   }
   return true

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, Copy, Lock, User } from 'lucide-vue-next'
+import { ArrowRight, Check, Copy, Lock, RefreshCw, User } from 'lucide-vue-next'
 import { listMembers, openPortal, startCheckout } from '@/api/billing'
 import { ApiError, CRM_URL } from '@/api/client'
 import { goToCrm } from '@/api/handoff'
@@ -131,6 +131,19 @@ async function awaitActivation() {
   activationFailed.value = true
 }
 
+// ---- the plan lookup failed: unknown, never "active" ----
+const retrying = ref(false)
+const retryFailed = ref(false)
+async function retryLookup() {
+  retrying.value = true
+  retryFailed.value = false
+  await ent.load(shopId(), true)
+  retrying.value = false
+  retryFailed.value = ent.failed
+  // Same rule as the router: an AI shop bounced here by a ?redirect link goes straight on.
+  if (ent.isAi && !status.value && redirectTo.value !== '/') router.replace(redirectTo.value)
+}
+
 // ---- everyone else: a note for the owner ----
 const ownerName = ref<string | null>(null)
 const copied = ref(false)
@@ -176,8 +189,34 @@ onMounted(async () => {
     <img :src="theme === 'dark' ? bgDark : bgLight" class="bg" alt="" aria-hidden="true" />
     <div class="scrim" aria-hidden="true"></div>
 
+    <!-- The plan couldn't be read: say so and offer a retry. Never a guess either way. -->
+    <section v-if="!ent.known && !activating" class="sheet card solo" aria-labelledby="pw-unknown-title">
+      <div class="pitch">
+        <div class="eyebrow">
+          <span class="pill pill-amber">Plan unknown</span>
+          <span class="muted status-line">{{ auth.shopName ?? 'Your shop' }}</span>
+        </div>
+        <h1 id="pw-unknown-title">We couldn't check your shop's plan.</h1>
+        <p class="lede muted">
+          <template v-if="activationFailed">
+            Stripe may already have your payment, but we couldn't confirm the switch here.
+          </template>
+          The billing lookup didn't go through, so we can't tell yet whether the Negotiator is on
+          your plan. Nothing has been changed or charged. Try again in a moment.
+        </p>
+        <div class="ctas">
+          <button class="btn btn-primary btn-lg" type="button" :disabled="retrying" @click="retryLookup">
+            <span v-if="retrying" class="spinner"></span><RefreshCw v-else :size="16" />
+            Try again
+          </button>
+          <a class="btn btn-lg" :href="CRM_URL" @click.prevent="goToCrm('/')">Back to the shop system</a>
+        </div>
+        <p v-if="retryFailed" class="error-text" role="status">Still can't reach billing. Check your connection and try again.</p>
+      </div>
+    </section>
+
     <!-- Already on the AI plan (and not mid-Stripe-return): say so, don't sell it. -->
-    <section v-if="ent.isAi && !status" class="sheet card solo" aria-labelledby="pw-active-title">
+    <section v-else-if="ent.isAi && !status" class="sheet card solo" aria-labelledby="pw-active-title">
       <div class="pitch">
         <div class="eyebrow">
           <span class="pill pill-green"><Check :size="11" /> AI plan · active</span>

@@ -3,18 +3,25 @@ import { defineStore } from 'pinia'
 import { getBilling, syncBilling } from '@/api/billing'
 import type { BillingState, PlanTier } from '@/api/types'
 
-/** The shop's plan, read once per session (and again after Stripe). Fail-open: until it
- *  loads — or if the request fails — the shop counts as Ai, so a paying shop never sees
- *  the paywall by mistake; the API's own 402 stays the real gate. */
+/** The shop's plan, read once per session (and again after Stripe). A failed lookup is
+ *  "unknown" — never mistaken for the AI plan. The router still lets an unknown shop
+ *  through to its cases (the API's own 402 stays the real gate, so a paying shop never
+ *  sees the paywall because of a blip), but the paywall itself shows a retry instead of
+ *  claiming "AI plan active". */
 export const useEntitlementStore = defineStore('entitlement', () => {
   const state = ref<BillingState | null>(null)
   const loadedFor = ref<string | null>(null)
+  /** The last lookup failed and nothing is known about the plan. */
+  const failed = ref(false)
   let inflight: Promise<void> | null = null
 
   const entitlement = computed(() => state.value?.entitlement ?? null)
-  const tier = computed<PlanTier>(() => {
+  /** Whether the plan has actually been read (vs failed / not loaded yet). */
+  const known = computed(() => !!entitlement.value)
+  /** The shop's tier, or null while it is unknown. */
+  const tier = computed<PlanTier | null>(() => {
     const e = entitlement.value
-    if (!e) return 'Ai'
+    if (!e) return null
     return e.tier ?? (e.entitled ? 'Ai' : 'Free')
   })
   const isAi = computed(() => tier.value === 'Ai')
@@ -29,10 +36,14 @@ export const useEntitlementStore = defineStore('entitlement', () => {
     inflight = (async () => {
       try {
         state.value = await getBilling(shopId)
-      } catch {
-        state.value = null
-      } finally {
+        failed.value = false
         loadedFor.value = shopId
+      } catch {
+        // Unknown, not "Ai". loadedFor stays unset so the next navigation tries again.
+        state.value = null
+        failed.value = true
+        loadedFor.value = null
+      } finally {
         inflight = null
       }
     })()
@@ -41,13 +52,15 @@ export const useEntitlementStore = defineStore('entitlement', () => {
 
   async function sync(shopId: string): Promise<void> {
     state.value = await syncBilling(shopId)
+    failed.value = false
     loadedFor.value = shopId
   }
 
   function reset() {
     state.value = null
     loadedFor.value = null
+    failed.value = false
   }
 
-  return { state, entitlement, tier, isAi, canUpgradeInPlace, load, sync, reset }
+  return { state, entitlement, known, failed, tier, isAi, canUpgradeInPlace, load, sync, reset }
 })
