@@ -92,7 +92,7 @@ const ladder = [
 const checks = [
   ['Total Loss Invoice', 'storage accrues per day, PDF in one click'],
   ['Adjuster emails read for you', 'stall, lowball, redundant request, denial'],
-  ['Your state’s insurance code', 'attorney-reviewed citations, nothing invented'],
+  ['Verified claim-handling rules', 'cited where they exist for your state, nothing invented'],
   ['Copilot and fact ledger', '“what’s my next move?” answered from the file'],
 ]
 
@@ -298,7 +298,8 @@ onMounted(async () => {
 
         <p v-if="auth.isOwner" class="lede muted">
           Total-loss invoices with storage that accrues by the day, adjuster emails sorted by
-          tactic, and letters that quote your state's insurance code. One plan for the whole
+          tactic, and letters that cite verified claim-handling rules where they exist for your
+          state. One plan for the whole
           shop with everything in Annual included<template v-if="paying && !trialing">: Stripe
           prorates what you've already paid, nothing restarts</template>. The AI plan has no
           trial<template v-if="trialing">: adding it ends your {{ planLabel }} trial today and

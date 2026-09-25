@@ -22,7 +22,7 @@ const steps = [
   {
     icon: FileText,
     title: 'The AI drafts your response',
-    text: 'Pick the tone — cooperative to final notice. The draft is grounded in your case’s own facts and cites your state’s real insurance regulations, verbatim.',
+    text: 'Pick the tone — cooperative to final notice. The draft is grounded in your case’s own facts and cites verified claim-handling rules where they exist for your state, verbatim.',
   },
   {
     icon: ShieldCheck,
@@ -34,8 +34,8 @@ const steps = [
 const features = [
   {
     icon: Landmark,
-    title: 'Your state’s law, on your side',
-    text: 'Claim-handling deadlines, anti-steering rules, interest penalties, repair liens — every letter leans on the insurance rules that actually apply where you work.',
+    title: 'Verified rules, on your side',
+    text: 'Claim-handling deadlines, anti-steering rules, interest penalties, repair liens — where verified rules exist for your state, every letter leans on them. Where they don’t, it cites nothing it can’t back.',
   },
   {
     icon: BookOpenCheck,
@@ -55,7 +55,7 @@ const features = [
   {
     icon: MessagesSquare,
     title: 'Negotiation copilot',
-    text: 'Ask “what’s my next move?” mid-case. The copilot reads the whole thread and answers with strategy grounded in your state’s rules — not generic advice.',
+    text: 'Ask “what’s my next move?” mid-case. The copilot reads the whole thread and answers with strategy grounded in your case file and the verified rules for your state where they exist — not generic advice.',
   },
   {
     icon: Scale,
@@ -90,7 +90,7 @@ const features = [
       <p class="hero-sub">
         Short pays, denied supplements, endless re-requests — for a busy hail shop that's easily an
         extra <strong>$100,000+ a year</strong> left on the table. DSM Negotiator drafts the
-        letters that get it paid, backed by your state's actual insurance law.
+        letters that get it paid, citing verified claim-handling rules where they exist for your state.
       </p>
       <div class="hero-ctas">
         <RouterLink :to="{ name: 'register' }" class="btn btn-primary btn-lg">
