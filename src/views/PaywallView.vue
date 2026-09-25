@@ -2,7 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Check, Copy, Lock, RefreshCw, User } from 'lucide-vue-next'
-import { listMembers, openPortal, startCheckout } from '@/api/billing'
+import {
+  CHARGE_CONFIRMATION_REQUIRED,
+  listMembers,
+  openPortal,
+  readChargeConfirmation,
+  startCheckout,
+  type ChargeConfirmation,
+} from '@/api/billing'
 import { ApiError, CRM_URL } from '@/api/client'
 import { goToCrm } from '@/api/handoff'
 import { useAuthStore } from '@/stores/auth'
@@ -12,9 +19,11 @@ import bgDark from '@/assets/paywall-dark.jpg'
 import bgLight from '@/assets/paywall-light.jpg'
 
 /** The Negotiator for a shop below the AI tier. The shop's own workspace sits blurred
- *  behind one sheet: one headline, one price, one button. Owners go to Stripe; everyone
- *  else gets a note to hand the owner. Coming back from Stripe (?status=success) this
- *  same view re-syncs the plan and drops itself. */
+ *  behind one sheet: one headline, one price, one button. Owners buy it (Stripe Checkout,
+ *  Stripe's confirm-upgrade screen, or — when the change charges the card at once, as for
+ *  a trialing Monthly/Annual shop — an explicit confirm right here); everyone else gets a
+ *  note to hand the owner. Coming back from Stripe (?status=success) this same view
+ *  re-syncs the plan and drops itself. */
 
 const auth = useAuthStore()
 const ent = useEntitlementStore()
@@ -87,27 +96,63 @@ const checks = [
   ['Copilot and fact ledger', '“what’s my next move?” answered from the file'],
 ]
 
-// ---- owner: off to Stripe ----
+// ---- owner: buy it ----
 const busy = ref(false)
 const error = ref<string | null>(null)
+/** Set when the API refuses a change that would charge the card immediately until the
+ *  owner confirms it (409 charge_confirmation_required). */
+const pendingCharge = ref<ChargeConfirmation | null>(null)
+
+function money(cents: number, currency: string) {
+  try {
+    return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: currency.toUpperCase() })
+  } catch {
+    return `$${(cents / 100).toFixed(2)}`
+  }
+}
+const chargeAmount = computed(() => {
+  const c = pendingCharge.value
+  return c && c.amountCents !== null ? money(c.amountCents, c.currency) : null
+})
+const chargeLine = computed(() => {
+  const c = pendingCharge.value
+  if (!c) return ''
+  const amount = chargeAmount.value
+  if (!amount) return c.message
+  return c.trialEndsNow
+    ? `Your free trial ends now and your card will be charged ${amount} today.`
+    : `Your card will be charged ${amount} today.`
+})
 
 function returnUrl() {
   const q = redirectTo.value !== '/' ? `?redirect=${encodeURIComponent(redirectTo.value)}` : ''
   return `${window.location.origin}/upgrade${q}`
 }
 
-async function upgrade() {
+/** `confirmCharge` only ever comes from the owner pressing the explicit confirm below. */
+async function upgrade(confirmCharge = false) {
   busy.value = true
   error.value = null
   try {
     const r = ent.canUpgradeInPlace
-      ? await openPortal(shopId(), 'ai', returnUrl())
-      : await startCheckout(shopId(), 'ai', returnUrl())
+      ? await openPortal(shopId(), 'ai', returnUrl(), confirmCharge)
+      : await startCheckout(shopId(), 'ai', returnUrl(), confirmCharge)
     window.location.href = r.url
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Could not open Stripe. Try again in a moment.'
+    if (!confirmCharge && e instanceof ApiError && e.status === 409 && e.code === CHARGE_CONFIRMATION_REQUIRED) {
+      // Nothing was charged: ask first, in plain words, with the amount.
+      pendingCharge.value = readChargeConfirmation(e.message, e.body)
+    } else {
+      error.value = e instanceof ApiError ? e.message : 'Could not start the upgrade. Try again in a moment.'
+    }
     busy.value = false
   }
+}
+function confirmCharge() {
+  void upgrade(true)
+}
+function cancelCharge() {
+  pendingCharge.value = null
 }
 
 // ---- back from Stripe ----
@@ -256,7 +301,9 @@ onMounted(async () => {
           tactic, and letters that quote your state's insurance code. One plan for the whole
           shop with everything in Annual included<template v-if="paying && !trialing">: Stripe
           prorates what you've already paid, nothing restarts</template>. The AI plan has no
-          trial; it's billed when you confirm.
+          trial<template v-if="trialing">: adding it ends your {{ planLabel }} trial today and
+          charges the card on file</template>. You see the exact charge and confirm it before
+          anything is billed.
         </p>
         <p v-else class="lede muted">
           Only the shop owner can change the plan. It's the AI plan, $1,999 a year with
@@ -284,8 +331,25 @@ onMounted(async () => {
           </div>
           <div v-else-if="status === 'cancel'" class="notice-amber">No changes were made to your plan.</div>
 
-          <div class="ctas">
-            <button class="btn btn-primary btn-lg" type="button" :disabled="busy || activating" @click="upgrade">
+          <!-- The API won't charge the card on the spot without an explicit yes. -->
+          <div v-if="pendingCharge" class="confirm-charge" role="alertdialog" aria-labelledby="pw-charge-title" aria-describedby="pw-charge-line">
+            <h2 id="pw-charge-title">Charge your card now?</h2>
+            <p id="pw-charge-line" class="charge-line">{{ chargeLine }}</p>
+            <p class="muted fine">
+              The AI plan has no trial and bills yearly from today<template v-if="pendingCharge.trialEndsNow">;
+              your {{ planLabel }} trial ends with it</template>. Cancel anytime.
+            </p>
+            <div class="ctas">
+              <button class="btn btn-primary btn-lg" type="button" :disabled="busy" @click="confirmCharge">
+                <span v-if="busy" class="spinner"></span>
+                {{ chargeAmount ? `Yes, charge ${chargeAmount} now` : 'Yes, charge my card now' }}
+              </button>
+              <button class="btn btn-lg" type="button" :disabled="busy" @click="cancelCharge">Not now</button>
+            </div>
+          </div>
+
+          <div v-else class="ctas">
+            <button class="btn btn-primary btn-lg" type="button" :disabled="busy || activating" @click="upgrade()">
               <span v-if="busy" class="spinner"></span>
               Add the Negotiator · $1,999/yr <ArrowRight :size="16" />
             </button>
@@ -293,9 +357,10 @@ onMounted(async () => {
           </div>
           <p v-if="error" class="error-text">{{ error }}</p>
           <p class="fine muted">
-            Confirm on Stripe · no trial, billed yearly from the day you confirm<template v-if="paying && !trialing">
-            · your current plan is prorated, nothing is paid twice</template> · cancel anytime ·
-            every letter is yours to approve before it goes out.
+            You confirm the exact charge before anything is billed · no trial, billed yearly from
+            the day you confirm<template v-if="paying && !trialing"> · your current plan is prorated,
+            nothing is paid twice</template> · cancel anytime · every letter is yours to approve
+            before it goes out.
           </p>
         </template>
 
@@ -454,6 +519,27 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* the explicit charge confirmation */
+.confirm-charge {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+.confirm-charge h2 {
+  font-size: 17px;
+  margin: 0;
+}
+.charge-line {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
 }
 
 /* non-owner */
