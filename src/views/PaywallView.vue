@@ -173,6 +173,9 @@ async function copyNote() {
 
 onMounted(async () => {
   if (status.value === 'success') void awaitActivation()
+  // Stripe said the shop is already on that plan (or the owner backed out): re-read it
+  // once so an AI shop sees its active panel, not the sales page.
+  else if (status.value) await ent.sync(shopId()).catch(() => {})
   if (!auth.isOwner && auth.shopId) {
     try {
       const members = await listMembers(auth.shopId)
@@ -215,14 +218,15 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- Already on the AI plan (and not mid-Stripe-return): say so, don't sell it. -->
-    <section v-else-if="ent.isAi && !status" class="sheet card solo" aria-labelledby="pw-active-title">
+    <!-- Already on the AI plan (and not waiting on a Stripe success): say so, don't sell it. -->
+    <section v-else-if="ent.isAi && status !== 'success'" class="sheet card solo" aria-labelledby="pw-active-title">
       <div class="pitch">
         <div class="eyebrow">
           <span class="pill pill-green"><Check :size="11" /> AI plan · active</span>
           <span class="muted status-line">{{ auth.shopName ?? 'Your shop' }}<template v-if="activeRenews"> · renews {{ activeRenews }}</template></span>
         </div>
         <h1 id="pw-active-title">Your AI plan is active.</h1>
+        <p v-if="status === 'unchanged'" class="notice-amber">You're already on the AI plan, so nothing was changed or charged.</p>
         <p class="lede muted">
           The Negotiator is unlocked for your whole team: cases, the Total Loss Invoice, letters
           and AI drafting. Nothing to buy here.
