@@ -120,7 +120,7 @@ export interface CaseDetail {
   messages: NegMessage[]
   facts: Fact[]
   documents: NegDocument[]
-  /** false = this state has no verified legal playbook; drafts cite no statutes */
+  /** false = no verified citations for this state yet; drafts cite no statutes */
   hasPlaybook: boolean
   /** linked CRM customer — context syncs live from the CRM record when set */
   customerId: string | null

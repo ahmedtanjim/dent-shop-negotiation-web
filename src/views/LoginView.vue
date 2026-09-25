@@ -79,7 +79,7 @@ async function submit() {
       </figure>
 
       <div class="tagline">
-        <b>The insurance company has a legal playbook. Now your shop does too.</b>
+        <b>The insurance company knows the rules. Now your shop can quote them back.</b>
         <span>Sample letter. The rule and its quote are real; you send every letter yourself.</span>
       </div>
     </aside>
