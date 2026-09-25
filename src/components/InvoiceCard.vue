@@ -184,12 +184,23 @@ function optOverride(field: Figure, original: number | null): number | null {
   return parsed.value[field].value
 }
 
+/** A debounce that came due while a save was in flight — run it when that one lands. */
+let rerun = false
+
 async function save() {
   tick() // judge "future" against the day it is now, not the last minute tick
   // Invalid figures stay on screen with their message; nothing is sent until they're fixed.
   if (hasErrors.value) return
+  if (saving.value) {
+    rerun = true
+    return
+  }
   saving.value = true
   saveError.value = null
+  // Exactly what this save sends, so keystrokes typed while it is in flight aren't lost.
+  type Field = keyof typeof f.value
+  const sent = new Map<Field, string>()
+  for (const k of edited.value) sent.set(k as Field, f.value[k as Field])
   const d = props.detail
   const body = caseBodyFromDetail(d)
   body.adminFee = optOverride('admin', d.adminFee)
@@ -200,7 +211,11 @@ async function save() {
   if (edited.value.has('until')) body.storageEndDate = f.value.until || null
   try {
     await updateCase(shopId.value, caseId.value, body)
-    edited.value = new Set()
+    // Only a field that was sent AND still holds the sent value is saved; one typed into
+    // mid-save stays edited (its own debounce, or the rerun below, saves it next).
+    const still = new Set(edited.value)
+    for (const [k, v] of sent) if (f.value[k] === v) still.delete(k)
+    edited.value = still
     savedFlash.value = true
     setTimeout(() => (savedFlash.value = false), 1600)
     emit('refresh')
@@ -208,6 +223,11 @@ async function save() {
     saveError.value = e instanceof ApiError ? e.message : 'Save failed.'
   } finally {
     saving.value = false
+    if (rerun) {
+      rerun = false
+      clearTimeout(timer)
+      timer = setTimeout(save, 0)
+    }
   }
 }
 
