@@ -244,7 +244,8 @@ export interface Entitlement {
   currentPeriodEnd: string | null
   cancelAtPeriodEnd: boolean
   daysLeft: number | null
-  /** Effective feature tier. Trials run at Ai; missing on an older API. */
+  /** Effective feature tier; missing on an older API. A Monthly/Annual trial runs at that
+   *  plan's tier — the AI plan is bought outright and never has a trial. */
   tier?: PlanTier
 }
 

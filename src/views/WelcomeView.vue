@@ -162,7 +162,7 @@ const features = [
             <li><Check :size="14" /> Fact ledger, documents &amp; full paper trail</li>
           </ul>
           <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Get the Negotiator</RouterLink>
-          <p class="price-note faint">One price, billed yearly. Already on Dent Shop Manager? Your plan upgrades to this one, no second subscription.</p>
+          <p class="price-note faint">One price, billed yearly from the day you sign up. No trial. Already on Dent Shop Manager? Your plan upgrades to this one, no second subscription.</p>
         </div>
       </div>
     </section>

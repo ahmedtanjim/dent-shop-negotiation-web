@@ -38,6 +38,15 @@ const planLabel = computed(() => {
   }
 })
 const paying = computed(() => ent.tier === 'Annual' || ent.tier === 'Monthly')
+/** A Monthly/Annual plan still in its card-on-file trial: nothing has been charged yet,
+ *  so there is nothing to prorate. (The AI plan itself never has a trial.) */
+const trialing = computed(() => paying.value && ent.entitlement?.status === 'Trialing')
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+const trialEnds = computed(() => {
+  const iso = ent.entitlement?.trialEndsAt
+  return trialing.value && iso ? fmtDate(iso) : null
+})
 const headline = computed(() =>
   paying.value
     ? `Your ${planLabel.value} runs the shop. This is the tier above it.`
@@ -45,8 +54,8 @@ const headline = computed(() =>
 )
 const renews = computed(() => {
   const iso = ent.entitlement?.currentPeriodEnd
-  if (!iso || !paying.value) return null
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (!iso || !paying.value || trialing.value) return null
+  return fmtDate(iso)
 })
 const activeRenews = computed(() => {
   const e = ent.entitlement
@@ -56,6 +65,7 @@ const activeRenews = computed(() => {
 const statusLine = computed(() => {
   const parts = [auth.shopName ?? 'Your shop', planLabel.value]
   if (!auth.isOwner && auth.role) parts.push(`you're signed in as ${roleLabel(auth.role)}`)
+  else if (trialEnds.value) parts.push(`trial ends ${trialEnds.value}`)
   else if (renews.value) parts.push(`renews ${renews.value}`)
   return parts.join(' · ')
 })
@@ -201,7 +211,9 @@ onMounted(async () => {
         <p v-if="auth.isOwner" class="lede muted">
           Total-loss invoices with storage that accrues by the day, adjuster emails sorted by
           tactic, and letters that quote your state's insurance code. One plan for the whole
-          shop: everything in Annual stays, Stripe prorates the difference, nothing restarts.
+          shop with everything in Annual included<template v-if="paying && !trialing">: Stripe
+          prorates what you've already paid, nothing restarts</template>. The AI plan has no
+          trial; it's billed when you confirm.
         </p>
         <p v-else class="lede muted">
           Only the shop owner can change the plan. It's the AI plan, $1,999 a year with
@@ -216,7 +228,7 @@ onMounted(async () => {
             <span class="pill pill-green">Everything in Annual included</span>
           </div>
           <p class="muted price-note">
-            {{ paying ? `Your ${planLabel} folds in, prorated to the day. ` : '' }}About $167 a month. One recovered supplement covers the year.
+            {{ paying && !trialing ? `Your ${planLabel} folds in, prorated to the day. ` : '' }}About $167 a month. One recovered supplement covers the year.
           </p>
 
           <!-- Back from Stripe -->
@@ -238,8 +250,9 @@ onMounted(async () => {
           </div>
           <p v-if="error" class="error-text">{{ error }}</p>
           <p class="fine muted">
-            Confirm on Stripe · your current plan is prorated, nothing is paid twice · cancel
-            anytime · every letter is yours to approve before it goes out.
+            Confirm on Stripe · no trial, billed yearly from the day you confirm<template v-if="paying && !trialing">
+            · your current plan is prorated, nothing is paid twice</template> · cancel anytime ·
+            every letter is yours to approve before it goes out.
           </p>
         </template>
 
