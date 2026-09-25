@@ -119,6 +119,7 @@ onMounted(async () => {
         allowance. They are not added to your bill. Today so far: {{ usage.today.cost }}.
         If you reach a limit, AI drafting pauses until it resets; everything else keeps working.
         <a :href="`${CRM_URL}/terms`" target="_blank" rel="noopener">Fair-use terms</a>
+        · <a :href="`${CRM_URL}/privacy`" target="_blank" rel="noopener">Privacy</a>
       </p>
     </div>
 

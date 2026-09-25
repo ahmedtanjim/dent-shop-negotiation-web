@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CRM_URL } from '@/api/client'
 import {
   Scale,
   ShieldCheck,
@@ -178,7 +179,10 @@ const features = [
         DSM Negotiator is not a law firm and does not provide legal advice. Drafts are prepared for
         your review — you approve and send every letter, and complex disputes deserve an attorney.
       </p>
-      <p class="faint">© {{ new Date().getFullYear() }} Dent Shop Manager</p>
+      <p class="faint">
+        © {{ new Date().getFullYear() }} Dent Shop Manager ·
+        <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a>
+      </p>
     </footer>
   </div>
 </template>
@@ -489,6 +493,11 @@ const features = [
 .footer p {
   max-width: 640px;
   margin: 0 auto;
+}
+.footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 @media (max-width: 900px) {

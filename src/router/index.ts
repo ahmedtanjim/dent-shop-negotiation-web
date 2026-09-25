@@ -75,6 +75,17 @@ const router = createRouter({
       },
     },
     {
+      // So is the Privacy Policy (one policy for both apps).
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('@/views/NotFoundView.vue'), // never shown — the hop happens first
+      meta: { anyone: true },
+      beforeEnter: () => {
+        window.location.replace(`${CRM_URL}/privacy`)
+        return false
+      },
+    },
+    {
       // Prices are on the landing page; a signed-in shop sees its plan on /upgrade.
       path: '/pricing',
       name: 'pricing',
@@ -84,7 +95,7 @@ const router = createRouter({
       },
     },
     {
-      // Typos, stale links and pages that don't exist (e.g. /privacy) say so plainly.
+      // Typos, stale links and pages that don't exist say so plainly.
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
@@ -96,7 +107,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.meta.handoff) return true // exchanges its own code, signed in or not
-  if (to.meta.anyone) return true // the 404 page and the /terms hop, signed in or not
+  if (to.meta.anyone) return true // the 404 page and the /terms + /privacy hops, signed in or not
   if (to.meta.public) {
     if (auth.isAuthed) return { name: 'cases' }
     return true

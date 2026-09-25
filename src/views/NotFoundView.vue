@@ -2,7 +2,7 @@
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-/** Any URL the app doesn't know — a typo, an old link, /privacy. Says so plainly instead
+/** Any URL the app doesn't know — a typo, an old link. Says so plainly instead
  *  of silently dropping the visitor on the landing page. Works signed in or out. */
 const auth = useAuthStore()
 const route = useRoute()

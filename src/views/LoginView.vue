@@ -152,6 +152,9 @@ async function submit() {
           <span class="faint">· $1,999/yr, shop system included</span>
         </p>
         <p class="cross muted">Already inside the shop system? Click "Total Loss Portal" in its top bar, no password needed.</p>
+        <p class="legal faint">
+          <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a>
+        </p>
       </form>
     </section>
   </div>
@@ -415,6 +418,19 @@ h1 {
 }
 .faint {
   color: var(--text-faint);
+}
+.legal {
+  margin: 0;
+  font-size: 12.5px;
+  text-align: center;
+}
+.legal a {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.legal a:hover {
+  color: var(--text);
 }
 .cross {
   margin: 8px 0 0;
