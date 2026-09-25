@@ -73,18 +73,48 @@ const parsed = computed(() => ({
 }))
 type Figure = keyof typeof parsed.value
 
-/** Today on the user's own calendar, yyyy-mm-dd — the latest day storage can end. */
-function localToday(): string {
-  const n = new Date()
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+/* ---------- "today", on the server's day basis ----------
+   The server counts storage in UTC calendar days: an open range accrues through today in
+   UTC, a set end date is clamped to it, and an end date is refused only past UTC today + 1
+   (slack for users east of UTC). Mixing the browser's local date in here put the card a
+   day off the server every US evening, after UTC midnight. `clock` ticks each minute and
+   on focus, so a tab left open overnight rolls over instead of keeping the day it mounted. */
+const clock = ref(Date.now())
+function tick() {
+  clock.value = Date.now()
 }
-const today = ref(localToday())
+const clockTimer = setInterval(tick, 60_000)
+window.addEventListener('focus', tick)
+onBeforeUnmount(() => {
+  clearInterval(clockTimer)
+  window.removeEventListener('focus', tick)
+})
+
+function utcDay(dateStr: string): number | null {
+  if (!dateStr) return null
+  const t = Date.parse(`${dateStr}T00:00:00Z`)
+  return Number.isNaN(t) ? null : Math.floor(t / 86400000)
+}
+function isoOfDay(day: number): string {
+  return new Date(day * 86400000).toISOString().slice(0, 10)
+}
+/** Today as a UTC day number — what the server bills through. */
+const todayUtc = computed(() => Math.floor(clock.value / 86400000))
+/** The latest end date that isn't "in the future": UTC today, or the user's own date when
+ *  it is already a day ahead of UTC (inside the server's one-day slack). */
+const latestEnd = computed(() => {
+  const n = new Date(clock.value)
+  const local = Math.floor(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / 86400000)
+  return Math.max(todayUtc.value, local)
+})
+const today = computed(() => isoOfDay(latestEnd.value))
 
 const errors = computed(() => {
   const out: Partial<Record<Figure | 'until', string>> = {}
   for (const [k, p] of Object.entries(parsed.value)) if (p.error) out[k as Figure] = p.error
   // A future end date would bill days that haven't happened yet.
-  if (f.value.until && f.value.until > today.value)
+  const until = utcDay(f.value.until)
+  if (until !== null && until > latestEnd.value)
     out.until =
       "Storage can't end in the future. Leave \"Storage ends\" empty while the car is on your lot; it accrues through today."
   return out
@@ -95,12 +125,6 @@ function val(k: Figure): number {
   return parsed.value[k].value ?? 0
 }
 
-function utcDay(dateStr: string): number | null {
-  if (!dateStr) return null
-  const t = Date.parse(`${dateStr}T00:00:00Z`)
-  return Number.isNaN(t) ? null : Math.floor(t / 86400000)
-}
-
 const live = computed(() => {
   const admin = val('admin')
   const lot = val('lot')
@@ -108,7 +132,9 @@ const live = computed(() => {
   const start = utcDay(f.value.since)
   let days = 0
   if (start !== null && rate > 0) {
-    const end = utcDay(f.value.until) ?? Math.floor(Date.now() / 86400000)
+    // Same clamp as the server: an open range, or an end past today, stops at UTC today.
+    const until = utcDay(f.value.until)
+    const end = until !== null && until < todayUtc.value ? until : todayUtc.value
     days = Math.max(0, end - start + 1)
   }
   const storage = days * rate
@@ -122,10 +148,9 @@ const live = computed(() => {
 const storageIssue = computed<string | null>(() => {
   const start = utcDay(f.value.since)
   const end = utcDay(f.value.until)
-  const todayDay = Math.floor(Date.now() / 86400000)
   if (start === null) return 'no start date (set "Storage since")'
   if (val('perDay') <= 0) return 'the daily rate is $0 (enter your storage rate)'
-  if (start > todayDay) return 'the start date is in the future'
+  if (start > todayUtc.value) return 'the start date is in the future'
   if (end !== null && end < start) return 'the end date is before the start date'
   return live.value.days === 0 ? 'no storage days in the date range' : null
 })
@@ -160,6 +185,7 @@ function optOverride(field: Figure, original: number | null): number | null {
 }
 
 async function save() {
+  tick() // judge "future" against the day it is now, not the last minute tick
   // Invalid figures stay on screen with their message; nothing is sent until they're fixed.
   if (hasErrors.value) return
   saving.value = true
