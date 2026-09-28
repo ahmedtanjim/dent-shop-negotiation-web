@@ -238,7 +238,8 @@ export type PlanTier = 'Free' | 'Monthly' | 'Annual' | 'Ai'
 
 export interface Entitlement {
   plan: string
-  status: 'Trialing' | 'Active' | 'PastDue' | 'Canceled' | string
+  /** `Free` = never subscribed (every new shop starts here, card-less). */
+  status: 'Trialing' | 'Active' | 'PastDue' | 'Canceled' | 'Free' | string
   entitled: boolean
   trialEndsAt: string | null
   currentPeriodEnd: string | null
@@ -254,6 +255,9 @@ export interface BillingState {
   entitlement: Entitlement
   /** A real Stripe subscription (the portal works) vs one granted by a platform admin. */
   hasStripeCustomer: boolean
+  /** A Stripe subscription that isn't canceled — a card trial or a paid plan. Missing on an
+   *  older API. */
+  hasLiveSubscription?: boolean
 }
 
 export interface MemberSummary {

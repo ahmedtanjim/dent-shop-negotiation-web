@@ -6,6 +6,10 @@ import { useAuthStore } from '@/stores/auth'
  *  `plan=ai` preselects the AI plan there; `next=negotiator` brings them back here. */
 export const SIGNUP_URL = `${CRM_URL}/signup?plan=ai&next=negotiator`
 
+/** Where an owner who signed up but left before paying finishes: the shop system's Billing
+ *  with the AI plan picked, which brings them back here once it's on. */
+export const FINISH_SETUP_PATH = '/billing?plan=ai&next=negotiator'
+
 /** Open a page of the shop system already signed in: mint a hand-off code and let the
  *  CRM exchange it. Falls back to the plain URL (its own login) if minting fails. */
 export async function goToCrm(path = '/', newTab = false): Promise<void> {

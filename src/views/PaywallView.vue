@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Check, Copy, Lock, RefreshCw, User } from 'lucide-vue-next'
 import {
@@ -11,9 +11,10 @@ import {
   type ChargeConfirmation,
 } from '@/api/billing'
 import { ApiError, CRM_URL } from '@/api/client'
-import { goToCrm } from '@/api/handoff'
+import { FINISH_SETUP_PATH, goToCrm } from '@/api/handoff'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
+import { setTitle } from '@/router'
 import { theme } from '@/utils/theme'
 import bgDark from '@/assets/paywall-dark.jpg'
 import bgLight from '@/assets/paywall-light.jpg'
@@ -23,7 +24,9 @@ import bgLight from '@/assets/paywall-light.jpg'
  *  Stripe's confirm-upgrade screen, or — when the change charges the card at once, as for
  *  a trialing Monthly/Annual shop — an explicit confirm right here); everyone else gets a
  *  note to hand the owner. Coming back from Stripe (?status=success) this same view
- *  re-syncs the plan and drops itself. */
+ *  re-syncs the plan and drops itself. A shop that never picked a plan (signed up, left
+ *  before paying) gets "Finish setup" instead: one button to the shop system's Billing
+ *  with the AI plan picked, carried over signed in. */
 
 const auth = useAuthStore()
 const ent = useEntitlementStore()
@@ -176,6 +179,18 @@ async function awaitActivation() {
   activationFailed.value = true
 }
 
+// ---- signed up, never paid: finish on the shop system's Billing ----
+const finishSetup = computed(() => ent.unfinishedSignup && !status.value)
+const finishing = ref(false)
+/** Hand the session over (so there's no second sign-in) and land on Billing with the AI
+ *  plan picked. goToCrm falls back to the plain link if the hand-off can't be minted. */
+async function finishSetupNow() {
+  if (finishing.value) return
+  finishing.value = true
+  await goToCrm(FINISH_SETUP_PATH)
+}
+watch(finishSetup, (on) => setTitle(on ? 'Finish setup' : 'AI plan'), { immediate: true })
+
 // ---- the plan lookup failed: unknown, never "active" ----
 const retrying = ref(false)
 const retryFailed = ref(false)
@@ -284,6 +299,65 @@ onMounted(async () => {
             Billing in the shop system
           </a>
         </div>
+      </div>
+    </section>
+
+    <!-- Signed up but never paid: the account is ready, the plan is the one step left. -->
+    <section v-else-if="finishSetup" class="sheet card solo" aria-labelledby="pw-setup-title">
+      <div class="pitch">
+        <div class="eyebrow">
+          <span class="pill pill-violet">Last step</span>
+          <span class="muted status-line">{{ auth.shopName ?? 'Your shop' }}</span>
+        </div>
+        <h1 id="pw-setup-title">Finish setting up DSM Negotiator</h1>
+        <p v-if="auth.isOwner" class="lede muted">
+          Your account is ready. The last step is choosing the AI plan: $1,999/yr, with the
+          Annual shop plan included.
+        </p>
+        <p v-else class="lede muted">
+          Your shop's account is ready. The last step is choosing the AI plan ($1,999/yr, with
+          the Annual shop plan included), and only the shop owner can do that.
+        </p>
+
+        <template v-if="auth.isOwner">
+          <div class="ctas">
+            <a
+              class="btn btn-primary btn-lg"
+              :href="`${CRM_URL}${FINISH_SETUP_PATH}`"
+              :aria-disabled="finishing"
+              @click.prevent="finishSetupNow"
+            >
+              <span v-if="finishing" class="spinner"></span>
+              Finish setup <ArrowRight v-if="!finishing" :size="16" />
+            </a>
+            <a class="btn btn-lg" :href="CRM_URL" @click.prevent="goToCrm('/')">Back to the shop system</a>
+          </div>
+          <p class="fine muted">
+            Opens Billing in the shop system, already signed in. You see the exact charge before
+            anything is billed, then come straight back here.
+          </p>
+        </template>
+
+        <template v-else>
+          <div class="owner-row">
+            <User :size="18" class="muted" />
+            <span class="owner-text">
+              <b>Ask your shop owner to finish setup.</b>
+              <span v-if="ownerName" class="muted"> {{ ownerName }} can do it from Billing in the shop system.</span>
+            </span>
+            <button class="btn" type="button" @click="copyNote">
+              <Check v-if="copied" :size="14" /><Copy v-else :size="14" />
+              {{ copied ? 'Copied' : 'Copy a note for the owner' }}
+            </button>
+          </div>
+          <label v-if="showNote" class="field note-field">
+            <span>Copying is blocked here — select the note and copy it by hand</span>
+            <textarea readonly rows="3" :value="note" @focus="($event.target as HTMLTextAreaElement).select()"></textarea>
+          </label>
+          <div class="ctas">
+            <a class="btn" :href="CRM_URL" @click.prevent="goToCrm('/')">Back to the shop system</a>
+          </div>
+        </template>
       </div>
     </section>
 

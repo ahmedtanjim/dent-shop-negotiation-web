@@ -25,6 +25,17 @@ export const useEntitlementStore = defineStore('entitlement', () => {
     return e.tier ?? (e.entitled ? 'Ai' : 'Free')
   })
   const isAi = computed(() => tier.value === 'Ai')
+  /** Never subscribed: the account exists but no plan was ever chosen — typically an owner
+   *  who created the shop from the Negotiator's sign-up and left before paying. (The API
+   *  keeps no sign-up intent, so a Free shop from the shop system reads the same; for it,
+   *  "finish setting up the Negotiator" is still the one step left.) A lapsed or canceled
+   *  plan is not this — that shop keeps the regular upgrade screen. */
+  const unfinishedSignup = computed(
+    () =>
+      tier.value === 'Free' &&
+      entitlement.value?.status === 'Free' &&
+      !state.value?.hasLiveSubscription,
+  )
   /** A live Stripe subscription — upgrades go through the portal, not a new Checkout. */
   const canUpgradeInPlace = computed(
     () => !!state.value?.hasStripeCustomer && entitlement.value?.status === 'Active',
@@ -62,5 +73,5 @@ export const useEntitlementStore = defineStore('entitlement', () => {
     failed.value = false
   }
 
-  return { state, entitlement, known, failed, tier, isAi, canUpgradeInPlace, load, sync, reset }
+  return { state, entitlement, known, failed, tier, isAi, unfinishedSignup, canUpgradeInPlace, load, sync, reset }
 })
