@@ -45,7 +45,7 @@ const planLabel = computed(() => {
   switch (ent.tier) {
     case 'Annual': return 'Annual plan'
     case 'Monthly': return 'Monthly plan'
-    case 'Ai': return 'AI plan'
+    case 'Ai': return 'DSM Negotiator plan'
     default: return 'Free plan'
   }
 })
@@ -62,7 +62,7 @@ const trialEnds = computed(() => {
 const headline = computed(() =>
   paying.value
     ? `Your ${planLabel.value} runs the shop. This is the tier above it.`
-    : 'DSM Negotiator is part of the AI plan.',
+    : 'DSM Negotiator is $1,999 a year and includes the Annual shop plan.',
 )
 const renews = computed(() => {
   const iso = ent.entitlement?.currentPeriodEnd
@@ -189,7 +189,7 @@ async function finishSetupNow() {
   finishing.value = true
   await goToCrm(FINISH_SETUP_PATH)
 }
-watch(finishSetup, (on) => setTitle(on ? 'Finish setup' : 'AI plan'), { immediate: true })
+watch(finishSetup, (on) => setTitle(on ? 'Finish setup' : 'Upgrade'), { immediate: true })
 
 // ---- the plan lookup failed: unknown, never "active" ----
 const retrying = ref(false)
@@ -215,8 +215,8 @@ const note = computed(() => {
   const who = ownerName.value ? `Hi ${ownerName.value.split(' ')[0]},` : 'Hi,'
   const where = redirectTo.value !== '/' ? ` (${window.location.origin}${redirectTo.value})` : ''
   return (
-    `${who} I tried to open DSM Negotiator${where} and it needs the AI plan — ` +
-    `$1,999/yr with everything in Annual included. ` +
+    `${who} I tried to open DSM Negotiator${where} and our shop isn't on it yet — ` +
+    `it's $1,999/yr with everything in Annual included. ` +
     `You can add it from Billing in Dent Shop Manager: ${CRM_URL}/billing`
   )
 })
@@ -282,11 +282,11 @@ onMounted(async () => {
     <section v-else-if="ent.isAi && status !== 'success'" class="sheet card solo" aria-labelledby="pw-active-title">
       <div class="pitch">
         <div class="eyebrow">
-          <span class="pill pill-green"><Check :size="11" /> AI plan · active</span>
+          <span class="pill pill-green"><Check :size="11" /> DSM Negotiator · active</span>
           <span class="muted status-line">{{ auth.shopName ?? 'Your shop' }}<template v-if="activeRenews"> · renews {{ activeRenews }}</template></span>
         </div>
-        <h1 id="pw-active-title">Your AI plan is active.</h1>
-        <p v-if="status === 'unchanged'" class="notice-amber">You're already on the AI plan, so nothing was changed or charged.</p>
+        <h1 id="pw-active-title">Your DSM Negotiator plan is active.</h1>
+        <p v-if="status === 'unchanged'" class="notice-amber">You're already on the DSM Negotiator plan, so nothing was changed or charged.</p>
         <p class="lede muted">
           The Negotiator is unlocked for your whole team: cases, the Total Loss Invoice, letters
           and AI drafting. Nothing to buy here.
@@ -311,11 +311,11 @@ onMounted(async () => {
         </div>
         <h1 id="pw-setup-title">Finish setting up DSM Negotiator</h1>
         <p v-if="auth.isOwner" class="lede muted">
-          Your account is ready. The last step is choosing the AI plan: $1,999/yr, with the
+          Your account is ready. The last step is choosing DSM Negotiator: $1,999/yr, with the
           Annual shop plan included.
         </p>
         <p v-else class="lede muted">
-          Your shop's account is ready. The last step is choosing the AI plan ($1,999/yr, with
+          Your shop's account is ready. The last step is choosing DSM Negotiator ($1,999/yr, with
           the Annual shop plan included), and only the shop owner can do that.
         </p>
 
@@ -364,7 +364,7 @@ onMounted(async () => {
     <section v-else class="sheet card" :class="{ solo: !auth.isOwner }" aria-labelledby="pw-title">
       <div class="pitch">
         <div class="eyebrow">
-          <span class="pill pill-violet"><Lock :size="11" /> AI plan</span>
+          <span class="pill pill-violet"><Lock :size="11" /> DSM Negotiator</span>
           <span class="muted status-line">{{ statusLine }}</span>
         </div>
 
@@ -375,13 +375,13 @@ onMounted(async () => {
           tactic, and letters that cite verified claim-handling rules where they exist for your
           state. One plan for the whole
           shop with everything in Annual included<template v-if="paying && !trialing">: Stripe
-          prorates what you've already paid, nothing restarts</template>. The AI plan has no
+          prorates what you've already paid, nothing restarts</template>. DSM Negotiator has no
           trial<template v-if="trialing">: adding it ends your {{ planLabel }} trial today and
           charges the card on file</template>. You see the exact charge and confirm it before
           anything is billed.
         </p>
         <p v-else class="lede muted">
-          Only the shop owner can change the plan. It's the AI plan, $1,999 a year with
+          Only the shop owner can change the plan. DSM Negotiator is $1,999 a year with
           everything in Annual included, and it unlocks for the whole team the moment they
           confirm.
         </p>
@@ -411,7 +411,7 @@ onMounted(async () => {
             <h2 id="pw-charge-title">Charge your card now?</h2>
             <p id="pw-charge-line" class="charge-line">{{ chargeLine }}</p>
             <p class="muted fine">
-              The AI plan has no trial and bills yearly from today<template v-if="pendingCharge.trialEndsNow">;
+              DSM Negotiator has no trial and bills yearly from today<template v-if="pendingCharge.trialEndsNow">;
               your {{ planLabel }} trial ends with it</template>. Cancel anytime.
             </p>
             <div class="ctas">

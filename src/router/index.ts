@@ -48,7 +48,7 @@ const router = createRouter({
       path: '/upgrade',
       name: 'paywall',
       component: () => import('@/views/PaywallView.vue'),
-      meta: { title: 'AI plan' },
+      meta: { title: 'Upgrade' },
     },
     {
       path: '/',
