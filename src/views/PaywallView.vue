@@ -59,7 +59,7 @@ const trialEnds = computed(() => {
 const headline = computed(() =>
   paying.value
     ? `Your ${planLabel.value} runs the shop. This is the tier above it.`
-    : 'The Negotiator is part of the AI plan.',
+    : 'DSM Negotiator is part of the AI plan.',
 )
 const renews = computed(() => {
   const iso = ent.entitlement?.currentPeriodEnd
@@ -200,7 +200,7 @@ const note = computed(() => {
   const who = ownerName.value ? `Hi ${ownerName.value.split(' ')[0]},` : 'Hi,'
   const where = redirectTo.value !== '/' ? ` (${window.location.origin}${redirectTo.value})` : ''
   return (
-    `${who} I tried to open the Negotiator${where} and it needs the AI plan — ` +
+    `${who} I tried to open DSM Negotiator${where} and it needs the AI plan — ` +
     `$1,999/yr with everything in Annual included. ` +
     `You can add it from Billing in Dent Shop Manager: ${CRM_URL}/billing`
   )
@@ -294,7 +294,7 @@ onMounted(async () => {
           <span class="muted status-line">{{ statusLine }}</span>
         </div>
 
-        <h1 id="pw-title">{{ auth.isOwner ? headline : 'The Negotiator isn’t on your shop’s plan yet.' }}</h1>
+        <h1 id="pw-title">{{ auth.isOwner ? headline : 'DSM Negotiator isn’t on your shop’s plan yet.' }}</h1>
 
         <p v-if="auth.isOwner" class="lede muted">
           Total-loss invoices with storage that accrues by the day, adjuster emails sorted by
@@ -352,7 +352,7 @@ onMounted(async () => {
           <div v-else class="ctas">
             <button class="btn btn-primary btn-lg" type="button" :disabled="busy || activating" @click="upgrade()">
               <span v-if="busy" class="spinner"></span>
-              Add the Negotiator · $1,999/yr <ArrowRight :size="16" />
+              Add DSM Negotiator · $1,999/yr <ArrowRight :size="16" />
             </button>
             <a class="btn btn-lg" :href="CRM_URL" @click.prevent="goToCrm('/')">Back to the shop system</a>
           </div>

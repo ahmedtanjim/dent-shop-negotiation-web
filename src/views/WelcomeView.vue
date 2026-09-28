@@ -94,7 +94,7 @@ const features = [
       </p>
       <div class="hero-ctas">
         <RouterLink :to="{ name: 'register' }" class="btn btn-primary btn-lg">
-          Get the Negotiator <ArrowRight :size="16" />
+          Get DSM Negotiator <ArrowRight :size="16" />
         </RouterLink>
         <RouterLink :to="{ name: 'login' }" class="btn btn-lg">I have an account</RouterLink>
       </div>
@@ -161,7 +161,7 @@ const features = [
             <li><Check :size="14" /> State-specific legal backing, kept current</li>
             <li><Check :size="14" /> Fact ledger, documents &amp; full paper trail</li>
           </ul>
-          <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Get the Negotiator</RouterLink>
+          <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Get DSM Negotiator</RouterLink>
           <p class="price-note faint">One price, billed yearly from the day you sign up. No trial. Already on Dent Shop Manager? Your plan upgrades to this one, no second subscription.</p>
         </div>
       </div>

@@ -100,7 +100,7 @@ async function submit() {
 
       <form class="login" novalidate @submit.prevent="submit">
         <div class="head">
-          <h1>Sign in to the Negotiator.</h1>
+          <h1>Sign in to DSM Negotiator.</h1>
           <p class="muted">Same email and password as the shop system.</p>
         </div>
 
@@ -151,7 +151,7 @@ async function submit() {
           New here? <a :href="SIGNUP_URL">Create your shop</a>
           <span class="faint">· $1,999/yr, shop system included</span>
         </p>
-        <p class="cross muted">Already inside the shop system? Click "Total Loss Portal" in its top bar, no password needed.</p>
+        <p class="cross muted">Already inside the shop system? Click "DSM Negotiator" in its top bar, no password needed.</p>
         <p class="legal faint">
           <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a>
         </p>
