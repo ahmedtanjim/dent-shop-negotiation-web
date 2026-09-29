@@ -1,0 +1,7 @@
+# DSM Negotiator — only the public landing page is meant for search engines.
+User-agent: *
+Allow: /welcome
+Disallow: /cases/
+Disallow: /upgrade
+Disallow: /auth/
+Disallow: /login

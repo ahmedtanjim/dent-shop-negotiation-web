@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/vue": "^10.75.3",
     "driver.js": "^1.8.0",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^2.2.6",

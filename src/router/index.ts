@@ -3,6 +3,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { SIGNUP_URL } from '@/api/handoff'
 import { CRM_URL } from '@/api/client'
+import { trackRoute } from '@/analytics/ga'
+import { applyRouteSeo } from '@/utils/seo'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -145,6 +147,11 @@ export const APP_NAME = 'DSM Negotiator'
 export function setTitle(page?: string | null) {
   document.title = page ? `${page} · ${APP_NAME}` : APP_NAME
 }
-router.afterEach((to) => setTitle(typeof to.meta.title === 'string' ? to.meta.title : null))
+router.afterEach((to) => {
+  setTitle(typeof to.meta.title === 'string' ? to.meta.title : null)
+  applyRouteSeo(to)
+  // GA4: one page_view on public routes; switched off everywhere else (see analytics/ga).
+  trackRoute(to)
+})
 
 export default router
