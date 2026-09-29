@@ -8,6 +8,7 @@ import type {
   DraftResult,
   Fact,
   GeneratedDocs,
+  IntakeKind,
   IntakeRequest,
   NegDocument,
   NegMessage,
@@ -31,8 +32,13 @@ export function getCase(shopId: string, caseId: string): Promise<CaseDetail> {
   return api.get<CaseDetail>(`${base(shopId)}/cases/${caseId}`)
 }
 
-export function updateCase(shopId: string, caseId: string, body: UpsertCase): Promise<void> {
-  return api.put<void>(`${base(shopId)}/cases/${caseId}`, body)
+export function updateCase(
+  shopId: string,
+  caseId: string,
+  body: UpsertCase,
+  opts?: { keepalive?: boolean },
+): Promise<void> {
+  return api.put<void>(`${base(shopId)}/cases/${caseId}`, body, opts)
 }
 
 export function setCaseStatus(shopId: string, caseId: string, status: CaseStatus): Promise<void> {
@@ -51,10 +57,33 @@ export function intakeMessage(
   return api.post<NegMessage>(`${base(shopId)}/cases/${caseId}/intake`, body)
 }
 
-export function intakeEml(shopId: string, caseId: string, file: File): Promise<NegMessage> {
+/** `kind`: omit = decide from the sender (mail from the shop's own address is logged as a
+ *  letter the shop sent); 'Sent' = log a letter the shop sent; 'Inbound' = received. */
+export function intakeEml(
+  shopId: string,
+  caseId: string,
+  file: File,
+  kind?: IntakeKind,
+): Promise<NegMessage> {
   const form = new FormData()
   form.append('file', file)
+  if (kind) form.append('kind', kind)
   return api.postForm<NegMessage>(`${base(shopId)}/cases/${caseId}/intake-eml`, form)
+}
+
+/** Remove a timeline entry (received email, sent letter or draft) — audited server-side. */
+export function deleteMessage(shopId: string, caseId: string, messageId: string): Promise<void> {
+  return api.del(`${base(shopId)}/cases/${caseId}/messages/${messageId}`)
+}
+
+/** Re-file an email as received from the insurer or sent by the shop. */
+export function setMessageKind(
+  shopId: string,
+  caseId: string,
+  messageId: string,
+  kind: 'Inbound' | 'Sent',
+): Promise<NegMessage> {
+  return api.post<NegMessage>(`${base(shopId)}/cases/${caseId}/messages/${messageId}/kind`, { kind })
 }
 
 export function createDraft(

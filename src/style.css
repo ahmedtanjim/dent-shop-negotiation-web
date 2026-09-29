@@ -161,8 +161,41 @@ textarea {
   min-height: 70px;
 }
 input[type='file'] {
+  width: 100%;
+  max-width: 100%;
   color: var(--text-muted);
+  font-family: inherit;
   font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  padding: 6px;
+  cursor: pointer;
+  /* long file names wrap instead of widening the card */
+  overflow-wrap: anywhere;
+}
+input[type='file']:hover,
+input[type='file']:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+/* the native "Choose file" button, dressed as the app's secondary button */
+input[type='file']::file-selector-button {
+  margin-right: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+input[type='file']:hover::file-selector-button {
+  border-color: var(--accent);
+  background: var(--border-soft);
 }
 input[type='checkbox'],
 input[type='radio'] {

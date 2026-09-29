@@ -96,7 +96,7 @@ const checks = [
   ['Total Loss Invoice', 'storage accrues per day, PDF in one click'],
   ['Adjuster emails read for you', 'stall, lowball, redundant request, denial'],
   ['Verified claim-handling rules', 'cited where they exist for your state, nothing invented'],
-  ['Copilot and fact ledger', '“what’s my next move?” answered from the file'],
+  ['Ready-made letters', 'notice of representation to formal demand, filled from the case'],
 ]
 
 // ---- owner: buy it ----
@@ -465,7 +465,7 @@ onMounted(async () => {
       <aside v-if="auth.isOwner" class="behind">
         <div class="panel-title">What's behind this screen</div>
         <ol class="ladder">
-          <li v-for="([name, what], i) in ladder" :key="name" :class="{ here: i === 2 }">
+          <li v-for="([name, what], i) in ladder" :key="name">
             <span class="rung mono">{{ i + 1 }}</span>
             <span><b>{{ name }}</b><span class="muted"> · {{ what }}</span></span>
           </li>

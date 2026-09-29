@@ -10,6 +10,7 @@ import { caseBodyFromDetail } from '@/utils/caseBody'
 import { usd } from '@/utils/format'
 import { parseMoney, parsePercent } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
+import { useFlushOnLeave } from '@/utils/flushOnLeave'
 
 const props = defineProps<{ detail: CaseDetail; invoice: InvoiceBreakdown | null }>()
 const emit = defineEmits<{ refresh: [] }>()
@@ -172,12 +173,22 @@ const savedFlash = ref(false)
 const saveError = ref<string | null>(null)
 let timer: ReturnType<typeof setTimeout> | undefined
 
+let debouncePending = false
 function touched(field: string) {
   edited.value = new Set(edited.value).add(field)
   clearTimeout(timer)
-  timer = setTimeout(save, 800)
+  debouncePending = true
+  timer = setTimeout(() => void save(), 800)
 }
-onBeforeUnmount(() => clearTimeout(timer))
+// Leaving the page (another case, the case list, closing the tab) inside the debounce
+// window used to cancel the save and lose the edit (NEG-6) — flush it instead.
+useFlushOnLeave(
+  () => debouncePending || rerun,
+  (keepalive) => {
+    clearTimeout(timer)
+    void save(keepalive)
+  },
+)
 
 function optOverride(field: Figure, original: number | null): number | null {
   if (!edited.value.has(field)) return original
@@ -187,7 +198,8 @@ function optOverride(field: Figure, original: number | null): number | null {
 /** A debounce that came due while a save was in flight — run it when that one lands. */
 let rerun = false
 
-async function save() {
+async function save(keepalive = false) {
+  debouncePending = false
   tick() // judge "future" against the day it is now, not the last minute tick
   // Invalid figures stay on screen with their message; nothing is sent until they're fixed.
   if (hasErrors.value) return
@@ -210,7 +222,7 @@ async function save() {
   if (edited.value.has('since')) body.storageStartDate = f.value.since || null
   if (edited.value.has('until')) body.storageEndDate = f.value.until || null
   try {
-    await updateCase(shopId.value, caseId.value, body)
+    await updateCase(shopId.value, caseId.value, body, { keepalive })
     // Only a field that was sent AND still holds the sent value is saved; one typed into
     // mid-save stays edited (its own debounce, or the rerun below, saves it next).
     const still = new Set(edited.value)
@@ -226,7 +238,7 @@ async function save() {
     if (rerun) {
       rerun = false
       clearTimeout(timer)
-      timer = setTimeout(save, 0)
+      timer = setTimeout(() => void save(), 0)
     }
   }
 }
@@ -296,7 +308,7 @@ async function onPdf() {
           Storage since
           <DateField v-model="f.since" variant="chip" label="In shop since" @input="touched('since')" />
           <template v-if="!storageMissing">
-            · <span class="mono days">{{ live.days }}</span>&nbsp;days ·
+            · <span class="mono days">{{ live.days }}</span>&nbsp;{{ live.days === 1 ? 'day' : 'days' }} ·
           </template>
           <template v-else> · </template>
           $ <input v-model="f.perDay" class="blank rate" :class="{ invalid: errors.perDay }" :aria-invalid="!!errors.perDay" inputmode="decimal" aria-label="Storage per day, dollars"

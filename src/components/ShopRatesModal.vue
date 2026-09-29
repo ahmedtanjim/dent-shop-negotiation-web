@@ -5,8 +5,10 @@ import { getShopProfile, updateShopRates } from '@/api/shops'
 import { ApiError } from '@/api/client'
 import type { ShopProfile } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { useEscapeToClose } from '@/utils/escapeToClose'
 
 const emit = defineEmits<{ close: [] }>()
+useEscapeToClose(() => emit('close'))
 
 const auth = useAuthStore()
 

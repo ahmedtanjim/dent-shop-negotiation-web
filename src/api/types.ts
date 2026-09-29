@@ -220,7 +220,12 @@ export interface PasteExtraction {
   isThread: boolean
   /** only when explicitly written in the email — never guessed */
   claimNumber: string | null
+  /** the email gave a calendar day but no time: sentAt is that day's noon, zone-less */
+  sentDateOnly?: boolean
 }
+
+/** Which way a piece of correspondence went. Omitted = decided from the sender. */
+export type IntakeKind = 'Inbound' | 'Sent'
 
 export interface IntakeRequest {
   subject: string
@@ -230,6 +235,8 @@ export interface IntakeRequest {
   occurredAt?: string | null
   /** fills the case's claim number when the case doesn't have one yet */
   claimNumber?: string | null
+  /** 'Sent' logs a letter the shop sent (no AI read, no reply draft) */
+  kind?: IntakeKind | null
 }
 
 // ---------- billing / entitlement (same contract the CRM web uses) ----------

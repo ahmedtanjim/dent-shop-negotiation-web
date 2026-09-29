@@ -8,6 +8,9 @@ export interface EmlPreview {
   from: string | null
   subject: string | null
   date: string | null
+  /** Set for a forward: who forwarded it. from/subject/date are then the ORIGINAL message's —
+   *  the same unwrapping the server does, so the preview shows what will be logged. */
+  forwardedBy: string | null
 }
 
 function decodeWords(s: string): string {
@@ -36,6 +39,52 @@ function decodeWords(s: string): string {
     })
 }
 
+/** Undo quoted-printable (soft line breaks + =XX bytes, UTF-8). */
+function qpDecode(s: string): string {
+  const joined = s.replace(/=\r?\n/g, '')
+  const bytes: number[] = []
+  for (let i = 0; i < joined.length; i++) {
+    if (joined[i] === '=' && /^[0-9A-Fa-f]{2}$/.test(joined.slice(i + 1, i + 3))) {
+      bytes.push(parseInt(joined.slice(i + 1, i + 3), 16))
+      i += 2
+    } else {
+      const code = joined.charCodeAt(i)
+      if (code < 128) bytes.push(code)
+      else bytes.push(...new TextEncoder().encode(joined[i]))
+    }
+  }
+  return new TextDecoder('utf-8').decode(new Uint8Array(bytes))
+}
+
+const FORWARD_MARKER = /^\s*(-+\s*Forwarded message\s*-+|Begin forwarded message:)\s*$/im
+
+/** The innermost forwarded message's From/Date/Subject inside the plain-text part, if any. */
+function forwardedHeaders(head: string): { from: string | null; subject: string | null; date: string | null } | null {
+  const text = /quoted-printable/i.test(head) ? qpDecode(head) : head
+  const lines = text.split(/\r?\n/)
+  let start = -1
+  lines.forEach((l, i) => {
+    if (FORWARD_MARKER.test(l)) start = i + 1
+  })
+  if (start < 0) return null
+  const found: Record<string, string> = {}
+  let current: string | null = null
+  let i = start
+  while (i < lines.length && !lines[i].trim()) i++
+  for (; i < lines.length && lines[i].trim(); i++) {
+    const m = /^\s*\*?(From|To|Cc|Date|Sent|Subject)\s*:\*?\s*(.*)$/i.exec(lines[i])
+    if (m) {
+      current = m[1].toLowerCase()
+      if (!(current in found)) found[current] = m[2].trim()
+    } else if (current) {
+      found[current] = `${found[current]} ${lines[i].trim()}`
+    }
+  }
+  if (!found.from && !found.subject) return null
+  const clean = (v: string | undefined) => (v ? v.replace(/[\u202F\u00A0]/g, ' ').trim() || null : null)
+  return { from: clean(found.from), subject: clean(found.subject), date: clean(found.date ?? found.sent) }
+}
+
 export async function readEmlPreview(file: File): Promise<EmlPreview> {
   // Headers sit at the top; 64 KB is plenty and avoids reading big attachments.
   const head = await file.slice(0, 64 * 1024).text()
@@ -52,5 +101,8 @@ export async function readEmlPreview(file: File): Promise<EmlPreview> {
     if (!Number.isNaN(d.getTime()))
       date = d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
-  return { from: get('From'), subject: get('Subject'), date }
+  const outer = { from: get('From'), subject: get('Subject'), date }
+  if (!outer.from && !outer.subject) return { ...outer, forwardedBy: null }
+  const inner = forwardedHeaders(head)
+  return inner ? { ...inner, forwardedBy: outer.from } : { ...outer, forwardedBy: null }
 }
