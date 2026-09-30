@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-/** "Do not sell or share my info" — remembered per browser. Global Privacy Control counts
+/** "Turn off analytics" — remembered per browser. Global Privacy Control counts
  *  as the same choice without the visitor having to click anything. */
 const OPT_OUT_KEY = 'dsm_neg_analytics_opt_out'
 

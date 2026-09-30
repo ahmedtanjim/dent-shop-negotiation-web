@@ -4,7 +4,7 @@ import { optedOut, withoutQuery } from './privacy'
 /**
  * Google Analytics 4 — PUBLIC pages only (the landing page and the sign-in page), and
  * dormant unless VITE_GA_MEASUREMENT_ID is set at build time. Never loads for a visitor
- * with Global Privacy Control on or who used "Do not sell or share my info". No user id,
+ * with Global Privacy Control on or who used "Turn off analytics". No user id,
  * no PII, no Google signals / ad personalization, and page URLs without query strings.
  * Inside the signed-in app the GA kill switch (window['ga-disable-<id>']) is set, so not
  * even GA's automatic history page views fire on case pages.
@@ -76,7 +76,7 @@ export function trackSignUpClick(placement: string) {
   window.gtag?.('event', 'sign_up_click', { placement })
 }
 
-/** "Do not sell or share my info" was just chosen: stop now, not on the next load. */
+/** "Turn off analytics" was just chosen: stop now, not on the next load. */
 export function stopAnalytics() {
   setDisabled(true)
 }

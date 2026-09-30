@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { gpcEnabled, optedOut, optOutOfSharing } from '@/analytics/privacy'
 import { stopAnalytics } from '@/analytics/ga'
 
-/** The public pages' "Do not sell or share my info" choice: one click opts this browser
+/** The public pages' "Turn off analytics" choice: one click opts this browser
  *  out of analytics (Global Privacy Control already does it automatically). */
 const justNow = ref(false)
 function optOut() {
@@ -20,7 +20,7 @@ function optOut() {
         {{ gpcEnabled && !justNow ? 'Global Privacy Control honored — no analytics on this browser.' : 'Opted out — no analytics on this browser.' }}
       </span>
     </template>
-    <a v-else href="#" @click.prevent="optOut">Do not sell or share my info</a>
+    <a v-else href="#" @click.prevent="optOut">Turn off analytics</a>
   </span>
 </template>
 
