@@ -95,11 +95,17 @@ function isSignInPath(path: string): boolean {
   return path.startsWith('/api/auth/login') || path.startsWith('/api/auth/handoff/exchange')
 }
 
+export interface RequestOptions {
+  /** Let the request outlive the page (a save flushed as the tab closes). Bodies ≤ 64 KB. */
+  keepalive?: boolean
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
   form?: FormData,
+  opts: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { ...authHeader() }
   let payload: BodyInit | undefined
@@ -112,7 +118,7 @@ async function request<T>(
 
   let res: Response
   try {
-    res = await fetch(`${API_BASE}${path}`, { method, headers, body: payload })
+    res = await fetch(`${API_BASE}${path}`, { method, headers, body: payload, keepalive: opts.keepalive })
   } catch {
     throw new ApiError(0, NETWORK_ERROR)
   }
@@ -145,7 +151,7 @@ async function request<T>(
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
-  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
+  put: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>('PUT', path, body, undefined, opts),
   del: <T = void>(path: string) => request<T>('DELETE', path),
   postForm: <T>(path: string, form: FormData) => request<T>('POST', path, undefined, form),
 

@@ -7,6 +7,8 @@ import { ApiError, CRM_URL } from '@/api/client'
 import { SIGNUP_URL } from '@/api/handoff'
 import { useAuthStore } from '@/stores/auth'
 import { theme, toggleTheme } from '@/utils/theme'
+import { trackSignUpClick } from '@/analytics/ga'
+import PrivacyChoicesLink from '@/components/PrivacyChoicesLink.vue'
 
 /** The sample letter on the left, the form on the right — same shell as the shop
  *  system's login, in this app's own colours. One account for both apps. */
@@ -148,12 +150,13 @@ async function submit() {
         </button>
 
         <p class="alt muted">
-          New here? <a :href="SIGNUP_URL">Create your shop</a>
+          New here? <a :href="SIGNUP_URL" @click="trackSignUpClick('login')">Create your shop</a>
           <span class="faint">· $1,999/yr, shop system included</span>
         </p>
         <p class="cross muted">Already inside the shop system? Click "DSM Negotiator" in its top bar, no password needed.</p>
         <p class="legal faint">
-          <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a>
+          <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a> ·
+          <PrivacyChoicesLink />
         </p>
       </form>
     </section>

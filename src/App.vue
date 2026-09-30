@@ -8,6 +8,7 @@ import { useEntitlementStore } from '@/stores/entitlement'
 import { goToCrm } from '@/api/handoff'
 import { theme, toggleTheme } from '@/utils/theme'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
+import { setSentryTags } from '@/analytics/sentry'
 
 const auth = useAuthStore()
 const ent = useEntitlementStore()
@@ -25,11 +26,20 @@ function logout() {
 watch(aiPlanRequired, (hit) => {
   if (!hit) return
   aiPlanRequired.value = false
-  if (auth.shopId) void ent.load(auth.shopId, true)
+  // invalidate() marks the cached plan stale synchronously, so the router guard below
+  // waits for the fresh answer instead of bouncing the paywall back (NEG-7).
+  if (auth.shopId) void ent.invalidate(auth.shopId)
   if (route.name !== 'paywall') {
     router.push({ name: 'paywall', query: route.fullPath !== '/' ? { redirect: route.fullPath } : {} })
   }
 })
+
+// Error reports carry the role and plan status only — never who the user is.
+watch(
+  () => [auth.isAuthed ? auth.role : null, ent.entitlement?.status ?? null] as const,
+  ([role, plan]) => setSentryTags({ role, plan }),
+  { immediate: true },
+)
 
 function replayTour() {
   // Each screen has its own tour — replay the one for where the user actually is.

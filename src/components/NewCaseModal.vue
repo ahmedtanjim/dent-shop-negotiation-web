@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { X } from 'lucide-vue-next'
 import { createCase } from '@/api/negotiation'
 import { getShopProfile } from '@/api/shops'
+import { useEscapeToClose } from '@/utils/escapeToClose'
 import { ApiError } from '@/api/client'
 import type { CaseListItem, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { oneLine, US_STATES } from '@/utils/format'
@@ -15,6 +16,7 @@ const emit = defineEmits<{
   close: []
   created: [c: CaseListItem]
 }>()
+useEscapeToClose(() => emit('close'))
 
 const auth = useAuthStore()
 

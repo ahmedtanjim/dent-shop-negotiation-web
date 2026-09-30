@@ -14,6 +14,8 @@ import { formatBytes, oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
+import { useFlushOnLeave } from '@/utils/flushOnLeave'
+import { tooLargeMessage } from '@/utils/uploads'
 
 const props = defineProps<{ detail: CaseDetail }>()
 const emit = defineEmits<{ refresh: [] }>()
@@ -93,7 +95,7 @@ const stateOptions = computed(() =>
   form.value.state && !US_STATES.includes(form.value.state) ? [form.value.state, ...US_STATES] : US_STATES,
 )
 
-async function save() {
+async function save(keepalive = false) {
   if (estimate.value.error) return
   if (!oneLine(form.value.title)) {
     saveError.value = 'Give the case a title.'
@@ -116,7 +118,7 @@ async function save() {
     body.state = opt(f.state)
     body.invoiceTotal = estimate.value.value ?? 0
     body.notes = opt(f.notes)
-    await updateCase(shopId.value, caseId.value, body)
+    await updateCase(shopId.value, caseId.value, body, { keepalive })
     // Accept our own save as the new baseline so the refresh below re-syncs the form.
     pristine.value = JSON.stringify(form.value)
     saved.value = true
@@ -129,6 +131,16 @@ async function save() {
   }
 }
 
+// Unsaved case details are saved on the way out (another case, the list, closing the tab)
+// instead of silently dropped (NEG-6) — as long as they're valid; an invalid form keeps
+// the browser's "leave page?" prompt.
+useFlushOnLeave(
+  () => dirty.value && !saving.value,
+  (keepalive) => {
+    if (!estimate.value.error && oneLine(form.value.title)) void save(keepalive)
+  },
+)
+
 /* ---------- uploads ---------- */
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -140,6 +152,11 @@ async function submitDocument() {
   const file = fileInput.value?.files?.[0]
   if (!file) {
     docError.value = 'Choose a file first.'
+    return
+  }
+  const big = tooLargeMessage(file)
+  if (big) {
+    docError.value = big
     return
   }
   docBusy.value = true
@@ -183,7 +200,7 @@ async function removeDocument(id: string) {
     <!-- case fields -->
     <section class="card">
       <div class="panel-title">Case details</div>
-      <form novalidate @submit.prevent="save">
+      <form novalidate @submit.prevent="save()">
         <label class="field customer-field">
           <span>Customer</span>
           <CustomerPicker
@@ -255,8 +272,8 @@ async function removeDocument(id: string) {
       <ul v-if="detail.documents.length" class="doc-list">
         <li v-for="d in detail.documents" :key="d.id" class="doc">
           <div class="doc-info">
-            <p class="doc-name">{{ d.label || d.fileName }}</p>
-            <p class="faint">{{ d.fileName }} · {{ formatBytes(d.sizeBytes) }}</p>
+            <p class="doc-name" :title="d.label || d.fileName">{{ d.label || d.fileName }}</p>
+            <p class="faint doc-meta">{{ d.fileName }} · {{ formatBytes(d.sizeBytes) }}</p>
           </div>
           <div class="doc-actions">
             <button class="btn btn-ghost btn-sm" title="Download" @click="onDownload(d.id)">
@@ -271,7 +288,7 @@ async function removeDocument(id: string) {
       <p v-else class="faint">Work orders, estimates, photos, signed contracts.</p>
 
       <form class="doc-form" @submit.prevent="submitDocument">
-        <input ref="fileInput" type="file" />
+        <input ref="fileInput" type="file" @change="docError = null" />
         <input v-model="docLabel" type="text" placeholder="Label (optional), e.g. Work order" />
         <p v-if="docError" class="error-text">{{ docError }}</p>
         <button class="btn btn-sm" type="submit" :disabled="docBusy">
@@ -288,6 +305,7 @@ async function removeDocument(id: string) {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
 }
 .save-btn {
   width: 100%;
@@ -351,14 +369,22 @@ async function removeDocument(id: string) {
   background: var(--bg-raised);
 }
 .doc-info {
+  flex: 1;
   min-width: 0;
+}
+.doc-meta {
+  overflow-wrap: anywhere;
 }
 .doc-name {
   font-size: 13px;
   font-weight: 600;
+  /* two lines, then an ellipsis — a long label never widens the card */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .doc-actions {
   display: flex;

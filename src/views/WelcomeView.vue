@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { CRM_URL } from '@/api/client'
+import { trackSignUpClick } from '@/analytics/ga'
+import PrivacyChoicesLink from '@/components/PrivacyChoicesLink.vue'
 import {
   Scale,
   ShieldCheck,
@@ -17,12 +19,12 @@ const steps = [
   {
     icon: Mail,
     title: 'Forward the adjuster’s email',
-    text: 'Drop the insurer’s .eml straight into the case. Every message, estimate, and short-pay lands on one timeline, and the fact ledger keeps dates and amounts straight.',
+    text: 'Upload the insurer’s .eml or paste the email — forwards unwrap to the adjuster who actually wrote it. Every email you receive and every letter you send lands on one numbered, dated timeline.',
   },
   {
     icon: FileText,
     title: 'The AI drafts your response',
-    text: 'Pick the tone — cooperative to final notice. The draft is grounded in your case’s own facts and cites verified claim-handling rules where they exist for your state, verbatim.',
+    text: 'The AI names the adjuster’s move and drafts your reply at the tone the case’s record supports. The draft is grounded in your case’s own facts and cites verified claim-handling rules where they exist for your state, verbatim.',
   },
   {
     icon: ShieldCheck,
@@ -45,17 +47,17 @@ const features = [
   {
     icon: ListChecks,
     title: 'The escalation ladder',
-    text: 'Five rungs from cooperative reply to final notice. The AI tells you which rung you’re on and never accuses bad faith before your ledger documents the pattern.',
+    text: 'Five rungs from cooperative reply to final notice. Drafts never climb above the rung your documented facts support, and never accuse bad faith before the record shows the pattern.',
   },
   {
     icon: FileText,
-    title: 'Fact ledger & documents',
-    text: 'Every date, amount, estimate, and delivery is logged per case. When the adjuster “never received” your supplement, you answer with the exact date they did.',
+    title: 'Letters & invoice, ready to send',
+    text: 'Ready-made letters filled in from the case — notice of representation, itemized breakdown, storage-cap rebuttal, fee rebuttal, formal demand for payment — plus a Total Loss Invoice PDF with storage accruing by the day.',
   },
   {
     icon: MessagesSquare,
-    title: 'Negotiation copilot',
-    text: 'Ask “what’s my next move?” mid-case. The copilot reads the whole thread and answers with strategy grounded in your case file and the verified rules for your state where they exist — not generic advice.',
+    title: 'Reads the adjuster’s tactic',
+    text: 'Every insurer email is read for the move behind it — stall, lowball, redundant request, liability shift, denial — and the reply is drafted against that move, not a generic template.',
   },
   {
     icon: Scale,
@@ -75,7 +77,7 @@ const features = [
         </div>
         <div class="nav-right">
           <RouterLink :to="{ name: 'login' }" class="btn btn-ghost">Log in</RouterLink>
-          <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Get started</RouterLink>
+          <RouterLink :to="{ name: 'register' }" class="btn btn-primary" @click="trackSignUpClick('nav')">Get started</RouterLink>
         </div>
       </div>
     </header>
@@ -93,7 +95,7 @@ const features = [
         letters that get it paid, citing verified claim-handling rules where they exist for your state.
       </p>
       <div class="hero-ctas">
-        <RouterLink :to="{ name: 'register' }" class="btn btn-primary btn-lg">
+        <RouterLink :to="{ name: 'register' }" class="btn btn-primary btn-lg" @click="trackSignUpClick('hero')">
           Get DSM Negotiator <ArrowRight :size="16" />
         </RouterLink>
         <RouterLink :to="{ name: 'login' }" class="btn btn-lg">I have an account</RouterLink>
@@ -157,11 +159,11 @@ const features = [
           <ul>
             <li><Check :size="14" /> Dent Shop Manager Annual plan included</li>
             <li><Check :size="14" /> Unlimited cases &amp; team seats</li>
-            <li><Check :size="14" /> AI drafting, copilot chat &amp; .eml intake</li>
+            <li><Check :size="14" /> AI reply drafts &amp; email intake (.eml upload or paste)</li>
             <li><Check :size="14" /> State-specific legal backing, kept current</li>
-            <li><Check :size="14" /> Fact ledger, documents &amp; full paper trail</li>
+            <li><Check :size="14" /> Ready-made letters, Total Loss Invoice PDF &amp; a dated paper trail</li>
           </ul>
-          <RouterLink :to="{ name: 'register' }" class="btn btn-primary">Get DSM Negotiator</RouterLink>
+          <RouterLink :to="{ name: 'register' }" class="btn btn-primary" @click="trackSignUpClick('pricing')">Get DSM Negotiator</RouterLink>
           <p class="price-note faint">One price, billed yearly from the day you sign up. No trial. Already on Dent Shop Manager? Your plan upgrades to this one, no second subscription.</p>
         </div>
       </div>
@@ -169,7 +171,7 @@ const features = [
 
     <section class="section final-cta">
       <h2 class="section-title">The insurer has software writing their letters.<br />Now you do too.</h2>
-      <RouterLink :to="{ name: 'register' }" class="btn btn-primary btn-lg">
+      <RouterLink :to="{ name: 'register' }" class="btn btn-primary btn-lg" @click="trackSignUpClick('footer')">
         Create your shop <ArrowRight :size="16" />
       </RouterLink>
     </section>
@@ -181,7 +183,8 @@ const features = [
       </p>
       <p class="faint">
         © {{ new Date().getFullYear() }} Dent Shop Manager ·
-        <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a>
+        <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a> ·
+        <PrivacyChoicesLink />
       </p>
     </footer>
   </div>

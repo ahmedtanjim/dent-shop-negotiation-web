@@ -2,8 +2,16 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { copyLetter, letterToHtml } from '@/utils/letterMarkdown'
 import type { Directive } from 'vue'
-import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2 } from 'lucide-vue-next'
-import { createDraft, extractPaste, intakeEml, intakeMessage, markSent } from '@/api/negotiation'
+import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-vue-next'
+import {
+  createDraft,
+  deleteMessage,
+  extractPaste,
+  intakeEml,
+  intakeMessage,
+  markSent,
+  setMessageKind,
+} from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, NegMessage } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
@@ -13,6 +21,7 @@ import BlanksNotice from '@/components/BlanksNotice.vue'
 import DateField from '@/components/DateField.vue'
 import { findBlanks } from '@/utils/placeholders'
 import { readEmlPreview, type EmlPreview } from '@/utils/emlHeaders'
+import { looksLikeEmlName, tooLargeMessage } from '@/utils/uploads'
 
 const props = defineProps<{
   detail: CaseDetail
@@ -122,6 +131,8 @@ const inFromName = ref('')
 const inFromEmail = ref('')
 const inOccurredAt = ref('')
 const inClaimNumber = ref('')
+/** "This is a letter I sent": logged as Sent — no AI read of it, no reply drafted. */
+const inSent = ref(false)
 const emlInput = ref<HTMLInputElement | null>(null)
 const intakeBusy = ref(false)
 const intakeError = ref<string | null>(null)
@@ -146,11 +157,12 @@ async function runExtraction() {
     inBody.value = e.body
     inClaimNumber.value = e.claimNumber ?? ''
     // datetime-local wants local "YYYY-MM-DDTHH:mm"
-    inOccurredAt.value = e.sentAt ? toLocalInput(e.sentAt) : ''
+    inOccurredAt.value = e.sentAt ? toLocalInput(e.sentAt, e.sentDateOnly) : ''
     const notes: string[] = []
     if (e.isForward) notes.push('forward unwrapped — sender is the original author')
     if (e.isThread) notes.push('looks like a thread — only the newest message was kept')
     if (!e.sentAt) notes.push('no date found — set it if you know when it arrived')
+    else if (e.sentDateOnly) notes.push('the email gave a date but no time — set to noon that day')
     if (e.claimNumber && !props.detail.case.insurerClaimNumber)
       notes.push('claim number found — it will be saved to the case')
     extractNote.value = notes.length
@@ -179,7 +191,13 @@ function enterManually() {
   if (!inBody.value && inRaw.value.trim()) inBody.value = inRaw.value.trim()
 }
 
-function toLocalInput(iso: string): string {
+/** API date → the datetime-local field's "YYYY-MM-DDTHH:mm" in the user's zone.
+ *  A date-only value is a calendar DAY: it is placed at local noon of that same day, never
+ *  run through UTC — "2026-06-10" read as UTC midnight is June 9, 8 PM in New York (NEG-3).
+ *  A zone-less timestamp (no "Z"/offset) is already local wall-clock time. */
+function toLocalInput(iso: string, dateOnly = false): string {
+  const day = /^(\d{4}-\d{2}-\d{2})(?:$|T)/.exec(iso)
+  if (day && (dateOnly || iso.length === 10)) return `${day[1]}T12:00`
   const d = new Date(iso)
   if (isNaN(d.getTime())) return ''
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -201,11 +219,15 @@ const PHASE_ORDER: Record<IntakePhase, number> = {
   drafting: 2,
   done: 3,
 }
-const STEPS = [
+const ALL_STEPS = [
   { key: 'saving', label: 'Saving email' },
   { key: 'analyzing', label: 'Analyzing tactics' },
   { key: 'drafting', label: 'Drafting your reply' },
 ] as const
+// Logging a letter the shop sent is one step — no analysis, no reply.
+const STEPS = computed(() => (inSent.value ? [{ key: 'saving', label: 'Logging your letter' } as const] : ALL_STEPS))
+/** Set when the server filed an upload as the shop's own letter (it came from the shop's address). */
+const loggedAsSentNote = ref<string | null>(null)
 
 function stepState(step: IntakePhase): 'todo' | 'active' | 'done' {
   const cur = PHASE_ORDER[intakePhase.value]
@@ -244,6 +266,7 @@ async function runIntake(intake: () => Promise<NegMessage>): Promise<boolean> {
   intakeBusy.value = true
   intakeError.value = null
   draftFailNote.value = null
+  loggedAsSentNote.value = null
   intakePhase.value = 'saving'
   // The tall form collapses into the small stepper, which yanks the page height out from
   // under the user (they were scrolled to the submit button at the bottom of the form).
@@ -255,12 +278,17 @@ async function runIntake(intake: () => Promise<NegMessage>): Promise<boolean> {
   // Save + analysis are one server call; flip the label once the save has surely landed
   // so the stepper narrates what the server is actually doing.
   const analyzeTimer = setTimeout(() => {
-    if (intakePhase.value === 'saving') intakePhase.value = 'analyzing'
+    if (intakePhase.value === 'saving' && !inSent.value) intakePhase.value = 'analyzing'
   }, 900)
   try {
-    const inbound = await intake()
+    const saved = await intake()
     emit('refresh') // the email appears (highlighted, on top) while the draft is written
-    await autoDraftReply(inbound)
+    // Only mail FROM the insurer gets a reply drafted. The shop's own letter — logged on
+    // purpose, or recognized by the server from the shop's address — just joins the record.
+    if (saved.kind === 'Inbound') await autoDraftReply(saved)
+    else if (!inSent.value)
+      loggedAsSentNote.value =
+        'That email came from your own address, so it was logged as a letter your shop sent. Wrong? Use “File as received” on it.'
     intakePhase.value = 'done'
     setTimeout(() => {
       intakePhase.value = 'idle'
@@ -286,6 +314,7 @@ async function submitPaste() {
       fromEmail: inFromEmail.value.trim() || null,
       occurredAt: inOccurredAt.value ? new Date(inOccurredAt.value).toISOString() : null,
       claimNumber: inClaimNumber.value.trim() || null,
+      kind: inSent.value ? 'Sent' : null,
     }),
   )
   if (ok) {
@@ -304,18 +333,32 @@ async function submitPaste() {
 /* Preview what the chosen .eml is before it's uploaded and drafted against. */
 const emlPreview = ref<EmlPreview | null>(null)
 const emlPreviewNote = ref<string | null>(null)
+/** The upload button stays off until the picked file is an email (NEG-5 client side). */
+const emlReady = ref(false)
 async function onEmlChosen() {
   emlPreview.value = null
   emlPreviewNote.value = null
   intakeError.value = null
+  emlReady.value = false
   const file = emlInput.value?.files?.[0]
   if (!file) return
+  const big = tooLargeMessage(file)
+  if (big) {
+    emlPreviewNote.value = big
+    return
+  }
   try {
     const p = await readEmlPreview(file)
-    if (!p.from && !p.subject) emlPreviewNote.value = "This doesn't look like an email file (.eml) — check you picked the right one."
-    else emlPreview.value = p
+    if (!p.from && !p.subject) {
+      emlPreviewNote.value = looksLikeEmlName(file)
+        ? "This file doesn't read as an email — export the message from your mail client again (Gmail: ⋮ → Download message)."
+        : "This isn't an email file (.eml). In Gmail open the message → ⋮ → Download message, then upload that file."
+    } else {
+      emlPreview.value = p
+      emlReady.value = true
+    }
   } catch {
-    emlPreviewNote.value = null
+    emlPreviewNote.value = "Couldn't read that file — pick the .eml again."
   }
 }
 
@@ -325,10 +368,12 @@ async function submitEml() {
     intakeError.value = 'Choose a .eml file first.'
     return
   }
-  const ok = await runIntake(() => intakeEml(shopId.value, caseId.value, file))
+  if (!emlReady.value) return
+  const ok = await runIntake(() => intakeEml(shopId.value, caseId.value, file, inSent.value ? 'Sent' : undefined))
   if (ok && emlInput.value) {
     emlInput.value.value = ''
     emlPreview.value = null
+    emlReady.value = false
   }
 }
 
@@ -369,8 +414,46 @@ async function onMarkSent(m: NegMessage) {
   }
 }
 
+/* Remove an entry (asks first) and re-file an email's direction (NEG-8). */
+const confirmDeleteId = ref<string | null>(null)
+const busyId = ref<string | null>(null)
+async function onDelete(m: NegMessage) {
+  confirmDeleteId.value = null
+  busyId.value = m.id
+  actionError.value = null
+  try {
+    await deleteMessage(shopId.value, caseId.value, m.id)
+    emit('refresh')
+  } catch (e) {
+    actionError.value = e instanceof ApiError ? e.message : 'Could not remove it.'
+  } finally {
+    busyId.value = null
+  }
+}
+async function onRefile(m: NegMessage, kind: 'Inbound' | 'Sent') {
+  busyId.value = m.id
+  actionError.value = null
+  try {
+    await setMessageKind(shopId.value, caseId.value, m.id, kind)
+    emit('refresh')
+  } catch (e) {
+    actionError.value = e instanceof ApiError ? e.message : 'Could not re-file it.'
+  } finally {
+    busyId.value = null
+  }
+}
+function deleteQuestion(m: NegMessage): string {
+  if (m.kind === 'Draft') return 'Discard this draft?'
+  if (m.kind === 'Sent') return 'Remove this sent letter from the record?'
+  return 'Remove this email from the record?'
+}
+
 /* Long email bodies are clamped with an explicit control to read the whole thing —
-   no hidden inner scrolling. */
+   no hidden inner scrolling (a scroll box inside the page traps phones). Drafts are what
+   the owner acts on, so they always show in full. */
+function isClamped(m: NegMessage): boolean {
+  return m.kind !== 'Draft' && m.body.length > LONG_BODY && !expandedIds.value.has(m.id)
+}
 const LONG_BODY = 700
 const expandedIds = ref<Set<string>>(new Set())
 function toggleExpand(id: string) {
@@ -411,7 +494,11 @@ function fromLine(m: NegMessage): string {
           <span>{{ s.label }}</span>
         </div>
         <p v-if="intakePhase === 'done'" class="pstep-done-note">
-          Done — your email and the AI's reply draft are at the top of the timeline.
+          {{
+            inSent || loggedAsSentNote
+              ? 'Done — your letter is on the record at the top of the timeline.'
+              : "Done — your email and the AI's reply draft are at the top of the timeline."
+          }}
         </p>
       </div>
 
@@ -424,6 +511,13 @@ function fromLine(m: NegMessage): string {
             Upload .eml
           </button>
         </div>
+        <label class="sent-toggle">
+          <input v-model="inSent" type="checkbox" />
+          <span>
+            <b>This is a letter my shop sent</b> — log it on the record as sent (no AI read, no reply
+            drafted). Email from your own address is recognized automatically.
+          </span>
+        </label>
 
         <form v-if="intakeTab === 'paste'" @submit.prevent="submitPaste">
           <label class="field">
@@ -488,14 +582,14 @@ function fromLine(m: NegMessage): string {
           <div class="intake-actions">
             <button class="btn btn-ghost" type="button" @click="showIntake = false">Cancel</button>
             <button class="btn btn-primary" type="submit" :disabled="intakeBusy || !fieldsVisible">
-              Add &amp; draft reply
+              {{ inSent ? 'Log sent letter' : 'Add & draft reply' }}
             </button>
           </div>
         </form>
 
         <form v-else @submit.prevent="submitEml">
           <label class="field">
-            <span>.eml file</span>
+            <span>.eml file (max 25 MB)</span>
             <input ref="emlInput" type="file" accept=".eml,message/rfc822" required @change="onEmlChosen" />
           </label>
           <dl v-if="emlPreview" class="eml-preview" aria-label="The email you picked">
@@ -503,16 +597,19 @@ function fromLine(m: NegMessage): string {
             <div><dt>Subject</dt><dd>{{ emlPreview.subject ?? '—' }}</dd></div>
             <div><dt>Sent</dt><dd>{{ emlPreview.date ?? '—' }}</dd></div>
           </dl>
+          <p v-if="emlPreview?.forwardedBy" class="faint fwd-note">
+            Forwarded by {{ emlPreview.forwardedBy }} — the original sender above is what gets logged.
+          </p>
           <p v-if="emlPreviewNote" class="warn-note">{{ emlPreviewNote }}</p>
           <p class="faint">
             Export the email from your mail client as .eml — sender, date, subject and body are read
-            automatically.
+            automatically. Forwarded emails are unwrapped to the original.
           </p>
           <p v-if="intakeError" class="error-text">{{ intakeError }}</p>
           <div class="intake-actions">
             <button class="btn btn-ghost" type="button" @click="showIntake = false">Cancel</button>
-            <button class="btn btn-primary" type="submit" :disabled="intakeBusy">
-              Upload &amp; draft reply
+            <button class="btn btn-primary" type="submit" :disabled="intakeBusy || !emlReady">
+              {{ inSent ? 'Upload & log sent letter' : 'Upload & draft reply' }}
             </button>
           </div>
         </form>
@@ -521,6 +618,7 @@ function fromLine(m: NegMessage): string {
 
     <p v-if="actionError" class="error-text">{{ actionError }}</p>
     <p v-if="draftFailNote" class="warn-note">{{ draftFailNote }}</p>
+    <p v-if="loggedAsSentNote" class="warn-note">{{ loggedAsSentNote }}</p>
 
     <!-- messages -->
     <div v-if="sorted.length === 0 && !draftingVisible" class="card empty-timeline">
@@ -598,11 +696,11 @@ function fromLine(m: NegMessage): string {
       />
       <div
         class="msg-body"
-        :class="{ expanded: expandedIds.has(m.id) }"
+        :class="{ clamped: isClamped(m) }"
         v-html="letterToHtml(m.body, { highlightBlanks: m.kind !== 'Inbound' })"
       ></div>
       <button
-        v-if="m.body.length > LONG_BODY"
+        v-if="m.kind !== 'Draft' && m.body.length > LONG_BODY"
         class="btn btn-ghost btn-sm expand-toggle"
         type="button"
         @click="toggleExpand(m.id)"
@@ -620,7 +718,19 @@ function fromLine(m: NegMessage): string {
         </div>
       </div>
 
-      <footer v-if="m.kind === 'Draft' && confirmSendId === m.id" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-${m.id}`">
+      <footer v-if="confirmDeleteId === m.id" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-del-${m.id}`">
+        <p :id="`confirm-del-${m.id}`" class="confirm-q">
+          {{ deleteQuestion(m) }}
+          <span>It's removed from the case timeline{{ m.kind === 'Inbound' ? ', with the facts read from it' : '' }}. The removal is kept in the activity log.</span>
+        </p>
+        <div class="msg-buttons">
+          <button class="btn btn-sm" @click="confirmDeleteId = null">Keep it</button>
+          <button class="btn btn-danger btn-sm" :disabled="busyId === m.id" @click="onDelete(m)">
+            <Trash2 :size="14" /> Remove
+          </button>
+        </div>
+      </footer>
+      <footer v-else-if="m.kind === 'Draft' && confirmSendId === m.id" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-${m.id}`">
         <p :id="`confirm-${m.id}`" class="confirm-q">
           Did you send this from your own mailbox?
           <span>It moves to the docket as sent{{ detail.case.insurerName ? ` to ${detail.case.insurerName}` : '' }}. This can't be undone.</span>
@@ -642,6 +752,9 @@ function fromLine(m: NegMessage): string {
             <Copy v-else :size="14" />
             {{ copiedId === m.id ? 'Copied' : 'Copy' }}
           </button>
+          <button class="btn btn-ghost btn-sm" title="Discard draft" aria-label="Discard draft" @click="confirmDeleteId = m.id">
+            <Trash2 :size="14" />
+          </button>
           <button class="btn btn-primary btn-sm" :disabled="sendingId === m.id" @click="confirmSendId = m.id">
             <span v-if="sendingId === m.id" class="spinner"></span>
             <Send v-else :size="14" />
@@ -656,6 +769,34 @@ function fromLine(m: NegMessage): string {
             <Check v-if="copiedId === m.id" :size="14" />
             <Copy v-else :size="14" />
             {{ copiedId === m.id ? 'Copied' : 'Copy' }}
+          </button>
+          <button
+            v-if="m.tone === null"
+            class="btn btn-ghost btn-sm"
+            :disabled="busyId === m.id"
+            title="This was received from the insurer, not sent by the shop"
+            @click="onRefile(m, 'Inbound')"
+          >
+            <ArrowDownLeft :size="14" /> File as received
+          </button>
+          <button class="btn btn-ghost btn-sm" title="Remove from the record" aria-label="Remove from the record" @click="confirmDeleteId = m.id">
+            <Trash2 :size="14" />
+          </button>
+        </div>
+      </footer>
+      <footer v-else-if="m.kind === 'Inbound'" class="msg-actions">
+        <div></div>
+        <div class="msg-buttons">
+          <button
+            class="btn btn-ghost btn-sm"
+            :disabled="busyId === m.id"
+            title="Your shop sent this letter — it isn't from the insurer"
+            @click="onRefile(m, 'Sent')"
+          >
+            <ArrowUpRight :size="14" /> We sent this
+          </button>
+          <button class="btn btn-ghost btn-sm" title="Remove from the record" aria-label="Remove from the record" @click="confirmDeleteId = m.id">
+            <Trash2 :size="14" />
           </button>
         </div>
       </footer>
@@ -1059,12 +1200,14 @@ function fromLine(m: NegMessage): string {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
   padding: 12px;
-  max-height: 340px;
-  overflow-y: auto;
 }
-.msg-body.expanded {
-  max-height: none;
-  overflow-y: visible;
+/* a long insurer email shows its first part, faded, with "Read the full email" below —
+   never a scroll box inside the page */
+.msg-body.clamped {
+  max-height: 300px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent);
+  mask-image: linear-gradient(to bottom, #000 75%, transparent);
 }
 /* v-html content is unscoped — style the rendered letter through :deep() */
 .msg-body :deep(p:last-child),
@@ -1136,6 +1279,27 @@ function fromLine(m: NegMessage): string {
 }
 .msg-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+.sent-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -4px 0 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.sent-toggle input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.sent-toggle b {
+  color: var(--text);
+}
+.fwd-note {
+  margin: -4px 0 8px;
+  font-size: 12px;
 }
 </style>

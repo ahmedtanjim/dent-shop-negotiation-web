@@ -41,3 +41,10 @@ jobs:
         env:
           # Baked into the Vite build so the SPA calls the right API.
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          # Analytics — dormant when unset (see README "Analytics & error reporting").
+          # GA4 measurement id (repo Settings → Variables): public pages only.
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID }}
+          # Sentry DSN (repo Settings → Secrets): signed-in app error reports.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # Release tag for Sentry: a repo variable if set, else the commit being deployed.
+          VITE_RELEASE: ${{ vars.VITE_RELEASE || github.sha }}

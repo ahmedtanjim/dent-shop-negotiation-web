@@ -13,6 +13,8 @@ export const useEntitlementStore = defineStore('entitlement', () => {
   const loadedFor = ref<string | null>(null)
   /** The last lookup failed and nothing is known about the plan. */
   const failed = ref(false)
+  /** Set by a 402 ai_required until the plan has been re-read: the API has the final word. */
+  const refused = ref(false)
   let inflight: Promise<void> | null = null
 
   const entitlement = computed(() => state.value?.entitlement ?? null)
@@ -24,7 +26,7 @@ export const useEntitlementStore = defineStore('entitlement', () => {
     if (!e) return null
     return e.tier ?? (e.entitled ? 'Ai' : 'Free')
   })
-  const isAi = computed(() => tier.value === 'Ai')
+  const isAi = computed(() => tier.value === 'Ai' && !refused.value)
   /** Never subscribed: the account exists but no plan was ever chosen — typically an owner
    *  who created the shop from the Negotiator's sign-up and left before paying. (The API
    *  keeps no sign-up intent, so a Free shop from the shop system reads the same; for it,
@@ -42,12 +44,16 @@ export const useEntitlementStore = defineStore('entitlement', () => {
   )
 
   async function load(shopId: string, force = false): Promise<void> {
-    if (!force && loadedFor.value === shopId) return
+    // A refresh in flight always wins over the cached answer: after a 402 the plan is
+    // being re-read, and answering from the stale "AI plan" state bounced the paywall
+    // straight back to the page that had just been refused (NEG-7).
     if (inflight && !force) return inflight
+    if (!force && loadedFor.value === shopId) return
     inflight = (async () => {
       try {
         state.value = await getBilling(shopId)
         failed.value = false
+        refused.value = false
         loadedFor.value = shopId
       } catch {
         // Unknown, not "Ai". loadedFor stays unset so the next navigation tries again.
@@ -64,14 +70,24 @@ export const useEntitlementStore = defineStore('entitlement', () => {
   async function sync(shopId: string): Promise<void> {
     state.value = await syncBilling(shopId)
     failed.value = false
+    refused.value = false
     loadedFor.value = shopId
+  }
+
+  /** The API just refused the AI plan (402 ai_required): the cached state is stale. Drop it
+   *  and re-read — until the answer lands, nobody may treat the shop as on the AI plan. */
+  function invalidate(shopId: string): Promise<void> {
+    loadedFor.value = null
+    refused.value = true
+    return load(shopId, true)
   }
 
   function reset() {
     state.value = null
     loadedFor.value = null
     failed.value = false
+    refused.value = false
   }
 
-  return { state, entitlement, known, failed, tier, isAi, unfinishedSignup, canUpgradeInPlace, load, sync, reset }
+  return { state, entitlement, known, failed, tier, isAi, unfinishedSignup, canUpgradeInPlace, load, invalidate, sync, reset }
 })
