@@ -66,7 +66,7 @@ const capResets = computed(() => {
   <div class="app-shell">
     <header v-if="auth.isAuthed" class="topbar">
       <RouterLink to="/" class="brand">
-        <img src="@/assets/dsm-logo.png" class="brand-logo" alt="Dent Shop Manager" />
+        <img src="@/assets/dsm-logo.webp" class="brand-logo" alt="Dent Shop Manager" width="142" height="128" />
         <span class="brand-word">
           Dent Shop Manager
           <span class="brand-sub"><strong>Negotiator</strong></span>

@@ -47,10 +47,18 @@ function load() {
     page_location: withoutQuery(window.location.href),
     page_referrer: withoutQuery(document.referrer),
   })
-  const s = document.createElement('script')
-  s.async = true
-  s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_ID)}`
-  document.head.appendChild(s)
+  // The 175 KB gtag.js waits until the page has loaded and the browser is idle, so it never
+  // competes with the landing page's first paint; calls made before then queue in dataLayer.
+  const inject = () => {
+    const s = document.createElement('script')
+    s.async = true
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_ID)}`
+    document.head.appendChild(s)
+  }
+  const later = () =>
+    'requestIdleCallback' in window ? window.requestIdleCallback(inject, { timeout: 3000 }) : setTimeout(inject, 1)
+  if (document.readyState === 'complete') later()
+  else window.addEventListener('load', later, { once: true })
 }
 
 /** Called after every navigation: a public route sends one page_view; any other route

@@ -56,7 +56,7 @@ async function submit() {
   <div class="auth">
     <aside class="panel">
       <RouterLink to="/" class="lockup">
-        <img src="@/assets/dsm-logo.png" class="logo-img" alt="Dent Shop Manager" />
+        <img src="@/assets/dsm-logo.webp" class="logo-img" alt="Dent Shop Manager" width="142" height="128" />
         <span class="words"><span class="name">Dent Shop Manager</span><span class="sub">Negotiator</span></span>
       </RouterLink>
 

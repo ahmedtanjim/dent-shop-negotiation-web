@@ -4,7 +4,7 @@ import { withoutQuery } from './privacy'
 
 /**
  * Error reporting for the SIGNED-IN app — dormant unless VITE_SENTRY_DSN is set at build
- * time (then @sentry/vue loads as its own chunk). Privacy rules:
+ * time (then @sentry/vue loads as its own chunk, once signed in). Privacy rules:
  *  - no PII: sendDefaultPii off, never setUser, component props not attached;
  *  - no session replay, no performance tracing (tracesSampleRate 0);
  *  - beforeSend drops request bodies, headers (Authorization included), cookies, query
@@ -72,8 +72,17 @@ export function scrubBreadcrumb(b: Breadcrumb): Breadcrumb | null {
   return { ...b, message: category === 'navigation' || category === 'fetch' || category === 'xhr' ? undefined : scrubText(b.message), data }
 }
 
-export async function initSentry(app: App): Promise<void> {
-  if (!DSN) return
+let starting: Promise<void> | null = null
+
+/** Loads @sentry/vue (its own ~150 KB chunk) the first time a signed-in page is shown.
+ *  Events from signed-out pages are dropped anyway, so the landing and sign-in pages never
+ *  download it. Safe to call on every navigation. */
+export function initSentry(app: App): Promise<void> {
+  if (!DSN || !signedIn()) return Promise.resolve()
+  return (starting ??= start(app))
+}
+
+async function start(app: App): Promise<void> {
   const S = await import('@sentry/vue')
   S.init({
     app,

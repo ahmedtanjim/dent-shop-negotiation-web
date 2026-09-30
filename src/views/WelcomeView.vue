@@ -72,7 +72,7 @@ const features = [
     <header class="nav">
       <div class="nav-inner">
         <div class="brand">
-          <img src="@/assets/dsm-logo.png" class="brand-logo" alt="Dent Shop Manager" />
+          <img src="@/assets/dsm-logo.webp" class="brand-logo" alt="Dent Shop Manager" width="142" height="128" />
           <span>DSM <strong>Negotiator</strong></span>
         </div>
         <div class="nav-right">
