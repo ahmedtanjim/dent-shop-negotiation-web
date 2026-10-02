@@ -5,6 +5,7 @@ import type { Directive } from 'vue'
 import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-vue-next'
 import {
   createDraft,
+  getDraftQuestions,
   deleteMessage,
   extractPaste,
   intakeEml,
@@ -13,12 +14,13 @@ import {
   setMessageKind,
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, NegMessage } from '@/api/types'
+import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, NegMessage } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
 import BlanksNotice from '@/components/BlanksNotice.vue'
 import DateField from '@/components/DateField.vue'
+import DraftQuestions from '@/components/DraftQuestions.vue'
 import { findBlanks } from '@/utils/placeholders'
 import { readEmlPreview, type EmlPreview } from '@/utils/emlHeaders'
 import { looksLikeEmlName, tooLargeMessage } from '@/utils/uploads'
@@ -210,22 +212,39 @@ function toLocalInput(iso: string, dateOnly = false): string {
    replaces the form while it runs so the owner sees each stage happen. Customer-voice
    letters stay manual in DraftPanel behind the authorization checkbox. */
 
-type IntakePhase = 'idle' | 'saving' | 'analyzing' | 'drafting' | 'done'
+// 'checking' and 'questions' are the draft step's first half (owner decision 2026-10-03):
+// the assistant asks up to 3 questions before it writes, so the reply has no [BLANKS].
+type IntakePhase = 'idle' | 'saving' | 'analyzing' | 'checking' | 'questions' | 'drafting' | 'done'
 const intakePhase = ref<IntakePhase>('idle')
 const PHASE_ORDER: Record<IntakePhase, number> = {
   idle: -1,
   saving: 0,
   analyzing: 1,
+  checking: 2,
+  questions: 2,
   drafting: 2,
   done: 3,
 }
-const ALL_STEPS = [
-  { key: 'saving', label: 'Saving email' },
-  { key: 'analyzing', label: 'Analyzing tactics' },
-  { key: 'drafting', label: 'Drafting your reply' },
-] as const
+const ALL_STEPS = computed(
+  () =>
+    [
+      { key: 'saving', label: 'Saving email' },
+      { key: 'analyzing', label: 'Analyzing tactics' },
+      {
+        key: 'drafting',
+        label:
+          intakePhase.value === 'checking'
+            ? 'Checking what your reply needs'
+            : intakePhase.value === 'questions'
+              ? 'A few questions before your reply'
+              : 'Drafting your reply',
+      },
+    ] as const,
+)
 // Logging a letter the shop sent is one step — no analysis, no reply.
-const STEPS = computed(() => (inSent.value ? [{ key: 'saving', label: 'Logging your letter' } as const] : ALL_STEPS))
+const STEPS = computed(() =>
+  inSent.value ? [{ key: 'saving', label: 'Logging your letter' } as const] : ALL_STEPS.value,
+)
 /** Set when the server filed an upload as the shop's own letter (it came from the shop's address). */
 const loggedAsSentNote = ref<string | null>(null)
 
@@ -238,17 +257,41 @@ function stepState(step: IntakePhase): 'todo' | 'active' | 'done' {
 const draftFailNote = ref<string | null>(null)
 const intakeCard = ref<HTMLElement | null>(null)
 
+/** The questions the assistant asked before the reply; answering resolves the wait. */
+const intakeQuestions = ref<DraftQuestion[] | null>(null)
+let answerQuestions: ((answers: DraftAnswer[]) => void) | null = null
+function onIntakeAnswers(answers: DraftAnswer[]) {
+  answerQuestions?.(answers)
+  answerQuestions = null
+}
+
 async function autoDraftReply(inbound: NegMessage) {
+  // Tone is omitted: the assistant reads the escalation ladder (including the tactic it
+  // just classified on this inbound) and picks the tier the facts support.
+  const request: DraftRequest = {
+    voice: 'Shop',
+    customerAuthorized: false,
+    replyToMessageId: inbound.id,
+    instructions: null,
+  }
+  intakePhase.value = 'checking'
+  let questions: DraftQuestion[] = []
+  try {
+    questions = await getDraftQuestions(shopId.value, caseId.value, request)
+  } catch {
+    // An older API or a hiccup: draft without questions — a real refusal (litigation,
+    // usage cap) comes back from the draft call below with its own message.
+  }
+  let answers: DraftAnswer[] = []
+  if (questions.length) {
+    intakeQuestions.value = questions
+    intakePhase.value = 'questions'
+    answers = await new Promise<DraftAnswer[]>((resolve) => (answerQuestions = resolve))
+    intakeQuestions.value = null
+  }
   intakePhase.value = 'drafting'
   try {
-    // Tone is omitted: the assistant reads the escalation ladder (including the tactic it
-    // just classified on this inbound) and picks the tier the facts support.
-    const result = await createDraft(shopId.value, caseId.value, {
-      voice: 'Shop',
-      customerAuthorized: false,
-      replyToMessageId: inbound.id,
-      instructions: null,
-    })
+    const result = await createDraft(shopId.value, caseId.value, { ...request, answers })
     if (result.recommendsCounsel) emit('counsel')
   } catch (e) {
     // Non-fatal: the email is already saved — only the automatic draft failed. Surface the
@@ -493,6 +536,12 @@ function fromLine(m: NegMessage): string {
           </span>
           <span>{{ s.label }}</span>
         </div>
+        <DraftQuestions
+          v-if="intakePhase === 'questions' && intakeQuestions"
+          :questions="intakeQuestions"
+          class="intake-questions"
+          @submit="onIntakeAnswers"
+        />
         <p v-if="intakePhase === 'done'" class="pstep-done-note">
           {{
             inSent || loggedAsSentNote
@@ -939,6 +988,9 @@ function fromLine(m: NegMessage): string {
   height: 7px;
   border-radius: 50%;
   background: var(--border);
+}
+.intake-questions {
+  margin-top: 4px;
 }
 .pstep-done-note {
   font-size: 12.5px;
