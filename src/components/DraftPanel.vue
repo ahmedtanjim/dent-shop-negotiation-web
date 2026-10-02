@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { PenLine, Sparkles } from 'lucide-vue-next'
-import { createDraft } from '@/api/negotiation'
+import { createDraft, getDraftQuestions } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, DraftVoice } from '@/api/types'
+import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, DraftVoice } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
+import DraftQuestions from '@/components/DraftQuestions.vue'
 
 const props = defineProps<{ detail: CaseDetail }>()
 const emit = defineEmits<{
@@ -46,7 +47,11 @@ watch(
 const isLitigation = computed(() => props.detail.case.status === 'Litigation')
 
 const busy = ref(false)
+/** 'checking' = asking the server what the letter needs; 'drafting' = writing it */
+const step = ref<'checking' | 'drafting' | null>(null)
 const error = ref<string | null>(null)
+/** Pre-draft questions waiting for the owner; the request they belong to rides along. */
+const pending = ref<{ questions: DraftQuestion[]; request: DraftRequest } | null>(null)
 
 watch(voice, (v) => {
   if (v === 'Shop') customerAuthorized.value = false
@@ -60,26 +65,63 @@ const canSubmit = computed(() => {
 
 // No tone picker: tone is omitted so the assistant reads the escalation ladder and picks
 // the tier the facts support. Its choice comes back as the badge on the draft card.
+// Two steps (owner decision 2026-10-03): first the assistant asks up to 3 questions about
+// facts the letter needs, then it writes a letter with no [BLANKS] in it.
 async function generate() {
+  const request: DraftRequest = {
+    voice: voice.value,
+    customerAuthorized: customerAuthorized.value,
+    replyToMessageId: replyToMessageId.value || null,
+    instructions: instructions.value.trim() || null,
+  }
   busy.value = true
+  step.value = 'checking'
+  error.value = null
+  pending.value = null
+  let questions: DraftQuestion[] = []
+  try {
+    questions = await getDraftQuestions(shopId.value, caseId.value, request)
+  } catch (e) {
+    // A refusal (litigation, no authorization, usage cap) is the draft's refusal too — show
+    // it. Anything else (an older API, a hiccup) just drafts without questions.
+    if (e instanceof ApiError && [400, 402, 403, 429].includes(e.status)) {
+      error.value = e.message
+      busy.value = false
+      step.value = null
+      return
+    }
+  }
+  if (questions.length) {
+    pending.value = { questions, request }
+    busy.value = false
+    step.value = null
+    return
+  }
+  await write(request, [])
+}
+
+async function write(request: DraftRequest, answers: DraftAnswer[]) {
+  busy.value = true
+  step.value = 'drafting'
   emit('drafting', true)
   error.value = null
   try {
-    const result = await createDraft(shopId.value, caseId.value, {
-      voice: voice.value,
-      customerAuthorized: customerAuthorized.value,
-      replyToMessageId: replyToMessageId.value || null,
-      instructions: instructions.value.trim() || null,
-    })
+    const result = await createDraft(shopId.value, caseId.value, { ...request, answers })
     instructions.value = ''
+    pending.value = null
     if (result.recommendsCounsel) emit('counsel')
     emit('refresh')
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Draft generation failed.'
   } finally {
     busy.value = false
+    step.value = null
     emit('drafting', false)
   }
+}
+
+function answer(answers: DraftAnswer[]) {
+  if (pending.value) void write(pending.value.request, answers)
 }
 </script>
 
@@ -149,9 +191,28 @@ async function generate() {
 
       <p v-if="error" class="error-text">{{ error }}</p>
 
-      <button class="btn btn-primary generate" :disabled="!canSubmit" @click="generate">
-        <span v-if="busy" class="spinner"></span>
-        {{ busy ? 'Drafting…' : 'Generate draft' }}
+      <DraftQuestions
+        v-if="pending"
+        :key="pending.questions.map((q) => q.question).join('|')"
+        :questions="pending.questions"
+        :busy="busy"
+        class="questions"
+        @submit="answer"
+      />
+      <template v-else>
+        <button class="btn btn-primary generate" :disabled="!canSubmit" @click="generate">
+          <span v-if="busy" class="spinner"></span>
+          {{
+            step === 'checking'
+              ? 'Checking what the letter needs…'
+              : busy
+                ? 'Drafting…'
+                : 'Generate draft'
+          }}
+        </button>
+      </template>
+      <button v-if="pending && !busy" class="btn btn-ghost btn-sm cancel" @click="pending = null">
+        Cancel
       </button>
 
       <p class="faint disclaimer">
@@ -247,6 +308,13 @@ async function generate() {
 .generate {
   width: 100%;
   justify-content: center;
+  margin-top: 6px;
+}
+.questions {
+  margin-top: 8px;
+}
+.cancel {
+  align-self: center;
   margin-top: 6px;
 }
 .disclaimer {

@@ -13,7 +13,8 @@ const shopDocs = computed(() => props.docs?.documents.filter((d) => d.voice === 
 const customerDocs = computed(
   () => props.docs?.documents.filter((d) => d.voice === 'Customer') ?? [],
 )
-/** Blanks left in any letter (missing shop-profile fields, mostly) — listed once, above. */
+/** Blanks left in a letter from an older API (current letters have none — the API lists
+ *  what they were written around as `missing` instead) — listed once, above. */
 const blanks = computed(() =>
   findBlanks(...(props.docs?.documents.flatMap((d) => [d.subject, d.body]) ?? [])),
 )
@@ -50,7 +51,7 @@ async function copyDoc(d: GeneratedDoc, withSubject: boolean) {
     </p>
 
     <div v-else-if="docs" class="stacks">
-      <BlanksNotice :blanks="blanks" class="letters-blanks" />
+      <BlanksNotice :blanks="blanks" :missing="docs.missing" class="letters-blanks" />
       <div class="col col-shop">
         <div class="seclbl">Shop sends <span class="sub">from your own mailbox</span></div>
         <article v-for="d in shopDocs" :key="d.key" class="card letter" :class="{ open: open === d.key }">

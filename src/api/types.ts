@@ -179,6 +179,14 @@ export interface InvoiceBreakdown {
 export interface GeneratedDocs {
   invoice: InvoiceBreakdown
   documents: GeneratedDoc[]
+  /** Details the letters were written around (no blanks are left in them). Missing on an older API. */
+  missing?: MissingLetterDetail[]
+}
+
+export interface MissingLetterDetail {
+  label: string
+  /** set once in the shop's Settings; otherwise it belongs on the case */
+  inShopProfile: boolean
 }
 
 export interface ChatMessage {
@@ -195,6 +203,25 @@ export interface DraftRequest {
   customerAuthorized: boolean
   replyToMessageId?: string | null
   instructions?: string | null
+  /** answers to the pre-draft questions; a null/blank answer = skipped */
+  answers?: DraftAnswer[]
+}
+
+export type DraftQuestionKind = 'YesNo' | 'Date' | 'Text'
+
+/** A fact the letter needs that the case doesn't have — asked before drafting (at most 3). */
+export interface DraftQuestion {
+  question: string
+  /** one line: what the answer lets the letter do */
+  why: string
+  kind: DraftQuestionKind
+}
+
+export interface DraftAnswer {
+  question: string
+  kind: DraftQuestionKind
+  /** 'Yes' / 'No', YYYY-MM-DD, or free text; null = skipped */
+  answer: string | null
 }
 
 export interface DraftResult {

@@ -4,6 +4,7 @@ import type {
   CaseListItem,
   CaseStatus,
   ChatMessage,
+  DraftQuestion,
   DraftRequest,
   DraftResult,
   Fact,
@@ -92,6 +93,20 @@ export function createDraft(
   body: DraftRequest,
 ): Promise<DraftResult> {
   return api.post<DraftResult>(`${base(shopId)}/cases/${caseId}/drafts`, body)
+}
+
+/** Step one of drafting: up to 3 questions about facts the letter needs (empty = draft now).
+ *  Same body as createDraft; the answers then ride on createDraft. */
+export async function getDraftQuestions(
+  shopId: string,
+  caseId: string,
+  body: DraftRequest,
+): Promise<DraftQuestion[]> {
+  const res = await api.post<{ questions: DraftQuestion[] }>(
+    `${base(shopId)}/cases/${caseId}/drafts/questions`,
+    body,
+  )
+  return res.questions ?? []
 }
 
 export function getGeneratedDocs(shopId: string, caseId: string): Promise<GeneratedDocs> {
