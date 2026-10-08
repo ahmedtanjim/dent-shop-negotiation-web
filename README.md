@@ -26,12 +26,17 @@ registration are printed to the API console.
 
 ## Layout
 
-- `src/api/` — typed fetch wrapper (bearer injection, 401 → login, 402 → subscription
-  banner) + endpoint clients mirroring `/api/auth` and `/api/shops/{shopId}/negotiation`
-- `src/stores/auth.ts` — session (localStorage-persisted)
-- `src/views/` — login, 3-step register (terms acceptance), cases list, case workspace
+See `CLAUDE.md` for the full map, flows and conventions.
+
+- `src/api/` — typed fetch wrapper (bearer injection, 401 → login, 402 → paywall/subscription
+  banner, 429 → fair-use banner) + endpoint clients for `/api/auth` (login, CRM hand-off),
+  billing, AI usage and `/api/shops/{shopId}/negotiation`
+- `src/stores/` — `auth` (session, localStorage-persisted) and `entitlement` (the shop's plan)
+- `src/views/` — welcome (public landing), login, hand-off, paywall, cases list, case workspace.
+  Sign-up lives on the shop system (CRM); `/register` redirects there.
 - `src/components/` — case sidebar (facts/documents/status), correspondence timeline,
-  draft panel (customer-voice authorization), generated letters + Total Loss invoice
+  draft panel (questions before drafting, customer-voice authorization), generated letters +
+  Total Loss invoice
 
 ## Analytics & error reporting (dormant until configured)
 
