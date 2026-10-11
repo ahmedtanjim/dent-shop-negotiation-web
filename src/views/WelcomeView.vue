@@ -206,7 +206,8 @@ const features = [
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(11, 18, 32, 0.85);
+  /* The page colour, slightly see-through — dark in dark mode, light in light mode. */
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-soft);
 }
@@ -255,7 +256,7 @@ const features = [
   transform: translateX(-50%);
   width: 720px;
   height: 420px;
-  background: radial-gradient(ellipse at center, rgba(94, 106, 210, 0.18), transparent 65%);
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 18%, transparent), transparent 65%);
   pointer-events: none;
 }
 .hero-badge {
@@ -264,9 +265,9 @@ const features = [
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #a3abff;
+  color: var(--accent);
   background: var(--accent-soft);
-  border: 1px solid rgba(123, 135, 255, 0.35);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: 999px;
   padding: 5px 14px;
   margin-bottom: 22px;
@@ -426,8 +427,8 @@ const features = [
   padding: 24px 22px;
 }
 .price-card.featured {
-  border-color: rgba(123, 135, 255, 0.5);
-  background: linear-gradient(180deg, rgba(123, 135, 255, 0.08), var(--panel) 55%);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), var(--panel) 55%);
 }
 .price-card h3 {
   font-size: 16px;
