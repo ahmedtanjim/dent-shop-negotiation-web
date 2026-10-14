@@ -5,6 +5,7 @@ import { exchangeHandoff } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
+import { safeRedirect } from '@/utils/safeRedirect'
 
 /** Landing for a sign-in carried over from the shop system: /auth/handoff?code=…&redirect=…
  *  The code is single-use and lives 60 seconds; on success the session is stored and the
@@ -18,10 +19,7 @@ const error = ref<string | null>(null)
 
 onMounted(async () => {
   const code = typeof route.query.code === 'string' ? route.query.code : ''
-  const redirect =
-    typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
-      ? route.query.redirect
-      : '/'
+  const redirect = safeRedirect(route.query.redirect)
   if (!code) {
     error.value = 'That sign-in link is incomplete.'
     return

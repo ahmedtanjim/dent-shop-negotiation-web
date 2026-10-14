@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { setTitle } from '@/router'
 import { theme } from '@/utils/theme'
+import { safeRedirect } from '@/utils/safeRedirect'
 import bgDark from '@/assets/paywall-dark.jpg'
 import bgLight from '@/assets/paywall-light.jpg'
 
@@ -34,11 +35,7 @@ const route = useRoute()
 const router = useRouter()
 
 const shopId = () => auth.shopId ?? ''
-const redirectTo = computed(() =>
-  typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
-    ? route.query.redirect
-    : '/',
-)
+const redirectTo = computed(() => safeRedirect(route.query.redirect))
 
 // ---- copy that depends on the plan the shop is on ----
 const planLabel = computed(() => {

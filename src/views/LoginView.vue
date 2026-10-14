@@ -7,6 +7,7 @@ import { ApiError, CRM_URL } from '@/api/client'
 import { SIGNUP_URL } from '@/api/handoff'
 import { useAuthStore } from '@/stores/auth'
 import { theme, toggleTheme } from '@/utils/theme'
+import { safeRedirect } from '@/utils/safeRedirect'
 import { trackSignUpClick } from '@/analytics/ga'
 import PrivacyChoicesLink from '@/components/PrivacyChoicesLink.vue'
 
@@ -42,8 +43,7 @@ async function submit() {
   try {
     const res = await login(email.value.trim(), password.value)
     auth.setSession(res)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    router.push(redirect)
+    router.push(safeRedirect(route.query.redirect))
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Sign-in failed.'
   } finally {

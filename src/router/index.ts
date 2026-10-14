@@ -5,6 +5,7 @@ import { SIGNUP_URL } from '@/api/handoff'
 import { CRM_URL } from '@/api/client'
 import { trackRoute } from '@/analytics/ga'
 import { applyRouteSeo } from '@/utils/seo'
+import { safeRedirect } from '@/utils/safeRedirect'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -131,8 +132,7 @@ router.beforeEach(async (to) => {
     // An AI shop bounced here by an old ?redirect link goes straight on; one that opens
     // /upgrade on purpose sees "Your AI plan is active" instead of a silent redirect.
     if (ent.isAi && !to.query.status && typeof to.query.redirect === 'string') {
-      const back = typeof to.query.redirect === 'string' && to.query.redirect.startsWith('/') ? to.query.redirect : '/'
-      return back
+      return safeRedirect(to.query.redirect)
     }
     return true
   }
