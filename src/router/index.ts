@@ -39,6 +39,21 @@ const router = createRouter({
       },
     },
     {
+      // Cross-app sign-in, PKCE: start (this tab keeps the verifier) → the shop system's
+      // /auth/handoff/out mints a code bound to it → /auth/handoff exchanges it.
+      path: '/auth/handoff/start',
+      name: 'handoff-start',
+      component: () => import('@/views/HandoffStartView.vue'),
+      meta: { handoff: true, title: 'Signing you in' },
+    },
+    {
+      // The other direction: the shop system's start page asks us for a code.
+      path: '/auth/handoff/out',
+      name: 'handoff-out',
+      component: () => import('@/views/HandoffOutView.vue'),
+      meta: { handoff: true, title: 'Opening the shop system' },
+    },
+    {
       // A session carried over from the shop system (?code=…&redirect=…).
       path: '/auth/handoff',
       name: 'handoff',

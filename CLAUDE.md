@@ -15,11 +15,16 @@ Manager (hail/PDR auto-body shops). Live at https://ai.dentshopmanager.com. GitH
 - **One account with the CRM** (`../dent_shop_manager_web`, app.dentshopmanager.com). Sign-up and
   billing live on the CRM: `/register` redirects to `${CRM_URL}/signup?plan=ai&next=negotiator`.
   The two apps do **not** share a session (this app uses `localStorage` keys `dsm_neg_*`); they hand
-  the user across with a one-time code:
-  - CRM → here: `/auth/handoff?code=…&redirect=…` (`HandoffView`) calls
-    `POST /api/auth/handoff/exchange` and stores the returned session.
-  - Here → CRM: `goToCrm(path)` in `src/api/handoff.ts` mints a code with `POST /api/auth/handoff`
-    and opens `${CRM_URL}/auth/handoff?code=…&next=…` (falls back to the plain URL).
+  the user across with a one-time code bound to the receiving tab (PKCE, `src/utils/pkce.ts`):
+  - CRM → here: the CRM opens `/auth/handoff/start?redirect=…` (`HandoffStartView`), which keeps a
+    verifier in this tab and sends its challenge to `${CRM_URL}/auth/handoff/out`; the CRM mints the
+    code and returns to `/auth/handoff?code=…&redirect=…` (`HandoffView`), which calls
+    `POST /api/auth/handoff/exchange` with code + verifier (asks before switching to a different
+    account). A link minted in another browser fails here — that's the point.
+  - Here → CRM: `goToCrm(path)` opens `${CRM_URL}/auth/handoff/start?next=…`; the CRM's tab keeps the
+    verifier and calls our `/auth/handoff/out` (`HandoffOutView`), which mints with
+    `POST /api/auth/handoff {shopId, challenge}` — straight on when it came from the CRM, otherwise
+    after a "Continue" — and sends the code back. Signed out here: the plain CRM URL.
 - `/terms` and `/privacy` hop to the CRM's pages (one policy for both apps).
 
 ## Commands
