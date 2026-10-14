@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const shopName = ref<string | null>(localStorage.getItem(STORAGE_KEYS.shopName))
   const displayName = ref<string | null>(localStorage.getItem(STORAGE_KEYS.displayName))
   const role = ref<string | null>(localStorage.getItem(STORAGE_KEYS.role))
+  const userId = ref<string | null>(localStorage.getItem(STORAGE_KEYS.userId))
 
   const isAuthed = computed(() => !!token.value && !!shopId.value)
   /** Only the owner can change the shop's plan (the API enforces it too). */
@@ -20,7 +21,9 @@ export const useAuthStore = defineStore('auth', () => {
     shopName.value = auth.shops?.find((s) => s.shopId === auth.shopId)?.shopName ?? null
     displayName.value = auth.displayName
     role.value = auth.role
+    userId.value = auth.userId
     localStorage.setItem(STORAGE_KEYS.token, auth.token)
+    localStorage.setItem(STORAGE_KEYS.userId, auth.userId)
     localStorage.setItem(STORAGE_KEYS.shopId, auth.shopId)
     localStorage.setItem(STORAGE_KEYS.displayName, auth.displayName)
     localStorage.setItem(STORAGE_KEYS.role, auth.role ?? '')
@@ -34,8 +37,9 @@ export const useAuthStore = defineStore('auth', () => {
     shopName.value = null
     displayName.value = null
     role.value = null
+    userId.value = null
     for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key)
   }
 
-  return { token, shopId, shopName, displayName, role, isAuthed, isOwner, setSession, logout }
+  return { token, shopId, shopName, displayName, role, userId, isAuthed, isOwner, setSession, logout }
 })

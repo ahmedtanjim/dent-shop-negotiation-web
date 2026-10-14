@@ -5,6 +5,7 @@ import { SIGNUP_URL } from '@/api/handoff'
 import { CRM_URL } from '@/api/client'
 import { trackRoute } from '@/analytics/ga'
 import { applyRouteSeo } from '@/utils/seo'
+import { safeRedirect } from '@/utils/safeRedirect'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -36,6 +37,21 @@ const router = createRouter({
         window.location.replace(SIGNUP_URL)
         return { name: 'login' }
       },
+    },
+    {
+      // Cross-app sign-in, PKCE: start (this tab keeps the verifier) → the shop system's
+      // /auth/handoff/out mints a code bound to it → /auth/handoff exchanges it.
+      path: '/auth/handoff/start',
+      name: 'handoff-start',
+      component: () => import('@/views/HandoffStartView.vue'),
+      meta: { handoff: true, title: 'Signing you in' },
+    },
+    {
+      // The other direction: the shop system's start page asks us for a code.
+      path: '/auth/handoff/out',
+      name: 'handoff-out',
+      component: () => import('@/views/HandoffOutView.vue'),
+      meta: { handoff: true, title: 'Opening the shop system' },
     },
     {
       // A session carried over from the shop system (?code=…&redirect=…).
@@ -131,8 +147,7 @@ router.beforeEach(async (to) => {
     // An AI shop bounced here by an old ?redirect link goes straight on; one that opens
     // /upgrade on purpose sees "Your AI plan is active" instead of a silent redirect.
     if (ent.isAi && !to.query.status && typeof to.query.redirect === 'string') {
-      const back = typeof to.query.redirect === 'string' && to.query.redirect.startsWith('/') ? to.query.redirect : '/'
-      return back
+      return safeRedirect(to.query.redirect)
     }
     return true
   }

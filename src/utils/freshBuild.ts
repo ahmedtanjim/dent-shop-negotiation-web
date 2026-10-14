@@ -43,7 +43,10 @@ export function watchForNewBuild(router: Router): void {
     // The first navigation is the page load itself; after that, a stale build hands the
     // navigation to the browser so the new page comes from the new build.
     if (stale && from.matched.length) {
-      window.location.assign(to.fullPath)
+      // Only ever a page of this app: a route built from a crafted ?redirect must not turn
+      // the full page load into a trip to another site ("//evil.test" is protocol-relative).
+      const url = new URL(to.fullPath, location.origin)
+      window.location.assign(url.origin === location.origin ? url.pathname + url.search + url.hash : '/')
       return false
     }
   })

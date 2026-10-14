@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   shopName: 'dsm_neg_shop_name',
   displayName: 'dsm_neg_display_name',
   role: 'dsm_neg_role',
+  userId: 'dsm_neg_user_id',
 } as const
 
 /** Set when a request returns 402 for a lapsed subscription. Shown as a banner in App.vue. */
