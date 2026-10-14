@@ -24,6 +24,7 @@ export function caseBodyFromDetail(d: CaseDetail): UpsertCase {
     storageEndDate: d.storageEndDate ? d.storageEndDate.slice(0, 10) : null,
     adminFee: d.adminFee,
     lotFee: d.lotFee,
+    removeInstall: d.removeInstall ?? null,
     salesTaxPercent: d.salesTaxPercent,
     notes: d.notes,
   }

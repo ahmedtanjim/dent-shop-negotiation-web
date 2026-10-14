@@ -26,7 +26,7 @@ const caseId = computed(() => props.detail.case.id)
    case on shop defaults keeps following the defaults. Clearing a field returns it to
    the shop default. */
 
-const f = ref({ admin: '', lot: '', perDay: '', tax: '', since: '', until: '' })
+const f = ref({ admin: '', lot: '', ri: '', perDay: '', tax: '', since: '', until: '' })
 const edited = ref(new Set<string>())
 
 function fmtNum(n: number): string {
@@ -39,6 +39,7 @@ function resetFields() {
   f.value = {
     admin: inv ? fmtNum(inv.adminFee) : d.adminFee !== null ? fmtNum(d.adminFee) : '',
     lot: inv ? fmtNum(inv.lotFee) : d.lotFee !== null ? fmtNum(d.lotFee) : '',
+    ri: fmtNum(inv?.removeInstall ?? d.removeInstall ?? 0),
     perDay: inv ? fmtNum(inv.storagePerDay) : fmtNum(d.storagePerDayCents / 100),
     tax: inv ? String(inv.taxPercent) : d.salesTaxPercent !== null ? String(d.salesTaxPercent) : '',
     since: d.storageStartDate ? d.storageStartDate.slice(0, 10) : '',
@@ -69,6 +70,7 @@ watch(
 const parsed = computed(() => ({
   admin: parseMoney(f.value.admin, 'Admin fee'),
   lot: parseMoney(f.value.lot, 'Lot / gate fee'),
+  ri: parseMoney(f.value.ri, 'R&I'),
   perDay: parseMoney(f.value.perDay, 'Storage per day'),
   tax: parsePercent(f.value.tax, 'Sales tax'),
 }))
@@ -139,7 +141,7 @@ const live = computed(() => {
     days = Math.max(0, end - start + 1)
   }
   const storage = days * rate
-  const subtotal = admin + lot + storage
+  const subtotal = admin + lot + val('ri') + storage
   const taxPct = val('tax')
   // Server rounds tax in integer cents, half away from zero: round(subtotalCents · pct/100).
   const tax = Math.round(subtotal * taxPct) / 100
@@ -217,6 +219,8 @@ async function save(keepalive = false) {
   const body = caseBodyFromDetail(d)
   body.adminFee = optOverride('admin', d.adminFee)
   body.lotFee = optOverride('lot', d.lotFee)
+  // R&I has no shop default: an empty field is $0.
+  body.removeInstall = edited.value.has('ri') ? val('ri') : (d.removeInstall ?? null)
   body.salesTaxPercent = optOverride('tax', d.salesTaxPercent)
   body.storagePerDay = edited.value.has('perDay') ? val('perDay') : d.storagePerDayCents / 100
   if (edited.value.has('since')) body.storageStartDate = f.value.since || null
@@ -301,6 +305,13 @@ async function onPdf() {
         <span class="val"
           >$ <input v-model="f.lot" class="blank" :class="{ invalid: errors.lot }" :aria-invalid="!!errors.lot" inputmode="decimal" aria-label="Lot or gate fee, dollars"
             @input="touched('lot')"
+        /></span>
+      </div>
+      <div class="line">
+        <span class="desc">R&amp;I (remove &amp; install) labor</span>
+        <span class="val"
+          >$ <input v-model="f.ri" class="blank" :class="{ invalid: errors.ri }" :aria-invalid="!!errors.ri" inputmode="decimal" aria-label="R and I labor, dollars"
+            @input="touched('ri')"
         /></span>
       </div>
       <div class="line">
