@@ -15,3 +15,9 @@ export function createHandoff(shopId: string, challenge: string): Promise<{ code
 export function exchangeHandoff(code: string, verifier: string): Promise<AuthResponse> {
   return api.post<AuthResponse>('/api/auth/handoff/exchange', { code, verifier })
 }
+
+/** The signed-in user's own account (GET /api/auth/me). The session keeps no email; the
+ *  Help & support modal reads it from here for the details it puts in the user's email. */
+export function getMe(): Promise<{ email: string; displayName: string }> {
+  return api.get<{ email: string; displayName: string }>('/api/auth/me')
+}

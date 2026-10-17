@@ -3,7 +3,7 @@ import 'driver.js/dist/driver.css'
 import './styles/tour.css'
 
 // Mirrors the Dent Shop Manager tour pattern: driver.js pointed at [data-tour] anchors,
-// auto-run once per browser via a localStorage flag, replayable from the topbar help button.
+// auto-run once per browser via a localStorage flag, replayable from the topbar help (?) menu.
 // Every popover carries a "Don't show again" button that marks the tour seen and closes it.
 
 const CASES_KEY = 'dsm_neg_tour_done_v1'
@@ -76,7 +76,7 @@ export function startCasesTour() {
         popover: {
           title: 'Lost? Start here',
           description:
-            'This button replays the walkthrough. Opening your first case starts a short tour of the workspace itself.',
+            'Replay this walkthrough or email support from here. Opening your first case starts a short tour of the workspace itself.',
         },
       },
     ],
