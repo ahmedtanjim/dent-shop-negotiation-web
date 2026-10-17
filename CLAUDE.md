@@ -48,12 +48,15 @@ Vue 3.5 + TypeScript + Vite 6 + Pinia 2 + vue-router 4; `lucide-vue-next` icons,
 tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 
 - `src/main.ts` — app bootstrap; reload-once on `vite:preloadError`; `watchForNewBuild`; lazy Sentry.
-- `src/App.vue` — top bar, theme toggle, 402 subscription banner, 429 fair-use banner, paywall watcher.
+- `src/App.vue` — top bar, theme toggle, help (?) menu (replay walkthrough / Help & support), 402
+  subscription banner, 429 fair-use banner, paywall watcher; mounts `HelpSupportModal`.
 - `src/router/index.ts` — routes + the auth/plan guard; `setTitle`, SEO and GA per route.
 - `src/api/` — `client.ts` (fetch wrapper: bearer, 401 → `/login?redirect=`, 402/429 handling,
   `ApiError{status, code, body}`, `download()`), `auth`, `handoff`, `billing`, `usage`,
   `negotiation` (all case endpoints under `/api/shops/{shopId}/negotiation`), `customers`,
-  `shops`, `types.ts` (wire DTOs — keep in step with the API's `Dtos/`).
+  `shops`, `support` (support address from the public `GET /api/app/contact`, API setting
+  `App:SupportEmail`; fallback `dentshopmanager@gmail.com`; loaded in `main.ts`), `types.ts`
+  (wire DTOs — keep in step with the API's `Dtos/`).
 - `src/stores/` — `auth` (session in `localStorage`), `entitlement` (the shop's plan; "unknown" is
   never treated as the AI plan).
 - `src/views/` — `WelcomeView` (public landing, `/welcome`), `LoginView`, `HandoffView`,
@@ -61,11 +64,13 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
   mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case fields, facts,
   documents), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
-  `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal`, `DateField`,
+  `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal`,
+  `HelpSupportModal` (Help & support), `DateField`,
   `StatusPill`, `TacticBadge`, `PrivacyChoicesLink`.
 - `src/utils/` — `letterMarkdown` (letter renderer + rich clipboard), `placeholders` (blank
   detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing), `freshBuild`,
-  `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`.
+  `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`,
+  `help` (`openHelp()`), `supportReport` (support details / mailto builder; same file as the CRM's).
 - `src/analytics/` — `ga.ts`, `sentry.ts`, `privacy.ts` (opt-out + Global Privacy Control).
 - `src/tour.ts` + `src/styles/tour.css` — driver.js tours on `[data-tour]` anchors.
 - `public/staticwebapp.config.json` — SWA routing fallback, cache headers, security headers + CSP.
@@ -99,6 +104,12 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    owner/manager/admin; a failed read just hides it.
 
 ## Conventions
+
+- **Help & support** (help (?) menu in the top bar, "Need help?" on `/login`): a `mailto:` to the
+  support address with a blank "What happened:" section and a "Support details" block (name, email
+  from `GET /api/auth/me`, role, shop name + id, plan, app, `VITE_RELEASE`, route **path only**,
+  browser/OS, time + zone), or a copy of that block. Nothing is sent by the app; never add a
+  password or query string. mailto stays ≤ 1,800 chars (user agent trimmed first).
 
 - **Colours come from theme tokens in `src/style.css`** (`--bg`, `--panel`, `--text`, `--accent`,
   `--danger`, …). `:root` is the dark default; `:root[data-theme='light']` overrides; `utils/theme.ts`

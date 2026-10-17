@@ -8,6 +8,7 @@ import { SIGNUP_URL } from '@/api/handoff'
 import { useAuthStore } from '@/stores/auth'
 import { theme, toggleTheme } from '@/utils/theme'
 import { safeRedirect } from '@/utils/safeRedirect'
+import { openHelp } from '@/utils/help'
 import { trackSignUpClick } from '@/analytics/ga'
 import PrivacyChoicesLink from '@/components/PrivacyChoicesLink.vue'
 
@@ -154,6 +155,9 @@ async function submit() {
           <span class="faint">· $1,999/yr, shop system included</span>
         </p>
         <p class="cross muted">Already inside the shop system? Click "DSM Negotiator" in its top bar, no password needed.</p>
+        <p class="needhelp muted">
+          Need help? <button type="button" class="helplink" @click="openHelp">Contact support</button>
+        </p>
         <p class="legal faint">
           <a :href="`${CRM_URL}/terms`">Terms</a> · <a :href="`${CRM_URL}/privacy`">Privacy</a> ·
           <PrivacyChoicesLink />
@@ -442,6 +446,22 @@ h1 {
   font-size: 12.5px;
   text-align: center;
   line-height: 1.5;
+}
+.needhelp {
+  margin: 0;
+  font-size: 12.5px;
+  text-align: center;
+}
+.helplink {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 /* ---------- phones: the letter becomes a strip ---------- */

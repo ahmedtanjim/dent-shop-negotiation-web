@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { watch, computed } from 'vue'
+import { watch, computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LogOut, X, HelpCircle, Sun, Moon } from 'lucide-vue-next'
+import { LogOut, X, HelpCircle, Sun, Moon, Compass, LifeBuoy } from 'lucide-vue-next'
 import { aiCapNotice, aiPlanRequired, CRM_URL, subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
@@ -9,6 +9,8 @@ import { goToCrm } from '@/api/handoff'
 import { theme, toggleTheme } from '@/utils/theme'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
 import { setSentryTags } from '@/analytics/sentry'
+import { helpOpen, openHelp } from '@/utils/help'
+import HelpSupportModal from '@/components/HelpSupportModal.vue'
 
 const auth = useAuthStore()
 const ent = useEntitlementStore()
@@ -40,6 +42,28 @@ watch(
   ([role, plan]) => setSentryTags({ role, plan }),
   { immediate: true },
 )
+
+// The (?) button opens a small menu: replay the walkthrough, or Help & support.
+const helpMenu = ref(false)
+function onOutside(e: MouseEvent) {
+  if (helpMenu.value && !(e.target as HTMLElement).closest('.helpwrap')) helpMenu.value = false
+}
+function onMenuKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') helpMenu.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', onOutside)
+  window.addEventListener('keydown', onMenuKey)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onOutside)
+  window.removeEventListener('keydown', onMenuKey)
+})
+function pickHelp(which: 'tour' | 'support') {
+  helpMenu.value = false
+  if (which === 'tour') replayTour()
+  else openHelp()
+}
 
 function replayTour() {
   // Each screen has its own tour — replay the one for where the user actually is.
@@ -82,14 +106,27 @@ const capResets = computed(() => {
           <Sun v-if="theme === 'dark'" :size="15" />
           <Moon v-else :size="15" />
         </button>
-        <button
-          class="btn btn-ghost btn-sm"
-          data-tour="help"
-          title="Replay the walkthrough"
-          @click="replayTour"
-        >
-          <HelpCircle :size="15" />
-        </button>
+        <span class="helpwrap">
+          <button
+            class="btn btn-ghost btn-sm"
+            data-tour="help"
+            title="Help"
+            aria-label="Help"
+            aria-haspopup="menu"
+            :aria-expanded="helpMenu"
+            @click="helpMenu = !helpMenu"
+          >
+            <HelpCircle :size="15" />
+          </button>
+          <div v-if="helpMenu" class="helpmenu" role="menu" aria-label="Help">
+            <button class="hm-item" role="menuitem" @click="pickHelp('tour')">
+              <Compass :size="15" /> Replay the walkthrough
+            </button>
+            <button class="hm-item" role="menuitem" @click="pickHelp('support')">
+              <LifeBuoy :size="15" /> Help &amp; support
+            </button>
+          </div>
+        </span>
         <button class="btn btn-ghost btn-sm" @click="logout">
           <LogOut :size="14" /> Sign out
         </button>
@@ -120,6 +157,8 @@ const capResets = computed(() => {
     <main class="app-main">
       <RouterView />
     </main>
+
+    <HelpSupportModal v-if="helpOpen" @close="helpOpen = false" />
   </div>
 </template>
 
@@ -184,6 +223,40 @@ const capResets = computed(() => {
 }
 .user-name {
   font-size: 13px;
+}
+.helpwrap {
+  position: relative;
+  display: inline-flex;
+}
+.helpmenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+.hm-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.hm-item:hover {
+  background: var(--panel-soft);
 }
 .banner-actions {
   display: inline-flex;

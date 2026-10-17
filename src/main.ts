@@ -5,6 +5,7 @@ import router from './router'
 import './style.css'
 import { initSentry } from './analytics/sentry'
 import { watchForNewBuild } from './utils/freshBuild'
+import { loadSupportEmail } from './api/support'
 
 // A tab left open across a deploy references chunk files that no longer exist; the next
 // navigation would then fail to load its page. Reload once to pick up the fresh build.
@@ -18,6 +19,8 @@ router.afterEach(() => sessionStorage.removeItem('dsm_reloaded_for_deploy'))
 // A tab that never hits a missing chunk (left on one page, restored by the phone) still
 // moves to the newest build — see utils/freshBuild.
 watchForNewBuild(router)
+// The support address (Help & support, login page) comes from the API — see api/support.
+void loadSupportEmail()
 
 const app = createApp(App)
 app.use(createPinia())
