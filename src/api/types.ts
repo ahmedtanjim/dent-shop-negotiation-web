@@ -54,6 +54,9 @@ export interface UpsertCase {
   lotFee?: number | null
   /** TL-invoice tax override, percent; null = shop default */
   salesTaxPercent?: number | null
+  /** R&I (remove and install) labor on the TL invoice, decimal dollars; per case only.
+   *  Omitted keeps what the case has. */
+  removeInstall?: number | null
   /** first day of storage accrual (yyyy-mm-dd); null = storage not computed */
   storageStartDate?: string | null
   /** last day of storage accrual; null = still accruing through today */
@@ -130,6 +133,8 @@ export interface CaseDetail {
   salesTaxPercent: number | null
   storageStartDate: string | null
   storageEndDate: string | null
+  /** R&I labor on the TL invoice, decimal dollars; 0 = none (no shop default) */
+  removeInstall?: number
 }
 
 export interface ShopProfile {
@@ -165,6 +170,8 @@ export interface GeneratedDoc {
 export interface InvoiceBreakdown {
   adminFee: number
   lotFee: number
+  /** R&I labor; older APIs omit it */
+  removeInstall?: number
   storageStart: string | null
   storageEnd: string | null
   storageDays: number
