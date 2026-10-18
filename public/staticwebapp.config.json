@@ -8,6 +8,11 @@
     },
     {
       "route": "/welcome",
+      "redirect": "/",
+      "statusCode": 301
+    },
+    {
+      "route": "/",
       "rewrite": "/welcome.html",
       "headers": {
         "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://s3.amazonaws.com https://cdn.prod.website-files.com; media-src 'self' https://cdn.prod.website-files.com https://s3.amazonaws.com; connect-src 'self' https://api.dentshopmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",

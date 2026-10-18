@@ -22,7 +22,7 @@ const route = useRoute()
           <RouterLink :to="{ name: 'cases' }" class="btn btn-primary">Go to your cases</RouterLink>
         </template>
         <template v-else>
-          <RouterLink :to="{ name: 'welcome' }" class="btn btn-primary">Go to the home page</RouterLink>
+          <RouterLink to="/" class="btn btn-primary">Go to the home page</RouterLink>
           <RouterLink :to="{ name: 'login' }" class="btn">Sign in</RouterLink>
         </template>
       </div>

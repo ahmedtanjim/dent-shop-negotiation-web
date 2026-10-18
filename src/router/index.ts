@@ -17,18 +17,22 @@ const router = createRouter({
   },
   routes: [
     {
-      // The landing page is a static copy of the Webflow "AI site home" (public/welcome.html,
-      // served at /welcome by staticwebapp.config.json). A full load of /welcome never reaches
-      // the SPA; an in-app navigation here leaves the SPA for that page.
-      path: '/welcome',
+      // The landing page is a static copy of the Webflow "AI site home" (public/welcome.html),
+      // served at / by staticwebapp.config.json; its welcome-0.js sends a signed-in visitor on
+      // to /cases. An in-app navigation to / goes to the cases when signed in and otherwise
+      // leaves the SPA for that page.
+      path: '/',
       name: 'welcome',
       component: { render: () => null },
-      meta: { public: true, title: 'AI insurance negotiation for hail & PDR shops' },
+      meta: { anyone: true, title: 'AI insurance negotiation for hail & PDR shops' },
       beforeEnter: (to) => {
-        window.location.replace(`${import.meta.env.DEV ? '/welcome.html' : '/welcome'}${to.hash}`)
+        if (useAuthStore().isAuthed) return { name: 'cases' }
+        window.location.replace(`${import.meta.env.DEV ? '/welcome.html' : '/'}${to.hash}`)
         return false
       },
     },
+    // Old links to the landing page.
+    { path: '/welcome', redirect: '/' },
     {
       path: '/login',
       name: 'login',
@@ -76,7 +80,7 @@ const router = createRouter({
       meta: { title: 'Upgrade' },
     },
     {
-      path: '/',
+      path: '/cases',
       name: 'cases',
       component: () => import('@/views/CasesView.vue'),
       meta: { title: 'Cases' },
@@ -140,8 +144,6 @@ router.beforeEach(async (to) => {
     return true
   }
   if (!auth.isAuthed) {
-    // Cold visitors to the root get the marketing landing page; deep links go to login.
-    if (to.fullPath === '/') return { name: 'welcome' }
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
@@ -161,7 +163,7 @@ router.beforeEach(async (to) => {
     return true
   }
   if (ent.known && !ent.isAi) {
-    return { name: 'paywall', query: to.fullPath !== '/' ? { redirect: to.fullPath } : {} }
+    return { name: 'paywall', query: to.fullPath !== '/cases' ? { redirect: to.fullPath } : {} }
   }
   return true
 })

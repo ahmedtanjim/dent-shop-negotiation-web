@@ -32,7 +32,7 @@ watch(aiPlanRequired, (hit) => {
   // waits for the fresh answer instead of bouncing the paywall back (NEG-7).
   if (auth.shopId) void ent.invalidate(auth.shopId)
   if (route.name !== 'paywall') {
-    router.push({ name: 'paywall', query: route.fullPath !== '/' ? { redirect: route.fullPath } : {} })
+    router.push({ name: 'paywall', query: route.fullPath !== '/cases' ? { redirect: route.fullPath } : {} })
   }
 })
 

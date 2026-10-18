@@ -14,11 +14,11 @@ function ensureMeta(name: string): HTMLMetaElement {
 }
 
 /** Only the landing page is for search engines: it keeps its canonical; the sign-in page
- *  points at itself; everything behind sign-in is noindex. (index.html ships the /welcome
+ *  points at itself; everything behind sign-in is noindex. (index.html ships the landing
  *  tags statically for link-preview scrapers, which don't run JavaScript.) */
 export function applyRouteSeo(to: RouteLocationNormalized) {
   const canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
   const indexable = to.name === 'welcome'
-  if (canonical) canonical.href = `${PUBLIC_ORIGIN}${indexable ? '/welcome' : to.path}`
+  if (canonical) canonical.href = `${PUBLIC_ORIGIN}${indexable ? '/' : to.path}`
   ensureMeta('robots').content = indexable ? 'index, follow' : 'noindex'
 }

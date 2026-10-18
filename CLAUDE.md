@@ -60,7 +60,7 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/stores/` — `auth` (session in `localStorage`), `entitlement` (the shop's plan; "unknown" is
   never treated as the AI plan).
 - `src/views/` — `LoginView`, `HandoffView`,
-  `PaywallView` (`/upgrade`), `CasesView` (`/`), `CaseWorkspaceView` (`/cases/:id`), `NotFoundView`.
+  `PaywallView` (`/upgrade`), `CasesView` (`/cases`), `CaseWorkspaceView` (`/cases/:id`), `NotFoundView`.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
   mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case fields, facts,
   documents), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
@@ -74,12 +74,12 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/analytics/` — `ga.ts`, `sentry.ts`, `privacy.ts` (opt-out + Global Privacy Control).
 - `src/tour.ts` + `src/styles/tour.css` — driver.js tours on `[data-tour]` anchors.
 - `public/staticwebapp.config.json` — SWA routing fallback, cache headers, security headers + CSP.
-- `public/welcome.html` + `public/welcome-assets/` — the public landing page at `/welcome` (SWA
+- `public/welcome.html` + `public/welcome-assets/` — the public landing page at `/` (SWA
   rewrite, with its own CSP allowing Webflow's image/video hosts). It is a static copy of the
   Webflow page "AI site home", rendered through `dent_shop_home`'s `Webflow.astro` layout, with
   inline scripts moved to `welcome-assets/welcome-N.js` (CSP) and relative links made absolute to
   dentshopmanager.com. To update it: export the Webflow page (dent_shop_home `webflow-export/SPEC.md`),
-  build it there as a temporary page, and redo those steps. The `welcome` route leaves the SPA for it.
+  build it there as a temporary page, and redo those steps. `/welcome` 301s to `/`; `welcome-0.js` sends a signed-in visitor to `/cases`. The SPA's `/` route (`welcome`) goes to the cases when signed in and otherwise leaves the SPA for it.
 
 ## Key flows
 
@@ -140,7 +140,7 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 | --- | --- |
 | `VITE_API_BASE` | API origin. Default `http://localhost:5080`. Deploy: repo secret. |
 | `VITE_CRM_URL` | CRM origin. Default `http://localhost:5173` in dev, `https://app.dentshopmanager.com` in prod. Not set by the workflow. |
-| `VITE_GA_MEASUREMENT_ID` | GA4, public pages (`/welcome`, `/login`) only; off under GPC/opt-out. Repo variable. |
+| `VITE_GA_MEASUREMENT_ID` | GA4, public pages (`/`, `/login`) only; off under GPC/opt-out. Repo variable. |
 | `VITE_SENTRY_DSN` | Sentry for the signed-in app; no PII. Repo secret. |
 | `VITE_RELEASE` | Sentry release tag; workflow falls back to the commit SHA. |
 
@@ -152,8 +152,7 @@ the secret `AZURE_SWA_TOKEN`. Never commit values.
 
 On `main`, `site/` is only a stub: `site/src/pages/index.astro` plus a committed `.astro/` cache. It
 imports `../layouts/Base.astro`, which is not on `main`, and there is no `site/package.json`, so it is
-neither built nor deployed. The public landing that ships today is `public/welcome.html` at `/welcome` (cold
-visitors to `/` are sent there; `/pricing` signed out goes to dentshopmanager.com/pricing). The full Astro site, `build:site`/`build:all`
+neither built nor deployed. The public landing that ships today is `public/welcome.html` at `/` (the cases list is `/cases`; `/pricing` signed out goes to dentshopmanager.com/pricing). The full Astro site, `build:site`/`build:all`
 (`scripts/merge-dist.mjs`) and moving the Vue app under `/app/` exist only on the unmerged branch
 `feat/ai-paywall`. **Today the app is served at the root in both dev and production** (no Vite
 `base`, `createWebHistory()` with no base, hard-coded `/login` in `client.ts`).
