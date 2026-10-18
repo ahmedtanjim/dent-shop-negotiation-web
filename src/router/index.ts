@@ -9,7 +9,7 @@ import { safeRedirect } from '@/utils/safeRedirect'
 
 const router = createRouter({
   history: createWebHistory(),
-  // /welcome#pricing lands on the pricing section; every other navigation starts at the top.
+  // A link with a #hash lands on that section; every other navigation starts at the top.
   scrollBehavior(to, _from, saved) {
     if (saved) return saved
     if (to.hash) return { el: to.hash, top: 72 }
@@ -17,10 +17,17 @@ const router = createRouter({
   },
   routes: [
     {
+      // The landing page is a static copy of the Webflow "AI site home" (public/welcome.html,
+      // served at /welcome by staticwebapp.config.json). A full load of /welcome never reaches
+      // the SPA; an in-app navigation here leaves the SPA for that page.
       path: '/welcome',
       name: 'welcome',
-      component: () => import('@/views/WelcomeView.vue'),
+      component: { render: () => null },
       meta: { public: true, title: 'AI insurance negotiation for hail & PDR shops' },
+      beforeEnter: (to) => {
+        window.location.replace(`${import.meta.env.DEV ? '/welcome.html' : '/welcome'}${to.hash}`)
+        return false
+      },
     },
     {
       path: '/login',
@@ -104,12 +111,14 @@ const router = createRouter({
       },
     },
     {
-      // Prices are on the landing page; a signed-in shop sees its plan on /upgrade.
+      // Every plan is on the company site's pricing page; a signed-in shop sees its plan on /upgrade.
       path: '/pricing',
       name: 'pricing',
       redirect: () => {
         const auth = useAuthStore()
-        return auth.isAuthed ? { name: 'paywall' } : { name: 'welcome', hash: '#pricing' }
+        if (auth.isAuthed) return { name: 'paywall' }
+        window.location.replace('https://dentshopmanager.com/pricing')
+        return { name: 'login' }
       },
     },
     {
