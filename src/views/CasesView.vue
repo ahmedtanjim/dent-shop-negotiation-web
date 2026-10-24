@@ -98,7 +98,7 @@ onMounted(async () => {
       <div class="usage-row">
         <span class="usage-label">AI usage this month</span>
         <span class="usage-figures mono">
-          {{ usage.month.cost }} <span class="muted">of {{ usage.month.capCost }}</span>
+          {{ usage.month.percentUsed }}% <span class="muted">of allowance</span>
           · {{ usage.month.calls }} {{ usage.month.calls === 1 ? 'request' : 'requests' }}
           <span class="muted">· resets {{ resetsOn(usage.month.resetsAt) }}</span>
         </span>
@@ -107,17 +107,17 @@ onMounted(async () => {
         <span :style="{ width: `${Math.max(usage.month.percentUsed, usage.month.calls ? 1 : 0)}%` }"></span>
       </div>
       <p v-if="usage.today.exceeded" class="usage-note">
-        Today's allowance ({{ usage.today.capCost }} or {{ usage.today.capCalls }} requests) is used up — drafting resumes at midnight UTC.
+        Today's allowance is used up — drafting resumes at midnight UTC.
       </p>
       <p v-else-if="usage.month.exceeded" class="usage-note">
         This month's allowance is used up — drafting resumes on {{ resetsOn(usage.month.resetsAt) }}.
       </p>
       <p class="usage-explain">
-        Your plan includes a fair-use AI allowance: up to {{ usage.today.capCost }} of AI work a
-        day ({{ usage.today.capCalls }} requests) and {{ usage.month.capCost }} a month. The
-        dollars are what reading emails and drafting letters cost to run, counted against that
-        allowance. They are not added to your bill. Today so far: {{ usage.today.cost }}.
-        If you reach a limit, AI drafting pauses until it resets; everything else keeps working.
+        Your plan includes a fair-use AI allowance for each day and each month. Reading an
+        email or drafting a letter counts against it — a long letter counts for more than a
+        quick read. Nothing is added to your bill. Today: {{ usage.today.percentUsed }}% of
+        the daily allowance used. If you reach a limit, AI drafting pauses until it resets;
+        everything else keeps working.
         <a :href="`${CRM_URL}/terms`" target="_blank" rel="noopener">Fair-use terms</a>
         · <a :href="`${CRM_URL}/privacy`" target="_blank" rel="noopener">Privacy</a>
       </p>
