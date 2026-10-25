@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, AlertTriangle, X, PenLine, SearchX } from 'lucide-vue-next'
-import { getCase, getGeneratedDocs, setCaseStatus } from '@/api/negotiation'
+import { ArrowLeft, AlertTriangle, X, PenLine, SearchX, Trash2 } from 'lucide-vue-next'
+import { deleteCase, getCase, getGeneratedDocs, setCaseStatus } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, CaseStatus, GeneratedDocs } from '@/api/types'
 import { centsToUsd, usd } from '@/utils/format'
@@ -102,6 +102,25 @@ watch(
 /* ---------- case status: open → settled / closed (NEG-8) ---------- */
 const STATUSES: CaseStatus[] = ['Open', 'Settled', 'Closed', 'Litigation']
 const canManage = computed(() => ['owner', 'manager', 'admin'].includes((auth.role ?? '').toLowerCase()))
+/** Delete is owner/manager only (the API enforces it). Soft: restorable from the list for 30 days. */
+const canDelete = computed(() => ['owner', 'manager'].includes((auth.role ?? '').toLowerCase()))
+const deleting = ref(false)
+async function onDelete() {
+  if (!detail.value || deleting.value) return
+  const ok = window.confirm(
+    `Delete "${detail.value.case.title}"?\n\nIt disappears from the list now. You can restore it from "Recently deleted" for 30 days; after that it and its documents are erased.`,
+  )
+  if (!ok) return
+  deleting.value = true
+  statusError.value = null
+  try {
+    await deleteCase(auth.shopId!, props.id)
+    router.push({ name: 'cases' })
+  } catch (err) {
+    statusError.value = err instanceof ApiError ? err.message : 'Could not delete the case.'
+    deleting.value = false
+  }
+}
 const statusBusy = ref(false)
 const statusError = ref<string | null>(null)
 async function onStatus(e: Event) {
@@ -214,6 +233,10 @@ watch(
             <span v-if="detail.case.state" class="chip">
               State <b>{{ detail.case.state }}</b>
             </span>
+            <button v-if="canDelete" class="btn btn-ghost btn-sm delete-case" :disabled="deleting"
+              title="Delete this case (restorable for 30 days)" @click="onDelete">
+              <Trash2 :size="13" /> {{ deleting ? 'Deleting…' : 'Delete case' }}
+            </button>
           </div>
         </div>
         <div class="balance">
@@ -370,6 +393,13 @@ watch(
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+.delete-case {
+  color: var(--text-muted);
+}
+.delete-case:hover:not(:disabled) {
+  color: var(--danger, #d14343);
+  border-color: var(--danger, #d14343);
 }
 .chip {
   display: inline-flex;
