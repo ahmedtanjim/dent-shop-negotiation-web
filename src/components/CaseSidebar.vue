@@ -14,6 +14,7 @@ import { formatBytes, oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
+import CarLinkCard from '@/components/CarLinkCard.vue'
 import { useFlushOnLeave } from '@/utils/flushOnLeave'
 import { tooLargeMessage } from '@/utils/uploads'
 
@@ -265,6 +266,8 @@ async function removeDocument(id: string) {
         </button>
       </form>
     </section>
+
+    <CarLinkCard :case-id="caseId" :claim-id="detail.claimId" @refresh="emit('refresh')" />
 
     <!-- uploads -->
     <section class="card">

@@ -56,6 +56,26 @@ export function updateCase(
   return api.put<void>(`${base(shopId)}/cases/${caseId}`, body, opts)
 }
 
+/** A car in the CRM garage, for the "Linked car" picker. */
+export interface CarOption {
+  id: string
+  roNumber: number
+  customer: string
+  vehicle: string
+  status: string
+}
+
+/** The shop's cars (the CRM's own list, the same records the Garage shows). */
+export function listCars(shopId: string): Promise<CarOption[]> {
+  return api.get<CarOption[]>(`/api/shops/${shopId}/claims`)
+}
+
+/** Link the case to a car (null unlinks). A car keeps one case: 409 car_has_case. The car's
+ *  Letters tab then shows this case's letters to everyone on the car, sales reps included. */
+export function linkCaseToCar(shopId: string, caseId: string, claimId: string | null): Promise<void> {
+  return api.put<void>(`/api/shops/${shopId}/negotiation/cases/${caseId}/claim`, { claimId })
+}
+
 export function setCaseStatus(shopId: string, caseId: string, status: CaseStatus): Promise<void> {
   return api.post<void>(`${base(shopId)}/cases/${caseId}/status`, { status })
 }
