@@ -25,6 +25,20 @@ export function listCases(shopId: string): Promise<CaseListItem[]> {
   return api.get<CaseListItem[]>(`${base(shopId)}/cases`)
 }
 
+/** Cases deleted in the last 30 days (owner/manager) — restorable. */
+export function listDeletedCases(shopId: string): Promise<CaseListItem[]> {
+  return api.get<CaseListItem[]>(`${base(shopId)}/cases?deleted=true`)
+}
+
+/** Soft delete: gone everywhere at once, restorable for 30 days, then purged with its files. */
+export function deleteCase(shopId: string, caseId: string): Promise<void> {
+  return api.del<void>(`${base(shopId)}/cases/${caseId}`)
+}
+
+export function restoreCase(shopId: string, caseId: string): Promise<CaseListItem> {
+  return api.post<CaseListItem>(`${base(shopId)}/cases/${caseId}/restore`, {})
+}
+
 export function createCase(shopId: string, body: UpsertCase): Promise<CaseListItem> {
   return api.post<CaseListItem>(`${base(shopId)}/cases`, body)
 }

@@ -29,6 +29,12 @@ export interface CaseListItem {
   messageCount: number
   updatedAt: string
   createdAt: string
+  /** CRM links: the storm comes from the linked claim (null for a standalone case). */
+  claimId: string | null
+  stormId: string | null
+  stormName: string | null
+  /** Set only on rows from the "Recently deleted" list. */
+  deletedAt: string | null
 }
 
 export interface UpsertCase {

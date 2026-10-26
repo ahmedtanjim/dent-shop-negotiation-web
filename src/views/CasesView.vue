@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Plus, FolderOpen, Settings2 } from 'lucide-vue-next'
-import { listCases } from '@/api/negotiation'
+import { Plus, FolderOpen, Settings2, Search, Trash2, RotateCcw, X } from 'lucide-vue-next'
+import { listCases, listDeletedCases, restoreCase } from '@/api/negotiation'
 import { getAiUsage } from '@/api/usage'
 import { ApiError, CRM_URL } from '@/api/client'
 import type { AiUsageSummary, CaseListItem } from '@/api/types'
@@ -26,6 +26,105 @@ const showRates = ref(false)
  *  managers see it; a failed read simply hides it (the API's 429 is the real gate). */
 const usage = ref<AiUsageSummary | null>(null)
 const canSeeUsage = ['owner', 'manager', 'admin'].includes(auth.role?.toLowerCase() ?? '')
+/** Deleting and restoring cases is for the owner/manager (the API enforces it too). */
+const canDelete = ['owner', 'manager'].includes(auth.role?.toLowerCase() ?? '')
+
+// ---- list tools: search, filters, sort. Closed cases are hidden by default — "Closed" is the
+// archive, so nothing else is needed to tidy the list. Choices stick per browser. ----
+type StatusFilter = 'active' | 'all' | 'Open' | 'Settled' | 'Litigation' | 'Closed'
+type SortKey = 'updated' | 'created' | 'customer' | 'insurer' | 'storm' | 'invoice'
+const PREFS_KEY = 'dsm_neg_case_list'
+const query = ref('')
+const statusFilter = ref<StatusFilter>('active')
+const stormFilter = ref<string>('')     // '' = any, 'none' = no storm, else stormId
+const insurerFilter = ref<string>('')
+const sortBy = ref<SortKey>('updated')
+try {
+  const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') as Partial<{ status: StatusFilter; sort: SortKey }>
+  if (saved.status) statusFilter.value = saved.status
+  if (saved.sort) sortBy.value = saved.sort
+} catch { /* ignore */ }
+watch([statusFilter, sortBy], ([status, sort]) => {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify({ status, sort })) } catch { /* ignore */ }
+})
+
+const storms = computed(() => {
+  const m = new Map<string, string>()
+  for (const c of cases.value) if (c.stormId && c.stormName) m.set(c.stormId, c.stormName)
+  return [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+})
+const hasUnstormed = computed(() => cases.value.some((c) => !c.stormId))
+const insurers = computed(() =>
+  [...new Set(cases.value.map((c) => c.insurerName).filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b)),
+)
+const closedCount = computed(() => cases.value.filter((c) => c.status === 'Closed').length)
+const filtersActive = computed(
+  () => query.value.trim() !== '' || statusFilter.value !== 'active' || stormFilter.value !== '' || insurerFilter.value !== '',
+)
+function clearFilters() {
+  query.value = ''
+  statusFilter.value = 'active'
+  stormFilter.value = ''
+  insurerFilter.value = ''
+}
+
+const visible = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  const str = (v: string | null | undefined) => (v ?? '').toLowerCase()
+  let rows = cases.value.filter((c) => {
+    if (statusFilter.value === 'active' ? c.status === 'Closed' : statusFilter.value !== 'all' && c.status !== statusFilter.value)
+      return false
+    if (stormFilter.value === 'none' ? !!c.stormId : stormFilter.value !== '' && c.stormId !== stormFilter.value) return false
+    if (insurerFilter.value && c.insurerName !== insurerFilter.value) return false
+    if (q && ![c.title, c.customerName, c.insurerName, c.insurerClaimNumber, c.stormName].some((v) => str(v).includes(q)))
+      return false
+    return true
+  })
+  const cmp = (a: string | null | undefined, b: string | null | undefined) => str(a).localeCompare(str(b))
+  const by: Record<SortKey, (a: CaseListItem, b: CaseListItem) => number> = {
+    updated: (a, b) => b.updatedAt.localeCompare(a.updatedAt),
+    created: (a, b) => b.createdAt.localeCompare(a.createdAt),
+    customer: (a, b) => cmp(a.customerName, b.customerName) || cmp(a.title, b.title),
+    insurer: (a, b) => cmp(a.insurerName, b.insurerName) || b.updatedAt.localeCompare(a.updatedAt),
+    storm: (a, b) => (a.stormName ? 0 : 1) - (b.stormName ? 0 : 1) || cmp(a.stormName, b.stormName) || b.updatedAt.localeCompare(a.updatedAt),
+    invoice: (a, b) => b.invoiceTotalCents - a.invoiceTotalCents,
+  }
+  rows = [...rows].sort(by[sortBy.value])
+  return rows
+})
+
+// ---- recently deleted (30-day restore window) ----
+const showDeleted = ref(false)
+const deletedCases = ref<CaseListItem[]>([])
+const deletedLoading = ref(false)
+const restoring = ref<string | null>(null)
+async function toggleDeleted() {
+  showDeleted.value = !showDeleted.value
+  if (!showDeleted.value || !auth.shopId) return
+  deletedLoading.value = true
+  try {
+    deletedCases.value = await listDeletedCases(auth.shopId)
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Could not load deleted cases.'
+  } finally {
+    deletedLoading.value = false
+  }
+}
+async function restore(c: CaseListItem) {
+  if (!auth.shopId) return
+  restoring.value = c.id
+  error.value = null
+  try {
+    const back = await restoreCase(auth.shopId, c.id)
+    deletedCases.value = deletedCases.value.filter((d) => d.id !== c.id)
+    cases.value = [back, ...cases.value]
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Could not restore the case.'
+  } finally {
+    restoring.value = null
+  }
+}
+const deletedOn = (iso: string | null) => (iso ? formatDateTime(iso) : '')
 
 async function loadUsage() {
   if (!auth.shopId || !canSeeUsage) return
@@ -125,7 +224,7 @@ onMounted(async () => {
 
     <div v-if="loading" class="empty muted"><span class="spinner"></span> Loading cases…</div>
 
-    <div v-else-if="cases.length === 0" class="empty card" data-tour="case-list">
+    <div v-else-if="cases.length === 0 && !showDeleted" class="empty card" data-tour="case-list">
       <FolderOpen :size="30" class="muted" />
       <h3>No cases yet</h3>
       <p class="muted">
@@ -135,7 +234,82 @@ onMounted(async () => {
       <button class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
     </div>
 
-    <div v-else class="card table-card" data-tour="case-list">
+    <template v-else>
+      <div class="toolbar" data-tour="case-list">
+        <label class="search">
+          <Search :size="14" aria-hidden="true" />
+          <input v-model="query" type="search" placeholder="Search customer, claim #, insurer, storm" aria-label="Search cases" />
+        </label>
+        <select v-model="statusFilter" aria-label="Status">
+          <option value="active">Active (not closed)</option>
+          <option value="Open">Open</option>
+          <option value="Settled">Settled</option>
+          <option value="Litigation">Litigation</option>
+          <option value="Closed">Closed{{ closedCount ? ` (${closedCount})` : '' }}</option>
+          <option value="all">All statuses</option>
+        </select>
+        <select v-if="storms.length" v-model="stormFilter" aria-label="Storm">
+          <option value="">Any storm</option>
+          <option v-for="st in storms" :key="st.id" :value="st.id">{{ st.name }}</option>
+          <option v-if="hasUnstormed" value="none">No storm</option>
+        </select>
+        <select v-if="insurers.length > 1" v-model="insurerFilter" aria-label="Insurer">
+          <option value="">Any insurer</option>
+          <option v-for="i in insurers" :key="i" :value="i">{{ i }}</option>
+        </select>
+        <label class="sort">
+          <span class="muted">Sort</span>
+          <select v-model="sortBy" aria-label="Sort by">
+            <option value="updated">Last activity</option>
+            <option value="created">Newest created</option>
+            <option value="customer">Customer</option>
+            <option value="insurer">Insurer</option>
+            <option value="storm">Storm</option>
+            <option value="invoice">Repair estimate</option>
+          </select>
+        </label>
+        <button v-if="filtersActive" class="btn btn-ghost btn-sm" @click="clearFilters"><X :size="13" /> Clear</button>
+        <button v-if="canDelete" class="btn btn-ghost btn-sm deleted-toggle" :class="{ on: showDeleted }" @click="toggleDeleted">
+          <Trash2 :size="13" /> Recently deleted
+        </button>
+      </div>
+
+      <div v-if="showDeleted" class="card table-card deleted-card">
+        <div class="deleted-head">
+          <b>Recently deleted</b>
+          <span class="muted">A deleted case can be restored for 30 days; after that it and its documents are erased.</span>
+        </div>
+        <div v-if="deletedLoading" class="empty muted"><span class="spinner"></span> Loading…</div>
+        <p v-else-if="deletedCases.length === 0" class="empty muted">Nothing deleted in the last 30 days.</p>
+        <table v-else class="data">
+          <thead>
+            <tr><th>Case</th><th>Insurer</th><th>Customer</th><th>Deleted</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in deletedCases" :key="c.id" class="no-open">
+              <td class="title-cell">{{ c.title }}</td>
+              <td data-label="Insurer">{{ c.insurerName || '—' }}</td>
+              <td data-label="Customer">{{ c.customerName || '—' }}</td>
+              <td data-label="Deleted" class="muted">{{ deletedOn(c.deletedAt) }}</td>
+              <td class="num">
+                <button class="btn btn-sm" :disabled="restoring === c.id" @click="restore(c)">
+                  <RotateCcw :size="13" /> {{ restoring === c.id ? 'Restoring…' : 'Restore' }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="visible.length === 0" class="empty card">
+        <h3>No cases match</h3>
+        <p class="muted">
+          {{ statusFilter === 'active' && closedCount === cases.length ? 'Every case is closed.' : 'Try a different search or filter.' }}
+        </p>
+        <button class="btn" @click="clearFilters"><X :size="14" /> Clear filters</button>
+      </div>
+
+      <div v-else class="card table-card">
       <table class="data">
         <thead>
           <tr>
@@ -144,13 +318,14 @@ onMounted(async () => {
             <th>Insurer</th>
             <th>Claim #</th>
             <th>Customer</th>
+            <th>Storm</th>
             <th class="num">Repair est.</th>
             <th class="num">Msgs</th>
             <th>Updated</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in cases" :key="c.id" @click="open(c)">
+          <tr v-for="c in visible" :key="c.id" @click="open(c)">
             <!-- the title is a real link: Tab reaches every case, Enter opens it, and
                  ⌘/middle-click opens it in a new tab; the rest of the row stays clickable -->
             <td class="title-cell">
@@ -162,13 +337,15 @@ onMounted(async () => {
             <td data-label="Insurer">{{ c.insurerName || '—' }}</td>
             <td data-label="Claim #" class="mono">{{ c.insurerClaimNumber || '—' }}</td>
             <td data-label="Customer">{{ c.customerName || '—' }}</td>
+            <td data-label="Storm" :class="{ muted: !c.stormName }">{{ c.stormName || '—' }}</td>
             <td data-label="Repair est." class="num mono">{{ centsToUsd(c.invoiceTotalCents) }}</td>
             <td data-label="Msgs" class="num">{{ c.messageCount }}</td>
             <td data-label="Updated" class="muted">{{ formatDateTime(c.updatedAt) }}</td>
           </tr>
         </tbody>
       </table>
-    </div>
+      </div>
+    </template>
 
     <NewCaseModal v-if="showNew" @close="showNew = false" @created="onCreated" />
     <ShopRatesModal v-if="showRates" @close="showRates = false" />
@@ -193,6 +370,59 @@ onMounted(async () => {
 .head-actions {
   display: flex;
   gap: 8px;
+}
+/* list tools */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.toolbar .search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 200px;
+  color: var(--text-muted);
+}
+.toolbar .search input {
+  flex: 1;
+  min-width: 0;
+}
+.toolbar select {
+  width: auto;
+  max-width: 240px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.toolbar .search input {
+  width: auto;
+}
+.toolbar .sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.deleted-toggle.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.deleted-card {
+  margin-bottom: 16px;
+  border-style: dashed;
+}
+.deleted-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 12px 16px 0;
+  font-size: 13px;
+}
+.data tr.no-open {
+  cursor: default;
 }
 .page-head h1 {
   font-size: 22px;
