@@ -111,6 +111,10 @@ const capResets = computed(() => {
 
 <template>
   <div class="app-shell">
+    <div v-if="auth.isAuthed && ent.readOnly" class="readonly-banner" role="status">
+      Your DSM Negotiator plan has ended — your cases and letters are read-only.
+      <RouterLink to="/upgrade">Renew to draft and send again</RouterLink>
+    </div>
     <header v-if="auth.isAuthed" class="topbar">
       <RouterLink to="/" class="brand">
         <img src="@/assets/dsm-logo.webp" class="brand-logo" alt="Dent Shop Manager" width="142" height="128" />
@@ -271,6 +275,14 @@ const capResets = computed(() => {
   align-items: center;
   gap: 12px;
 }
+.readonly-banner {
+  padding: 8px 16px;
+  background: var(--amber-soft);
+  color: var(--text);
+  font-size: 13px;
+  text-align: center;
+}
+.readonly-banner a { color: inherit; font-weight: 600; margin-left: 6px; }
 .shop-pick {
   max-width: 220px;
   border: 1px solid var(--border);

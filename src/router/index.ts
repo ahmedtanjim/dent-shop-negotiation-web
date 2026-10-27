@@ -162,7 +162,9 @@ router.beforeEach(async (to) => {
     }
     return true
   }
-  if (ent.known && !ent.isAi) {
+  // A shop whose AI plan ended keeps reading its cases and letters (audit 2026-10-26 #10);
+  // only a shop that never had the Negotiator meets the paywall on every page.
+  if (ent.known && !ent.isAi && !ent.readOnly) {
     return { name: 'paywall', query: to.fullPath !== '/cases' ? { redirect: to.fullPath } : {} }
   }
   return true
