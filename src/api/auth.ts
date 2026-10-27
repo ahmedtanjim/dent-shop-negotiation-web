@@ -16,6 +16,17 @@ export function exchangeHandoff(code: string, verifier: string): Promise<AuthRes
   return api.post<AuthResponse>('/api/auth/handoff/exchange', { code, verifier })
 }
 
+/** Re-issue this session with a fresh 7-day expiry and the CURRENT role and shops — a role
+ *  change or a removal shows up here (corner-case #46). */
+export function refreshSession(): Promise<AuthResponse> {
+  return api.post<AuthResponse>('/api/auth/refresh', {})
+}
+
+/** Move the session to another of this user's shops (corner-case #18). */
+export function switchShop(shopId: string): Promise<AuthResponse> {
+  return api.post<AuthResponse>('/api/auth/switch-shop', { shopId })
+}
+
 /** The signed-in user's own account (GET /api/auth/me). The session keeps no email; the
  *  Help & support modal reads it from here for the details it puts in the user's email. */
 export function getMe(): Promise<{ email: string; displayName: string }> {

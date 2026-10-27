@@ -366,6 +366,10 @@ onMounted(async () => {
         </div>
 
         <h1 id="pw-title">{{ auth.isOwner ? headline : 'DSM Negotiator isn’t on your shop’s plan yet.' }}</h1>
+        <p v-if="auth.shops.length > 1" class="other-shop" role="note">
+          You're looking at <b>{{ auth.shopName ?? 'this shop' }}</b>. If DSM Negotiator is on another of
+          your shops, switch to it with the shop picker at the top before buying.
+        </p>
 
         <p v-if="auth.isOwner" class="lede muted">
           Total-loss invoices with storage that accrues by the day, adjuster emails sorted by
@@ -479,6 +483,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.other-shop { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-soft); font-size: 13.5px; }
 .paywall {
   position: relative;
   flex: 1;
