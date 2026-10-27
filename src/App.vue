@@ -11,11 +11,33 @@ import { startCasesTour, startWorkspaceTour } from '@/tour'
 import { setSentryTags } from '@/analytics/sentry'
 import { helpOpen, openHelp } from '@/utils/help'
 import HelpSupportModal from '@/components/HelpSupportModal.vue'
+import { switchShop } from '@/api/auth'
+import { startSessionKeeper } from '@/utils/session'
 
 const auth = useAuthStore()
 const ent = useEntitlementStore()
 const router = useRouter()
 const route = useRoute()
+
+// On more than one shop: switch here instead of landing on the paywall of the wrong one (#18).
+const switching = ref(false)
+const switchError = ref<string | null>(null)
+async function onSwitchShop(e: Event) {
+  const sel = e.target as HTMLSelectElement
+  const to = sel.value
+  if (!to || to === auth.shopId) return
+  switching.value = true
+  switchError.value = null
+  try {
+    auth.setSession(await switchShop(to))
+    ent.reset()
+    window.location.assign('/cases')   // a full load drops every per-shop cache
+  } catch (err) {
+    switching.value = false
+    sel.value = auth.shopId ?? ''
+    switchError.value = err instanceof Error ? err.message : "Couldn't switch shops."
+  }
+}
 
 function logout() {
   auth.logout()
@@ -52,6 +74,7 @@ function onMenuKey(e: KeyboardEvent) {
   if (e.key === 'Escape') helpMenu.value = false
 }
 onMounted(() => {
+  startSessionKeeper()
   document.addEventListener('click', onOutside)
   window.addEventListener('keydown', onMenuKey)
 })
@@ -88,6 +111,10 @@ const capResets = computed(() => {
 
 <template>
   <div class="app-shell">
+    <div v-if="auth.isAuthed && ent.readOnly" class="readonly-banner" role="status">
+      Your DSM Negotiator plan has ended — your cases and letters are read-only.
+      <RouterLink to="/upgrade">Renew to draft and send again</RouterLink>
+    </div>
     <header v-if="auth.isAuthed" class="topbar">
       <RouterLink to="/" class="brand">
         <img src="@/assets/dsm-logo.webp" class="brand-logo" alt="Dent Shop Manager" width="142" height="128" />
@@ -97,6 +124,18 @@ const capResets = computed(() => {
         </span>
       </RouterLink>
       <div class="topbar-right">
+        <select
+          v-if="auth.shops.length > 1"
+          class="shop-pick"
+          :value="auth.shopId ?? ''"
+          :disabled="switching"
+          title="Switch shop"
+          aria-label="Switch shop"
+          @change="onSwitchShop"
+        >
+          <option v-for="s in auth.shops" :key="s.shopId" :value="s.shopId">{{ s.shopName }}</option>
+        </select>
+        <span v-if="switchError" class="muted user-name" role="alert">{{ switchError }}</span>
         <span class="muted user-name">{{ auth.displayName }}</span>
         <button
           class="btn btn-ghost btn-sm"
@@ -235,6 +274,24 @@ const capResets = computed(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.readonly-banner {
+  padding: 8px 16px;
+  background: var(--amber-soft);
+  color: var(--text);
+  font-size: 13px;
+  text-align: center;
+}
+.readonly-banner a { color: inherit; font-weight: 600; margin-left: 6px; }
+.shop-pick {
+  max-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 13px;
 }
 .user-name {
   font-size: 13px;

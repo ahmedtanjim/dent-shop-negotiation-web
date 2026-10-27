@@ -143,6 +143,8 @@ async function submit() {
           <a class="forgot" :href="`${CRM_URL}/forgot`">Forgot it?</a>
         </div>
 
+        <p class="oldapp">Coming from the old Dent Shop Manager app? Use <a :href="`${CRM_URL}/forgot`">Forgot it?</a> to set a new password.</p>
+
         <p v-if="error" class="error-text" role="alert">{{ error }}</p>
 
         <button class="btn btn-primary submit" type="submit" :disabled="busy">
@@ -358,7 +360,9 @@ h1 {
 .f-pw {
   position: relative;
 }
-.f-pw .forgot {
+.f-pw .oldapp { font-size: 12.5px; color: var(--text-muted); margin: 0; }
+.oldapp a { color: inherit; text-decoration: underline; }
+.forgot {
   position: absolute;
   top: 0;
   right: 0;

@@ -10,6 +10,17 @@ export const useAuthStore = defineStore('auth', () => {
   const displayName = ref<string | null>(localStorage.getItem(STORAGE_KEYS.displayName))
   const role = ref<string | null>(localStorage.getItem(STORAGE_KEYS.role))
   const userId = ref<string | null>(localStorage.getItem(STORAGE_KEYS.userId))
+  /** Every shop this login is on — the top-bar switcher lists them. */
+  const shops = ref<{ shopId: string; shopName: string; role: string }[]>(readShops())
+
+  function readShops() {
+    try {
+      const v = JSON.parse(localStorage.getItem(STORAGE_KEYS.shops) ?? '[]')
+      return Array.isArray(v) ? v : []
+    } catch {
+      return []
+    }
+  }
 
   const isAuthed = computed(() => !!token.value && !!shopId.value)
   /** Only the owner can change the shop's plan (the API enforces it too). */
@@ -22,6 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
     displayName.value = auth.displayName
     role.value = auth.role
     userId.value = auth.userId
+    shops.value = Array.isArray(auth.shops) ? auth.shops : []
+    localStorage.setItem(STORAGE_KEYS.shops, JSON.stringify(shops.value))
     localStorage.setItem(STORAGE_KEYS.token, auth.token)
     localStorage.setItem(STORAGE_KEYS.userId, auth.userId)
     localStorage.setItem(STORAGE_KEYS.shopId, auth.shopId)
@@ -38,8 +51,9 @@ export const useAuthStore = defineStore('auth', () => {
     displayName.value = null
     role.value = null
     userId.value = null
+    shops.value = []
     for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key)
   }
 
-  return { token, shopId, shopName, displayName, role, userId, isAuthed, isOwner, setSession, logout }
+  return { token, shopId, shopName, displayName, role, userId, shops, isAuthed, isOwner, setSession, logout }
 })

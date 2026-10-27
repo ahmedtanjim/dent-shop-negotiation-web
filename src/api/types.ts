@@ -298,6 +298,8 @@ export interface BillingState {
   /** A Stripe subscription that isn't canceled — a card trial or a paid plan. Missing on an
    *  older API. */
   hasLiveSubscription?: boolean
+  /** The shop had DSM Negotiator cases: after the AI plan ends they stay readable. */
+  hadAiPlan?: boolean
 }
 
 export interface MemberSummary {

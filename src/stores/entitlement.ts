@@ -89,5 +89,8 @@ export const useEntitlementStore = defineStore('entitlement', () => {
     refused.value = false
   }
 
-  return { state, entitlement, known, failed, tier, isAi, unfinishedSignup, canUpgradeInPlace, load, invalidate, sync, reset }
+  /** Below the AI plan but the shop has cases: they open read-only, never the paywall (#10). */
+  const readOnly = computed(() => known.value && !isAi.value && state.value?.hadAiPlan === true)
+
+  return { state, entitlement, known, failed, tier, isAi, readOnly, unfinishedSignup, canUpgradeInPlace, load, invalidate, sync, reset }
 })
