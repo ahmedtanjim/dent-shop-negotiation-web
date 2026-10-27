@@ -24,6 +24,10 @@ export const aiPlanRequired = ref(false)
 /** Set when the API answers 429 `ai_cap_daily` / `ai_cap_monthly` — the shop has used its
  *  fair-use AI allowance. App.vue shows it as a banner with the reset time. */
 export const aiCapNotice = ref<{ message: string; scope: string; resetsAt: string | null } | null>(null)
+/** Set when the API answers 403 `negotiator_access`: this member isn't one of the shop's
+ *  owners, managers or admins who see money. App.vue replaces the page with a pointer to
+ *  the car's Letters tab in the CRM. */
+export const negotiatorAccessDenied = ref<string | null>(null)
 
 export class ApiError extends Error {
   constructor(
@@ -136,6 +140,7 @@ async function request<T>(
       if (code === 'ai_required') aiPlanRequired.value = true
       else subscriptionNotice.value = message
     }
+    if (res.status === 403 && code === 'negotiator_access') negotiatorAccessDenied.value = message
     if (res.status === 429 && code?.startsWith('ai_cap_')) {
       aiCapNotice.value = { message, scope: code.slice('ai_cap_'.length), resetsAt }
     }

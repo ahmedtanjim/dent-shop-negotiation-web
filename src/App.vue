@@ -2,7 +2,7 @@
 import { watch, computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LogOut, X, HelpCircle, Sun, Moon, Compass, LifeBuoy } from 'lucide-vue-next'
-import { aiCapNotice, aiPlanRequired, CRM_URL, subscriptionNotice } from '@/api/client'
+import { aiCapNotice, aiPlanRequired, CRM_URL, negotiatorAccessDenied, subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { goToCrm } from '@/api/handoff'
@@ -155,7 +155,18 @@ const capResets = computed(() => {
     </div>
 
     <main class="app-main">
-      <RouterView />
+      <!-- Field staff (or an admin without financials): the API refuses every case read.
+           Say why and where their letters are, instead of a page of red errors. -->
+      <section v-if="negotiatorAccessDenied" class="no-access">
+        <h1>DSM Negotiator is for owners and managers</h1>
+        <p>{{ negotiatorAccessDenied }}</p>
+        <p class="muted">Open a car in Dent Shop Manager and pick its <b>Letters</b> tab to copy the letters to the adjuster.</p>
+        <div class="no-access-actions">
+          <a class="btn btn-primary" :href="`${CRM_URL}/claims`" @click.prevent="goToCrm('/claims', false)">Go to my cars</a>
+          <button class="btn btn-ghost" type="button" @click="logout">Sign out</button>
+        </div>
+      </section>
+      <RouterView v-else />
     </main>
 
     <HelpSupportModal v-if="helpOpen" @close="helpOpen = false" />
@@ -163,6 +174,10 @@ const capResets = computed(() => {
 </template>
 
 <style scoped>
+.no-access { max-width: 520px; margin: 12vh auto 0; padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+.no-access h1 { font-size: 22px; margin: 0; }
+.no-access p { margin: 0; line-height: 1.5; }
+.no-access-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
 .app-shell {
   min-height: 100vh;
   display: flex;
