@@ -151,8 +151,8 @@ function jumpToDraft() {
 }
 const invoice = computed(() => docs.value?.invoice ?? null)
 
-// The header's balance follows the invoice card's live math while an edit is in
-// flight, so the big number reacts to every keystroke like the mockup promised.
+// The header's balance is the one the invoice card shows: the server's invoice (what the
+// PDF and letters print), or the card's preview while an edit is on its way to the server.
 const liveTotal = ref<number | null>(null)
 // The invoice card names exactly why storage bills nothing ($0 rate, end before start…).
 const storageIssue = ref<string | null>(null)
