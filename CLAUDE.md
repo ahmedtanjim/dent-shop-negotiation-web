@@ -38,7 +38,7 @@ npm run preview   # serve dist/ (the landing at /welcome.html; `/` is the SWA re
 ```
 
 `npm test` then `npm run build` is the CI gate. There is no `build:all`, `build:site` or lint script
-on `main` (see Marketing site).
+on `main` (see Landing page).
 Locally the API must run on `http://localhost:5080` (`dotnet run --project src/DentShop.Presentation`
 in `dent_shop_api`). Without `Anthropic:ApiKey` the API uses a deterministic fake assistant, so
 every flow works with placeholder drafts. "Back to the shop" links go to `http://localhost:5173`
@@ -168,14 +168,15 @@ All analytics is dormant when unset. `vite.config.ts`'s `analyticsCsp` plugin ad
 to the **built** `dist/staticwebapp.config.json` CSP only when those vars are set. Deploy also uses
 the secret `AZURE_SWA_TOKEN`. Never commit values.
 
-## Marketing site (`site/`)
+## Landing page
 
-On `main`, `site/` is only a stub: `site/src/pages/index.astro` plus a committed `.astro/` cache. It
-imports `../layouts/Base.astro`, which is not on `main`, and there is no `site/package.json`, so it is
-neither built nor deployed. The public landing that ships today is `public/welcome.html` at `/` (the cases list is `/cases`; `/pricing` signed out goes to dentshopmanager.com/pricing). The full Astro site, `build:site`/`build:all`
-(`scripts/merge-dist.mjs`) and moving the Vue app under `/app/` exist only on the unmerged branch
-`feat/ai-paywall`. **Today the app is served at the root in both dev and production** (no Vite
-`base`, `createWebHistory()` with no base, hard-coded `/login` in `client.ts`).
+The public landing that ships is `public/welcome.html` at `/` (the cases list is `/cases`; `/pricing`
+signed out goes to dentshopmanager.com/pricing). The old non-built `site/` Astro stub was deleted
+(2026-10-29). A full Astro site, `build:site`/`build:all` (`scripts/merge-dist.mjs`) and moving the
+Vue app under `/app/` exist only on the unmerged branch `feat/ai-paywall` (2026-09-20), which now
+conflicts with that deletion if it is ever merged. **Today the app is served at the root in both
+dev and production** (no Vite `base`, `createWebHistory()` with no base, hard-coded `/login` in
+`client.ts`).
 
 ## Deploy
 
