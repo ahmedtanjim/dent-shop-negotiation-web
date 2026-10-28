@@ -14,6 +14,7 @@ Vite 6 · Vue 3.5 · TypeScript · pinia · vue-router 4 — same stack as `dent
 ```bash
 npm install
 npm run dev        # http://localhost:5174 (the API's dev CORS allows this origin)
+npm test           # Vitest unit tests (CI runs them before the build)
 npm run build      # vue-tsc type-check + production build
 ```
 

@@ -32,11 +32,13 @@ Manager (hail/PDR auto-body shops). Live at https://ai.dentshopmanager.com. GitH
 ```bash
 npm install
 npm run dev       # Vite on http://localhost:5174 (the API's dev CORS allows 5173 + 5174)
-npm run build     # vue-tsc -b (type-check) + vite build -> dist/   (this is the CI gate)
-npm run preview   # serve dist/
+npm test          # Vitest unit tests (happy-dom), once; `npm run test:watch` re-runs on save
+npm run build     # vue-tsc -b (type-check, tests included) + vite build -> dist/
+npm run preview   # serve dist/ (the landing at /welcome.html; `/` is the SWA rewrite in production)
 ```
 
-There is **no** `build:all`, `build:site`, lint or test script on `main` (see Marketing site).
+`npm test` then `npm run build` is the CI gate. There is no `build:all`, `build:site` or lint script
+on `main` (see Marketing site).
 Locally the API must run on `http://localhost:5080` (`dotnet run --project src/DentShop.Presentation`
 in `dent_shop_api`). Without `Anthropic:ApiKey` the API uses a deterministic fake assistant, so
 every flow works with placeholder drafts. "Back to the shop" links go to `http://localhost:5173`
@@ -67,6 +69,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal`,
   `HelpSupportModal` (Help & support), `DateField`,
   `StatusPill`, `TacticBadge`, `PrivacyChoicesLink`.
+- Unit tests sit next to the code as `*.test.ts` (Vitest + happy-dom + `@vue/test-utils`,
+  `vitest.config.ts`).
 - `src/utils/` — `letterMarkdown` (letter renderer + rich clipboard), `placeholders` (blank
   detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing), `freshBuild`,
   `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`,
@@ -160,16 +164,19 @@ neither built nor deployed. The public landing that ships today is `public/welco
 ## Deploy
 
 `.github/workflows/deploy-web.yml` ("Deploy Web") runs on **push to `main`** and `workflow_dispatch`.
-Job `test`: Node 20, `npm ci`, `npm run build`. Job `deploy` (needs `test`) targets the GitHub
-Environment **`dev`**, which has a required-reviewer approval gate, then `Azure/static-web-apps-deploy@v1`
-builds with the env vars above and uploads `dist` to the Static Web App `dentshop-negotiator-dev`.
+Job `test`: Node 20, `npm ci`, `npm test`, `npm run build`. Job `deploy` (needs `test`) targets the
+GitHub Environment **`dev`**, which has a required-reviewer approval gate, then
+`Azure/static-web-apps-deploy@v1` builds with the env vars above and uploads `dist` to the Static Web App `dentshop-negotiator-dev`.
 Approving that gate is a deploy: only on the owner's explicit "deploy".
 
 ## Testing / verification
 
-No automated tests. Before committing: `npm run build` must pass. For UI changes, run the app
-against the local API, exercise the flow, and check light + dark and a phone width. The draft quality
-rules (no blanks, citations) are tested in the API's eval harness, not here.
+`npm test` (Vitest, `*.test.ts` next to the code) and `npm run build` must pass before
+committing. Security- and money-critical helpers (the letter renderer before `v-html`,
+`safeRedirect`, `amount`, the Sentry scrubbers, PKCE) have suites; add a test with every fix to a
+helper, store or view rule. For UI changes, also run the app against the local API, exercise the
+flow, and check light + dark and a phone width. The draft quality rules (no blanks, citations) are
+tested in the API's eval harness, not here.
 
 ## Gotchas
 
@@ -185,7 +192,7 @@ rules (no blanks, citations) are tested in the API's eval harness, not here.
 
 ## Workflow
 
-- Branch off `main`: `feat/…`, `fix/…`, `chore/…`, `docs/…`. `npm run build` passes before any push.
+- Branch off `main`: `feat/…`, `fix/…`, `chore/…`, `docs/…`. `npm test` and `npm run build` pass before any push.
 - Nothing is pushed to `main` or deployed (and the `dev` gate is never approved) without the owner's
   explicit "deploy" for that change. Pushing `main` starts a deploy.
 - Merge and push `main` from a dedicated worktree
