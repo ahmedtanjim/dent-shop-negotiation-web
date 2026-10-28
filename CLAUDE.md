@@ -72,8 +72,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - Unit tests sit next to the code as `*.test.ts` (Vitest + happy-dom + `@vue/test-utils`,
   `vitest.config.ts`).
 - `src/utils/` — `letterMarkdown` (letter renderer + rich clipboard), `placeholders` (blank
-  detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing), `freshBuild`,
-  `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`,
+  detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing),
+  `safeRedirect` (the one `?redirect` / `?next` rule), `freshBuild`, `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`,
   `help` (`openHelp()`), `supportReport` (support details / mailto builder; same file as the CRM's).
 - `src/analytics/` — `ga.ts`, `sentry.ts`, `privacy.ts` (opt-out + Global Privacy Control).
 - `src/tour.ts` + `src/styles/tour.css` — driver.js tours on `[data-tour]` anchors.
