@@ -5,7 +5,6 @@ import { ArrowRight, Check, Copy, Lock, RefreshCw, User } from 'lucide-vue-next'
 import {
   CHARGE_CONFIRMATION_REQUIRED,
   listMembers,
-  openPortal,
   readChargeConfirmation,
   startCheckout,
   type ChargeConfirmation,
@@ -129,15 +128,26 @@ function returnUrl() {
   return `${window.location.origin}/upgrade${q}`
 }
 
-/** `confirmCharge` only ever comes from the owner pressing the explicit confirm below. */
+/** Always the API's checkout: it looks at the shop's live Stripe subscription and answers
+ *  with Stripe Checkout, the portal's confirm-upgrade, an in-place switch or "unchanged".
+ *  The client never picks the portal itself — a Stripe customer alone proves nothing (a
+ *  comped shop or an abandoned Checkout has one too, and a plain portal has nothing to
+ *  buy). `confirmCharge` only ever comes from the owner pressing the explicit confirm below. */
 async function upgrade(confirmCharge = false) {
   busy.value = true
   error.value = null
   try {
-    const r = ent.canUpgradeInPlace
-      ? await openPortal(shopId(), 'ai', returnUrl(), confirmCharge)
-      : await startCheckout(shopId(), 'ai', returnUrl(), confirmCharge)
-    window.location.href = r.url
+    const r = await startCheckout(shopId(), 'ai', returnUrl(), confirmCharge)
+    if (r.url) {
+      window.location.href = r.url
+      return
+    }
+    // Nowhere to send the browser (nothing needed changing): re-read the plan here.
+    pendingCharge.value = null
+    await ent.sync(shopId()).catch(() => {})
+    if (ent.isAi) router.replace(redirectTo.value)
+    else error.value = 'Could not start the upgrade. Try again in a moment.'
+    busy.value = false
   } catch (e) {
     if (!confirmCharge && e instanceof ApiError && e.status === 409 && e.code === CHARGE_CONFIRMATION_REQUIRED) {
       // Nothing was charged: ask first, in plain words, with the amount.

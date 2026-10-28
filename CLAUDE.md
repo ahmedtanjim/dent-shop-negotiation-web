@@ -107,7 +107,11 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    every signed-in page redirects to `/upgrade`. A mid-session 402 `ai_required` sets
    `aiPlanRequired` and `App.vue` re-reads the plan and opens the paywall. Other 402s show the
    subscription banner. A failed plan lookup leaves pages open (the API's 402 is the real gate).
-   Checkout/portal go through `api/billing.ts`; a 409 `charge_confirmation_required` must be
+   Buying always calls `startCheckout` (`POST …/billing/checkout`): the API looks at the live
+   Stripe subscription and answers with Checkout, the portal's confirm-upgrade, an in-place switch
+   or "unchanged", and the paywall follows `url`. Never pick the portal in the client —
+   `hasStripeCustomer` is not a subscription (comped and abandoned-Checkout shops have one; if a
+   hint is ever needed, `hasLiveSubscription`). A 409 `charge_confirmation_required` must be
    confirmed and re-sent with `confirmCharge`. Only the owner changes the plan.
 7. **Fair-use caps** — 429 `ai_cap_daily` / `ai_cap_monthly` sets `aiCapNotice` (banner with reset
    time). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to

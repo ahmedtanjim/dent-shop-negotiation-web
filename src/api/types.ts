@@ -307,7 +307,9 @@ export interface Entitlement {
 export interface BillingState {
   billingEnabled: boolean
   entitlement: Entitlement
-  /** A real Stripe subscription (the portal works) vs one granted by a platform admin. */
+  /** The shop has a Stripe customer, so the portal opens (card, invoices). NOT proof of a
+   *  subscription: a comped shop or an abandoned Checkout has one too. Never route a
+   *  purchase on it — `POST …/billing/checkout` picks Checkout or the portal itself. */
   hasStripeCustomer: boolean
   /** A Stripe subscription that isn't canceled — a card trial or a paid plan. Missing on an
    *  older API. */
