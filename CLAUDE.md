@@ -73,7 +73,7 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   `HelpSupportModal` (Help & support), `DateField`,
   `StatusPill`, `TacticBadge`, `PrivacyChoicesLink`.
 - Unit tests sit next to the code as `*.test.ts` (Vitest + happy-dom + `@vue/test-utils`,
-  `vitest.config.ts`).
+  `vitest.config.ts`); `src/landing.test.ts` runs the landing's form script against `welcome.html`.
 - `src/utils/` — `letterMarkdown` (letter renderer + rich clipboard), `placeholders` (blank
   detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing),
   `safeRedirect` (the one `?redirect` / `?next` rule), `freshBuild`, `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`,
@@ -85,8 +85,16 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   rewrite, with its own CSP allowing Webflow's image/video hosts). It is a static copy of the
   Webflow page "AI site home", rendered through `dent_shop_home`'s `Webflow.astro` layout, with
   inline scripts moved to `welcome-assets/welcome-N.js` (CSP) and relative links made absolute to
-  dentshopmanager.com. To update it: export the Webflow page (dent_shop_home `webflow-export/SPEC.md`),
-  build it there as a temporary page, and redo those steps. `/welcome` 301s to `/`; `welcome-0.js` sends a signed-in visitor to `/cases`. The SPA's `/` route (`welcome`) goes to the cases when signed in and otherwise leaves the SPA for it.
+  dentshopmanager.com. Its total-loss training form (`welcome-2.js`, same script as the apex
+  site's `Webflow.astro`) POSTs the lead to `https://api.dentshopmanager.com/api/public/leads`
+  (`data-source="ai-home"`, hidden `website` honeypot, `<p data-consent>` wording sent as consent;
+  the API's `Marketing:LeadOrigins` must list `https://ai.dentshopmanager.com` or the browser
+  blocks it) and then opens the video at `data-redirect` whatever the answer, after 3 s at most.
+  The page's CSP already allows that `connect-src`; never add inline script (`script-src 'self'`).
+  To update it: export the Webflow page (dent_shop_home `webflow-export/SPEC.md`), build it there
+  as a temporary page, and redo those steps (keep the form script and fields). `/welcome` 301s to
+  `/`; `welcome-0.js` sends a signed-in visitor to `/cases`. The SPA's `/` route (`welcome`) goes to
+  the cases when signed in and otherwise leaves the SPA for it.
 
 ## Key flows
 
@@ -152,7 +160,7 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 | --- | --- |
 | `VITE_API_BASE` | API origin. Default `http://localhost:5080`. Deploy: repo secret. |
 | `VITE_CRM_URL` | CRM origin. Default `http://localhost:5173` in dev, `https://app.dentshopmanager.com` in prod. Not set by the workflow. |
-| `VITE_GA_MEASUREMENT_ID` | GA4, public pages (`/`, `/login`) only; off under GPC/opt-out. Repo variable. |
+| `VITE_GA_MEASUREMENT_ID` | GA4 on the SPA's public route `/login` only (the static landing at `/` has no GA); off under GPC/opt-out. Repo variable. |
 | `VITE_SENTRY_DSN` | Sentry for the signed-in app; no PII. Repo secret. |
 | `VITE_RELEASE` | Sentry release tag; workflow falls back to the commit SHA. |
 

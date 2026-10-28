@@ -33,7 +33,8 @@ See `CLAUDE.md` for the full map, flows and conventions.
   banner, 429 → fair-use banner) + endpoint clients for `/api/auth` (login, CRM hand-off),
   billing, AI usage and `/api/shops/{shopId}/negotiation`
 - `src/stores/` — `auth` (session, localStorage-persisted) and `entitlement` (the shop's plan)
-- `src/views/` — welcome (public landing), login, hand-off, paywall, cases list, case workspace.
+- `src/views/` — login, hand-off, paywall, cases list, case workspace. The public landing at `/`
+  is the static `public/welcome.html` (its training form stores leads through the API).
   Sign-up lives on the shop system (CRM); `/register` redirects there.
 - `src/components/` — case sidebar (facts/documents/status), correspondence timeline,
   draft panel (questions before drafting, customer-voice authorization), generated letters +
@@ -47,7 +48,7 @@ stays strict. The Vite build adds only the hosts that are actually configured to
 
 | Variable | Where to set it (GitHub → repo Settings) | What it does |
 | --- | --- | --- |
-| `VITE_GA_MEASUREMENT_ID` | Variables (`vars.`) | GA4 (`G-…`) on **public pages only** (`/welcome`, `/login`): a `page_view` per public route and a `sign_up_click` event on the sign-up buttons. Never inside the signed-in app (GA's kill switch is set there). Not loaded when the browser sends Global Privacy Control or the visitor clicked "Do not sell or share my info" (footer of the public pages). `allow_google_signals` and ad personalization off, no user id, page URLs without query strings. |
+| `VITE_GA_MEASUREMENT_ID` | Variables (`vars.`) | GA4 (`G-…`) on the SPA's **public pages only** (`/login`; the static landing at `/` has none): a `page_view` per public route and a `sign_up_click` event on the sign-up buttons. Never inside the signed-in app (GA's kill switch is set there). Not loaded when the browser sends Global Privacy Control or the visitor clicked "Do not sell or share my info" (footer of the public pages). `allow_google_signals` and ad personalization off, no user id, page URLs without query strings. |
 | `VITE_SENTRY_DSN` | Secrets (`secrets.`) | Sentry error reports for the **signed-in app** (`@sentry/vue`, loaded as its own chunk). No PII (`sendDefaultPii: false`, no `setUser`, no component props), no replay, `tracesSampleRate: 0`; `beforeSend` strips query strings, headers (Authorization), request bodies and cookies and redacts emails/long numbers. Tags: app version, role, plan status. |
 | `VITE_RELEASE` | Variables (optional) | Release tag sent to Sentry. The deploy workflow falls back to the commit SHA. |
 
