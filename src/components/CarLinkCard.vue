@@ -4,6 +4,7 @@ import { ExternalLink } from 'lucide-vue-next'
 import { getCar, linkCaseToCar, listCars, type CarOption, type LinkedCar } from '@/api/negotiation'
 import { goToCrm } from '@/api/handoff'
 import { useAuthStore } from '@/stores/auth'
+import { useCaseReadOnly } from '@/utils/readOnly'
 
 /** Which CRM car this case belongs to. Linked, the car's Letters tab shows this case's letters
  *  to everyone on the car — sales reps included — to copy. One case per car. */
@@ -11,6 +12,8 @@ const props = defineProps<{ caseId: string; claimId: string | null }>()
 const emit = defineEmits<{ refresh: [] }>()
 const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
+/** The shop's plan ended: the link shows, but can't be changed. */
+const readOnly = useCaseReadOnly()
 
 /** The whole garage — loaded only when the picker opens. */
 const cars = ref<CarOption[] | null>(null)
@@ -57,6 +60,7 @@ async function loadCars() {
 }
 
 async function link(claimId: string | null) {
+  if (readOnly.value) return
   busy.value = true
   error.value = null
   try {
@@ -79,7 +83,7 @@ async function startPicking() {
 <template>
   <section class="card">
     <div class="panel-title">Linked car</div>
-    <template v-if="claimId && !picking">
+    <template v-if="claimId && (!picking || readOnly)">
       <p class="car">
         <template v-if="linked">
           <b>RO-{{ linked.roNumber }}</b> {{ linked.customer }}{{ linked.vehicle ? ' · ' + linked.vehicle : '' }}
@@ -92,9 +96,14 @@ async function startPicking() {
         <button class="btn btn-ghost btn-sm" type="button" @click="goToCrm(`/claims/${claimId}/letters`, true)">
           Open the car <ExternalLink :size="13" />
         </button>
-        <button class="btn btn-ghost btn-sm" type="button" :disabled="busy" @click="startPicking">Change</button>
-        <button class="btn btn-ghost btn-sm" type="button" :disabled="busy" @click="link(null)">Unlink</button>
+        <template v-if="!readOnly">
+          <button class="btn btn-ghost btn-sm" type="button" :disabled="busy" @click="startPicking">Change</button>
+          <button class="btn btn-ghost btn-sm" type="button" :disabled="busy" @click="link(null)">Unlink</button>
+        </template>
       </div>
+    </template>
+    <template v-else-if="readOnly">
+      <p class="faint">Not linked to a car.</p>
     </template>
     <template v-else-if="!picking">
       <p class="faint">Not linked to a car. Link it and the car's Letters tab shows these letters to the people working

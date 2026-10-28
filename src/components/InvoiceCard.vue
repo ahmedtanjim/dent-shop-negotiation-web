@@ -12,6 +12,7 @@ import { parseMoney, parsePercent } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import { useFlushOnLeave } from '@/utils/flushOnLeave'
 import { calendarDay, invoiceView, serverBillingDay } from '@/utils/invoiceFigures'
+import { useCaseReadOnly } from '@/utils/readOnly'
 
 const props = defineProps<{ detail: CaseDetail; invoice: InvoiceBreakdown | null }>()
 const emit = defineEmits<{ refresh: [] }>()
@@ -19,6 +20,8 @@ const emit = defineEmits<{ refresh: [] }>()
 const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
+/** The shop's plan ended: the invoice reads and downloads, but nothing edits or saves. */
+const readOnly = useCaseReadOnly()
 
 /* ---------- inline-editable figures ----------
    The inputs show the EFFECTIVE numbers (case override, else shop default) so the card
@@ -193,20 +196,34 @@ let timer: ReturnType<typeof setTimeout> | undefined
 
 let debouncePending = false
 function touched(field: string) {
+  if (readOnly.value) return
   edited.value = new Set(edited.value).add(field)
   clearTimeout(timer)
   debouncePending = true
   timer = setTimeout(() => void save(), 800)
 }
 // Leaving the page (another case, the case list, closing the tab) inside the debounce
-// window used to cancel the save and lose the edit (NEG-6) — flush it instead.
+// window used to cancel the save and lose the edit (NEG-6) — flush it instead. Read-only,
+// there is never anything to flush.
 useFlushOnLeave(
-  () => debouncePending || rerun,
+  () => !readOnly.value && (debouncePending || rerun),
   (keepalive) => {
+    if (readOnly.value) return
     clearTimeout(timer)
     void save(keepalive)
   },
 )
+
+// The plan ended mid-edit (the save came back 402 and the shop now reads as read-only):
+// that edit can never be saved, so the card returns to the saved invoice.
+watch(readOnly, (ro) => {
+  if (!ro) return
+  clearTimeout(timer)
+  debouncePending = false
+  rerun = false
+  awaitingRefresh.value = false
+  resetFields()
+})
 
 function optOverride(field: Figure, original: number | null): number | null {
   if (!edited.value.has(field)) return original
@@ -218,6 +235,7 @@ let rerun = false
 
 async function save(keepalive = false) {
   debouncePending = false
+  if (readOnly.value) return
   tick() // judge "future" against the day it is now, not the last minute tick
   // Invalid figures stay on screen with their message; nothing is sent until they're fixed.
   if (hasErrors.value) return
@@ -309,7 +327,9 @@ async function onPdf() {
       </span>
     </div>
 
-    <div class="lines">
+    <!-- read-only (plan ended): a disabled fieldset turns off every input inside it, the
+         date chips included -->
+    <fieldset class="lines" :disabled="readOnly">
       <div class="line">
         <span class="desc">Admin / blueprinting fee</span>
         <span class="val"
@@ -366,7 +386,7 @@ async function onPdf() {
         <span class="desc">Total recovery balance</span>
         <span class="val mono">{{ hasErrors ? '—' : usd(shown.total) }}</span>
       </div>
-    </div>
+    </fieldset>
 
     <div v-if="hasErrors" class="field-errs" role="alert">
       <p v-for="(msg, k) in errors" :key="k" class="field-err">{{ msg }}</p>
@@ -386,7 +406,10 @@ async function onPdf() {
     </div>
 
     <div class="inv-foot">
-      <span class="hint">
+      <span v-if="readOnly" class="hint">
+        Read-only — your DSM Negotiator plan has ended. The PDF still downloads.
+      </span>
+      <span v-else class="hint">
         Click any figure to edit — it saves itself and every letter updates. Cleared fees fall back
         to your shop defaults.
       </span>
@@ -524,6 +547,23 @@ async function onPdf() {
 .hint-inline {
   color: var(--text-faint);
   font-size: 12px;
+}
+fieldset.lines {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+/* read-only: the figures read as plain text — no hover ring, no date picker */
+.blank:disabled {
+  cursor: default;
+}
+.blank:disabled:hover {
+  background: transparent;
+  outline-color: transparent;
+}
+.lines:disabled :deep(.df) {
+  pointer-events: none;
 }
 /* figures edit in place — invisible until hovered, ringed when focused */
 .blank {

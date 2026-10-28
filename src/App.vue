@@ -59,6 +59,11 @@ watch(aiPlanRequired, (hit) => {
   // invalidate() marks the cached plan stale synchronously, so the router guard below
   // waits for the fresh answer instead of bouncing the paywall back (NEG-7).
   if (auth.shopId) void ent.invalidate(auth.shopId)
+  // A shop whose plan ended reads its cases (#10): the read-only banner says why its writes
+  // are refused, and the page stays where it is instead of jumping to the paywall. (Checked
+  // after invalidate(): the plan no longer counts as AI, so a shop with cases reads as
+  // read-only right away.)
+  if (ent.readOnly) return
   if (route.name !== 'paywall') {
     router.push({ name: 'paywall', query: route.fullPath !== '/cases' ? { redirect: route.fullPath } : {} })
   }

@@ -17,6 +17,7 @@ import CustomerPicker from '@/components/CustomerPicker.vue'
 import CarLinkCard from '@/components/CarLinkCard.vue'
 import { useFlushOnLeave } from '@/utils/flushOnLeave'
 import { tooLargeMessage } from '@/utils/uploads'
+import { useCaseReadOnly } from '@/utils/readOnly'
 
 const props = defineProps<{ detail: CaseDetail }>()
 const emit = defineEmits<{ refresh: [] }>()
@@ -24,6 +25,8 @@ const emit = defineEmits<{ refresh: [] }>()
 const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
+/** The shop's plan ended: the details and uploads read (and download), nothing edits. */
+const readOnly = useCaseReadOnly()
 
 /* ---------- editable case fields ----------
    Identity fields only — the Total Loss invoice inputs (fees, dates, storage rate)
@@ -74,6 +77,10 @@ watch(
 function discardEdits() {
   resetForm()
 }
+// The plan ended mid-edit: the edit can't be saved, so the fields show the saved case again.
+watch(readOnly, (ro) => {
+  if (ro) resetForm()
+})
 
 function onCustomerPicked(c: CustomerSearchResult) {
   if (!form.value.vehicleDescription.trim() && c.vehicleLabel)
@@ -97,7 +104,7 @@ const stateOptions = computed(() =>
 )
 
 async function save(keepalive = false) {
-  if (estimate.value.error) return
+  if (readOnly.value || estimate.value.error) return
   if (!oneLine(form.value.title)) {
     saveError.value = 'Give the case a title.'
     return
@@ -134,10 +141,11 @@ async function save(keepalive = false) {
 
 // Unsaved case details are saved on the way out (another case, the list, closing the tab)
 // instead of silently dropped (NEG-6) — as long as they're valid; an invalid form keeps
-// the browser's "leave page?" prompt.
+// the browser's "leave page?" prompt. Read-only, there is never anything to save.
 useFlushOnLeave(
-  () => dirty.value && !saving.value,
+  () => !readOnly.value && dirty.value && !saving.value,
   (keepalive) => {
+    if (readOnly.value) return
     if (!estimate.value.error && oneLine(form.value.title)) void save(keepalive)
   },
 )
@@ -150,6 +158,7 @@ const docBusy = ref(false)
 const docError = ref<string | null>(null)
 
 async function submitDocument() {
+  if (readOnly.value) return
   const file = fileInput.value?.files?.[0]
   if (!file) {
     docError.value = 'Choose a file first.'
@@ -186,6 +195,7 @@ async function onDownload(docId: string) {
 }
 
 async function removeDocument(id: string) {
+  if (readOnly.value) return
   docError.value = null
   try {
     await deleteDocument(shopId.value, caseId.value, id)
@@ -202,68 +212,74 @@ async function removeDocument(id: string) {
     <section class="card">
       <div class="panel-title">Case details</div>
       <form novalidate @submit.prevent="save()">
-        <label class="field customer-field">
-          <span>Customer</span>
-          <CustomerPicker
-            v-model="form.customerName"
-            v-model:customer-id="form.customerId"
-            @picked="onCustomerPicked"
-          />
-        </label>
-        <label class="field">
-          <span>Vehicle</span>
-          <input v-model="form.vehicleDescription" type="text" />
-        </label>
-        <label class="field">
-          <span>Title</span>
-          <input v-model="form.title" type="text" required />
-        </label>
-        <label class="field">
-          <span>Insurer</span>
-          <input v-model="form.insurerName" type="text" />
-        </label>
-        <label class="field">
-          <span>Claim #</span>
-          <input v-model="form.insurerClaimNumber" type="text" />
-        </label>
-        <p v-if="detail.adjusterName || detail.adjusterEmail" class="faint adjuster-note">
-          Adjuster: {{ detail.adjusterName ?? '—' }}
-          <template v-if="detail.adjusterEmail"> · {{ detail.adjusterEmail }}</template>
-          <br />(filled automatically from uploaded insurer emails)
-        </p>
-        <div class="form-grid">
-          <label class="field">
-            <span>State</span>
-            <select v-model="form.state">
-              <option value="">—</option>
-              <option v-for="s in stateOptions" :key="s" :value="s">{{ s }}</option>
-            </select>
+        <!-- read-only: a disabled fieldset turns off every field inside, the customer
+             search included -->
+        <fieldset class="fields" :disabled="readOnly">
+          <label class="field customer-field">
+            <span>Customer</span>
+            <CustomerPicker
+              v-model="form.customerName"
+              v-model:customer-id="form.customerId"
+              @picked="onCustomerPicked"
+            />
           </label>
           <label class="field">
-            <span>Repair estimate ($)</span>
-            <input v-model="form.invoiceTotal" type="text" inputmode="decimal" placeholder="0.00"
-              :class="{ invalid: estimate.error }" :aria-invalid="!!estimate.error" />
-            <small v-if="estimate.error" class="field-error">{{ estimate.error }}</small>
+            <span>Vehicle</span>
+            <input v-model="form.vehicleDescription" type="text" />
           </label>
-        </div>
-        <p class="faint tl-hint">
-          The repair estimate is for reference only. The recovery balance is the Total Loss
-          Invoice: its storage dates, fees, and daily rate are edited on the invoice itself →
-        </p>
+          <label class="field">
+            <span>Title</span>
+            <input v-model="form.title" type="text" required />
+          </label>
+          <label class="field">
+            <span>Insurer</span>
+            <input v-model="form.insurerName" type="text" />
+          </label>
+          <label class="field">
+            <span>Claim #</span>
+            <input v-model="form.insurerClaimNumber" type="text" />
+          </label>
+          <p v-if="detail.adjusterName || detail.adjusterEmail" class="faint adjuster-note">
+            Adjuster: {{ detail.adjusterName ?? '—' }}
+            <template v-if="detail.adjusterEmail"> · {{ detail.adjusterEmail }}</template>
+            <br />(filled automatically from uploaded insurer emails)
+          </p>
+          <div class="form-grid">
+            <label class="field">
+              <span>State</span>
+              <select v-model="form.state">
+                <option value="">—</option>
+                <option v-for="s in stateOptions" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Repair estimate ($)</span>
+              <input v-model="form.invoiceTotal" type="text" inputmode="decimal" placeholder="0.00"
+                :class="{ invalid: estimate.error }" :aria-invalid="!!estimate.error" />
+              <small v-if="estimate.error" class="field-error">{{ estimate.error }}</small>
+            </label>
+          </div>
+          <p class="faint tl-hint">
+            The repair estimate is for reference only. The recovery balance is the Total Loss
+            Invoice: its storage dates, fees, and daily rate are edited on the invoice itself →
+          </p>
 
-        <label class="field">
-          <span>Notes</span>
-          <textarea v-model="form.notes" rows="3" />
-        </label>
-        <p v-if="saveError" class="error-text">{{ saveError }}</p>
-        <div v-if="dirty" class="dirty-row">
-          <span class="dirty-hint">Unsaved changes</span>
-          <button class="btn btn-ghost btn-sm" type="button" @click="discardEdits">Discard</button>
-        </div>
-        <button class="btn btn-primary save-btn" type="submit" :disabled="saving">
-          <span v-if="saving" class="spinner"></span>
-          {{ saved ? 'Saved' : 'Save details' }}
-        </button>
+          <label class="field">
+            <span>Notes</span>
+            <textarea v-model="form.notes" rows="3" />
+          </label>
+        </fieldset>
+        <template v-if="!readOnly">
+          <p v-if="saveError" class="error-text">{{ saveError }}</p>
+          <div v-if="dirty" class="dirty-row">
+            <span class="dirty-hint">Unsaved changes</span>
+            <button class="btn btn-ghost btn-sm" type="button" @click="discardEdits">Discard</button>
+          </div>
+          <button class="btn btn-primary save-btn" type="submit" :disabled="saving">
+            <span v-if="saving" class="spinner"></span>
+            {{ saved ? 'Saved' : 'Save details' }}
+          </button>
+        </template>
       </form>
     </section>
 
@@ -282,15 +298,16 @@ async function removeDocument(id: string) {
             <button class="btn btn-ghost btn-sm" title="Download" @click="onDownload(d.id)">
               <Download :size="14" />
             </button>
-            <button class="btn btn-danger btn-sm" title="Delete" @click="removeDocument(d.id)">
+            <button v-if="!readOnly" class="btn btn-danger btn-sm" title="Delete" @click="removeDocument(d.id)">
               <Trash2 :size="14" />
             </button>
           </div>
         </li>
       </ul>
-      <p v-else class="faint">Work orders, estimates, photos, signed contracts.</p>
+      <p v-else class="faint">{{ readOnly ? 'No uploads.' : 'Work orders, estimates, photos, signed contracts.' }}</p>
+      <p v-if="readOnly && docError" class="error-text">{{ docError }}</p>
 
-      <form class="doc-form" @submit.prevent="submitDocument">
+      <form v-if="!readOnly" class="doc-form" @submit.prevent="submitDocument">
         <input ref="fileInput" type="file" @change="docError = null" />
         <input v-model="docLabel" type="text" placeholder="Label (optional), e.g. Work order" />
         <p v-if="docError" class="error-text">{{ docError }}</p>
@@ -304,6 +321,12 @@ async function removeDocument(id: string) {
 </template>
 
 <style scoped>
+fieldset.fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
 .sidebar {
   display: flex;
   flex-direction: column;
