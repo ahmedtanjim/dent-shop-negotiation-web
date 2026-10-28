@@ -241,6 +241,20 @@ export interface CustomerSearchResult {
   phone: string | null
   email: string | null
   vehicleLabel: string | null
+  /** The customer's newest car in the garage — a new case takes its insurer and claim number
+   *  and links to it. Absent on an older API. */
+  latestCar?: CustomerCar | null
+}
+
+export interface CustomerCar {
+  claimId: string
+  roNumber: number
+  insurerName: string | null
+  claimNumber: string | null
+  /** Two-letter state of the car's storm. */
+  state: string | null
+  /** The car already has a case (a car keeps one), so a new case won't link to it. */
+  hasCase: boolean
 }
 
 export interface PasteExtraction {

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { X } from 'lucide-vue-next'
-import { createCase } from '@/api/negotiation'
+import { createCase, linkCaseToCar } from '@/api/negotiation'
 import { getShopProfile } from '@/api/shops'
 import { useEscapeToClose } from '@/utils/escapeToClose'
 import { ApiError } from '@/api/client'
-import type { CaseListItem, CustomerSearchResult, UpsertCase } from '@/api/types'
+import type { CaseListItem, CustomerCar, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
@@ -60,7 +60,23 @@ onMounted(async () => {
   }
 })
 
+// The picked customer's car in the garage: the case takes its insurer, claim number and state
+// and is linked to it, so its letters show on the car's Letters tab (owner 2026-10-28: a new
+// case "isn't pulling the claim number or insurance company from the garage").
+const car = ref<CustomerCar | null>(null)
+watch(linkedCustomerId, (id) => {
+  if (!id) car.value = null
+})
+
 function onCustomerPicked(c: CustomerSearchResult) {
+  car.value = c.latestCar ?? null
+  if (car.value) {
+    if (!insurerName.value.trim() && car.value.insurerName) insurerName.value = car.value.insurerName
+    if (!insurerClaimNumber.value.trim() && car.value.claimNumber)
+      insurerClaimNumber.value = car.value.claimNumber
+    // The storm's state beats the one guessed from the shop's address.
+    if (car.value.state && US_STATES.includes(car.value.state)) state.value = car.value.state
+  }
   if (!vehicleDescription.value.trim() && c.vehicleLabel) vehicleDescription.value = c.vehicleLabel
   // Auto-title so the form stays a two-field job for CRM customers.
   if (!title.value.trim())
@@ -108,6 +124,13 @@ async function submit() {
       customerId: linkedCustomerId.value,
     }
     const created = await createCase(auth.shopId, body)
+    if (car.value && !car.value.hasCase) {
+      try {
+        await linkCaseToCar(auth.shopId, created.id, car.value.claimId)
+      } catch {
+        // The case exists either way; it can still be linked from its Linked car card.
+      }
+    }
     emit('created', created)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Could not create the case.'
@@ -134,6 +157,15 @@ async function submit() {
             v-model:customer-id="linkedCustomerId"
             @picked="onCustomerPicked"
           />
+          <small v-if="car" class="car-hint">
+            <template v-if="car.hasCase">
+              RO-{{ car.roNumber }} already has a case, so this one won't be linked to it.
+            </template>
+            <template v-else>
+              From RO-{{ car.roNumber }} in your garage: insurer and claim # filled in, and the case
+              is linked to that car.
+            </template>
+          </small>
         </label>
 
         <div class="form-grid">
@@ -213,5 +245,12 @@ async function submit() {
 }
 .customer-field {
   position: relative;
+}
+.car-hint {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 </style>
