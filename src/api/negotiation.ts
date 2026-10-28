@@ -3,7 +3,6 @@ import type {
   CaseDetail,
   CaseListItem,
   CaseStatus,
-  ChatMessage,
   DraftQuestion,
   DraftRequest,
   DraftResult,
@@ -188,14 +187,6 @@ function saveBlob(blob: Blob, fileName: string) {
 
 export function markSent(shopId: string, caseId: string, messageId: string): Promise<NegMessage> {
   return api.post<NegMessage>(`${base(shopId)}/cases/${caseId}/messages/${messageId}/mark-sent`)
-}
-
-export function getChat(shopId: string, caseId: string): Promise<ChatMessage[]> {
-  return api.get<ChatMessage[]>(`${base(shopId)}/cases/${caseId}/chat`)
-}
-
-export function sendChat(shopId: string, caseId: string, message: string): Promise<ChatMessage> {
-  return api.post<ChatMessage>(`${base(shopId)}/cases/${caseId}/chat`, { message })
 }
 
 export function addFact(
