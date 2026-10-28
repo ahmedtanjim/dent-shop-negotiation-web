@@ -325,10 +325,9 @@ export interface MemberSummary {
   role: string
 }
 
-/** One fair-use window of the shop's AI allowance (GET /ai-usage). Money is preformatted
- *  by the API; the micros are there for math. */
-/** One fair-use window. No money on purpose — shops never see dollar figures for AI use;
- *  percentUsed is still the tighter of cost% and calls%, so the bar stays honest. */
+/** One fair-use window of the shop's AI allowance (GET /ai-usage). No money on purpose —
+ *  shops never see dollar figures for AI use; percentUsed is still the tighter of cost% and
+ *  calls%, so the bar stays honest. */
 export interface AiUsageWindow {
   calls: number
   capCalls: number

@@ -67,8 +67,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/views/` — `LoginView`, `HandoffView`,
   `PaywallView` (`/upgrade`), `CasesView` (`/cases`), `CaseWorkspaceView` (`/cases/:id`), `NotFoundView`.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
-  mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case fields, facts,
-  documents), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
+  mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case details + linked car,
+  uploads), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
   `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal`,
   `HelpSupportModal` (Help & support), `DateField`,
   `StatusPill`, `TacticBadge`, `PrivacyChoicesLink`.
@@ -112,8 +112,11 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    returns them as `missing`; `BlanksNotice` lists them (profile items link to CRM Settings).
    `placeholders.ts` / `<mark class="blank-mark">` exist only for older letters that still carry one.
 5. **Documents** — `getGeneratedDocs` (invoice breakdown + ready-made letters + `missing`),
-   `downloadInvoicePdf`, case document upload/download/delete, the fact ledger (`addFact`/`deleteFact`).
-   `getChat`/`sendChat` (copilot) exist in `api/negotiation.ts` but no UI calls them yet.
+   `downloadInvoicePdf`, case document upload/download/delete (`CaseSidebar` → Uploads).
+   **The fact ledger has no UI** (removed 2026-08-22 in fe3375f): `CaseDetail.facts` is fetched but
+   not shown, and `addFact`/`deleteFact` and `getChat`/`sendChat` (copilot) exist in
+   `api/negotiation.ts` with no caller. Answers to the pre-draft questions are still saved as facts
+   by the API, so nobody can see or remove them here (open owner question).
 6. **Paywall / AI plan** — the router guard loads the entitlement once per shop; below the AI tier
    every signed-in page redirects to `/upgrade`. A mid-session 402 `ai_required` sets
    `aiPlanRequired` and `App.vue` re-reads the plan and opens the paywall. Other 402s show the

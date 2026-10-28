@@ -36,7 +36,7 @@ See `CLAUDE.md` for the full map, flows and conventions.
 - `src/views/` — login, hand-off, paywall, cases list, case workspace. The public landing at `/`
   is the static `public/welcome.html` (its training form stores leads through the API).
   Sign-up lives on the shop system (CRM); `/register` redirects there.
-- `src/components/` — case sidebar (facts/documents/status), correspondence timeline,
+- `src/components/` — case sidebar (case details, linked car, uploads), correspondence timeline,
   draft panel (questions before drafting, customer-voice authorization), generated letters +
   Total Loss invoice
 
