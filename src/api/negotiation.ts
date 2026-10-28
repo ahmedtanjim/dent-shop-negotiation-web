@@ -65,9 +65,26 @@ export interface CarOption {
   status: string
 }
 
-/** The shop's cars (the CRM's own list, the same records the Garage shows). */
+/** The shop's cars (the CRM's own list, the same records the Garage shows). The whole
+ *  garage: load it only for the "Linked car" picker, never just to label one car. */
 export function listCars(shopId: string): Promise<CarOption[]> {
   return api.get<CarOption[]>(`/api/shops/${shopId}/claims`)
+}
+
+/** The car a case is linked to — the fields the "Linked car" card shows from the CRM's
+ *  single-car read (`ClaimDetailDto`). Archived cars come back too. */
+export interface LinkedCar {
+  id: string
+  roNumber: number
+  customerName: string
+  vehicle: string
+  status: string
+  /** set when the owner archived the car (off the Garage; still this case's car) */
+  archivedAt: string | null
+}
+
+export function getCar(shopId: string, claimId: string): Promise<LinkedCar> {
+  return api.get<LinkedCar>(`/api/shops/${shopId}/claims/${claimId}`)
 }
 
 /** Link the case to a car (null unlinks). A car keeps one case: 409 car_has_case. The car's
