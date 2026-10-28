@@ -59,8 +59,11 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   `shops`, `support` (support address from the public `GET /api/app/contact`, API setting
   `App:SupportEmail`; fallback `dentshopmanager@gmail.com`; loaded in `main.ts`), `types.ts`
   (wire DTOs — keep in step with the API's `Dtos/`).
-- `src/stores/` — `auth` (session in `localStorage`), `entitlement` (the shop's plan; "unknown" is
-  never treated as the AI plan).
+- `src/stores/` — `auth` (session in `localStorage`; role gates as computeds: `isOwner`,
+  `canManageCases`, `canDeleteCases`, `canEditShopRates` (owner/manager — the shop profile PUT is
+  `[ShopOwnerOrManager]`), `canSeeUsage` — use these, never role string literals in a component),
+  `entitlement` (the shop's plan; "unknown" is never treated as the AI plan; `readOnly` = the AI
+  plan ended but the shop had cases).
 - `src/views/` — `LoginView`, `HandoffView`,
   `PaywallView` (`/upgrade`), `CasesView` (`/cases`), `CaseWorkspaceView` (`/cases/:id`), `NotFoundView`.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
@@ -112,10 +115,11 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    or "unchanged", and the paywall follows `url`. Never pick the portal in the client —
    `hasStripeCustomer` is not a subscription (comped and abandoned-Checkout shops have one; if a
    hint is ever needed, `hasLiveSubscription`). A 409 `charge_confirmation_required` must be
-   confirmed and re-sent with `confirmCharge`. Only the owner changes the plan.
+   confirmed and re-sent with `confirmCharge`. Only the owner changes the plan. A shop whose plan
+   ended (`ent.readOnly`) gets no New case / Shop rates / Restore on the case list.
 7. **Fair-use caps** — 429 `ai_cap_daily` / `ai_cap_monthly` sets `aiCapNotice` (banner with reset
    time). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to
-   owner/manager/admin; a failed read just hides it.
+   owner/manager/admin (`auth.canSeeUsage`); a failed read just hides it.
 
 ## Conventions
 

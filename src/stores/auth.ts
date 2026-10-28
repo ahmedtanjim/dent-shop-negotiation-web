@@ -3,6 +3,9 @@ import { defineStore } from 'pinia'
 import { STORAGE_KEYS } from '@/api/client'
 import type { AuthResponse } from '@/api/types'
 
+/** Membership roles as the API names them (lower-cased for comparison). */
+export type Role = 'owner' | 'manager' | 'admin' | 'technician' | 'salesrep' | 'frontdesk'
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(STORAGE_KEYS.token))
   const shopId = ref<string | null>(localStorage.getItem(STORAGE_KEYS.shopId))
@@ -23,8 +26,22 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const isAuthed = computed(() => !!token.value && !!shopId.value)
-  /** Only the owner can change the shop's plan (the API enforces it too). */
-  const isOwner = computed(() => role.value?.toLowerCase() === 'owner')
+  /** The role in this shop, lower-cased; null when signed out or unknown. Every gate below
+   *  is a computed on it, so a role the session refresh brings in shows at once. These only
+   *  hide controls — the API enforces each rule itself. */
+  const roleKey = computed<Role | null>(() => (role.value ? (role.value.toLowerCase() as Role) : null))
+  const hasRole = (...roles: Role[]) => computed(() => !!roleKey.value && roles.includes(roleKey.value))
+  /** Only the owner can change the shop's plan. */
+  const isOwner = hasRole('owner')
+  /** Case status and other case-level management. */
+  const canManageCases = hasRole('owner', 'manager', 'admin')
+  /** Deleting and restoring cases. */
+  const canDeleteCases = hasRole('owner', 'manager')
+  /** The shop's TL-invoice rates live on the shop profile, which only the owner or a manager
+   *  may edit (`[ShopOwnerOrManager]`; an Admin gets 403). */
+  const canEditShopRates = hasRole('owner', 'manager')
+  /** The fair-use AI usage meter. */
+  const canSeeUsage = hasRole('owner', 'manager', 'admin')
 
   function setSession(auth: AuthResponse) {
     token.value = auth.token
@@ -55,5 +72,9 @@ export const useAuthStore = defineStore('auth', () => {
     for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key)
   }
 
-  return { token, shopId, shopName, displayName, role, userId, shops, isAuthed, isOwner, setSession, logout }
+  return {
+    token, shopId, shopName, displayName, role, userId, shops, isAuthed,
+    isOwner, canManageCases, canDeleteCases, canEditShopRates, canSeeUsage,
+    setSession, logout,
+  }
 })
