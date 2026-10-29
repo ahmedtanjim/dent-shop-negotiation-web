@@ -370,6 +370,62 @@ describe('CaseWorkspaceView requests still running when another case opens', () 
     expect(deleteButton(wrapper).text()).toBe('Delete case')
   })
 
+  it("the previous case's status change settling never frees the picker while this case's own change runs", async () => {
+    const { wrapper, router } = await asOwner()
+    const changeA = deferred<void>()
+    api.setCaseStatus.mockReturnValueOnce(changeA.promise)
+    await wrapper.get('select').setValue('Settled')
+
+    api.getCase.mockResolvedValueOnce(caseB)
+    await openCase(wrapper, router, 'case-2')
+    await flushPromises()
+    const changeB = deferred<void>()
+    api.setCaseStatus.mockReturnValueOnce(changeB.promise)
+    await wrapper.get('select').setValue('Settled')
+    expect(wrapper.get('select').element.disabled).toBe(true)
+
+    changeA.resolve()
+    await flushPromises()
+    expect(wrapper.get('select').element.disabled).toBe(true)
+    changeB.resolve()
+    await flushPromises()
+    expect(wrapper.get('select').element.disabled).toBe(false)
+  })
+
+  it('a status change or delete that lands after A → B → A still updates case A', async () => {
+    const { wrapper, router } = await asOwner()
+    const change = deferred<void>()
+    api.setCaseStatus.mockReturnValueOnce(change.promise)
+    await wrapper.get('select').setValue('Settled')
+
+    // Over to B and straight back to A; A's fresh read comes back before the change is applied.
+    api.getCase.mockResolvedValueOnce(caseB)
+    await openCase(wrapper, router, 'case-2')
+    await flushPromises()
+    await openCase(wrapper, router, 'case-1')
+    await flushPromises()
+    expect(wrapper.get('select').element.value).toBe('Open')
+
+    const settled = { ...detail, case: { ...detail.case, status: 'Settled' } } as CaseDetail
+    api.getCase.mockResolvedValueOnce(settled)
+    change.resolve()
+    await flushPromises()
+    expect(wrapper.get('select').element.value).toBe('Settled')
+
+    const del = deferred<void>()
+    api.deleteCase.mockReturnValueOnce(del.promise)
+    await deleteButton(wrapper).trigger('click')
+    api.getCase.mockResolvedValueOnce(caseB)
+    await openCase(wrapper, router, 'case-2')
+    await flushPromises()
+    api.getCase.mockResolvedValueOnce(settled)
+    await openCase(wrapper, router, 'case-1')
+    await flushPromises()
+    del.resolve()
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('cases')
+  })
+
   it('a delete that finishes after the user left the workspace leaves them where they went', async () => {
     const { wrapper, router } = await asOwner()
     const del = deferred<void>()

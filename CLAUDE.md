@@ -110,7 +110,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    previous one's case, documents, counsel banner, status error, drafting flag and busy status
    picker / Delete button, and a status change or delete still running for it lands nowhere (no
    error, and a finished delete doesn't send the user to the list, nor does one that finishes
-   after they left the workspace). The linked car's label (`CarLinkCard` → `getCar`) only lands
+   after they left the workspace) — unless the user is back on that same case (A → B → A): then
+   a success still re-reads the case, or sends a deleted one to the list. The linked car's label (`CarLinkCard` → `getCar`) only lands
    while the case still links that car.
 2. **Correspondence** — `TimelinePanel`: paste an adjuster email (`extractPaste` pre-fills
    sender, subject and date) or drop an `.eml` (`intakeEml`); the API saves it and returns its **tactic** and an
