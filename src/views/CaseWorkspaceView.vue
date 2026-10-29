@@ -214,6 +214,17 @@ watch(
   (id, prev) => {
     if (!id || id === prev) return
     tab.value = tabFromQuery()
+    // Another case: nothing of the previous one stays. Its documents would otherwise fill the
+    // invoice card, the letters and the header balance until this case's arrive, and a draft
+    // it left running (its panel is gone, so it never reports the end) would keep a drafting
+    // card on this timeline.
+    detail.value = null
+    docs.value = null
+    docsLoading.value = true
+    docsError.value = null
+    counselBanner.value = false
+    statusError.value = null
+    externalDrafting.value = false
     load(true)
   },
 )
