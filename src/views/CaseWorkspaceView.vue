@@ -135,6 +135,11 @@ const canManage = computed(
 const canDelete = computed(
   () => !readOnly.value && ['owner', 'manager'].includes((auth.role ?? '').toLowerCase()),
 )
+/* A delete or status change can still be running when the user opens another case (back and
+   forward) or leaves the workspace. Each case opened takes a turn; a request started under an
+   earlier turn lands nowhere — no error, busy state, select or move to the list on the case
+   the user is looking at now. */
+let openTurn = 0
 const deleting = ref(false)
 async function onDelete() {
   if (!detail.value || deleting.value) return
@@ -142,12 +147,14 @@ async function onDelete() {
     `Delete "${detail.value.case.title}"?\n\nIt disappears from the list now. You can restore it from "Recently deleted" for 30 days; after that it and its documents are erased.`,
   )
   if (!ok) return
+  const turn = openTurn
   deleting.value = true
   statusError.value = null
   try {
     await deleteCase(auth.shopId!, props.id)
-    router.push({ name: 'cases' })
+    if (turn === openTurn) router.push({ name: 'cases' })
   } catch (err) {
+    if (turn !== openTurn) return
     statusError.value = err instanceof ApiError ? err.message : 'Could not delete the case.'
     deleting.value = false
   }
@@ -155,22 +162,25 @@ async function onDelete() {
 const statusBusy = ref(false)
 const statusError = ref<string | null>(null)
 async function onStatus(e: Event) {
-  const next = (e.target as HTMLSelectElement).value as CaseStatus
+  const select = e.target as HTMLSelectElement
+  const next = select.value as CaseStatus
   if (!detail.value || next === detail.value.case.status) return
   if (next === 'Litigation' && !window.confirm('Mark this case as in litigation? The assistant stops drafting correspondence for it — your attorney takes over.')) {
-    ;(e.target as HTMLSelectElement).value = detail.value.case.status
+    select.value = detail.value.case.status
     return
   }
+  const turn = openTurn
   statusBusy.value = true
   statusError.value = null
   try {
     await setCaseStatus(auth.shopId!, props.id, next)
-    await load(false)
+    if (turn === openTurn) await load(false)
   } catch (err) {
+    if (turn !== openTurn) return
     statusError.value = err instanceof ApiError ? err.message : 'Could not change the status.'
-    ;(e.target as HTMLSelectElement).value = detail.value.case.status
+    if (detail.value) select.value = detail.value.case.status
   } finally {
-    statusBusy.value = false
+    if (turn === openTurn) statusBusy.value = false
   }
 }
 
@@ -208,7 +218,10 @@ onMounted(async () => {
   // First case ever opened: tour the workspace once its panels are mounted.
   if (detail.value && !workspaceTourSeen()) setTimeout(startWorkspaceTour, 600)
 })
-onBeforeUnmount(() => window.removeEventListener('dsm-neg-ws-tab', onTabEvent))
+onBeforeUnmount(() => {
+  window.removeEventListener('dsm-neg-ws-tab', onTabEvent)
+  openTurn++ // a delete still running mustn't send the user to the list from wherever they went
+})
 watch(
   () => route.params.id,
   (id, prev) => {
@@ -217,13 +230,16 @@ watch(
     // Another case: nothing of the previous one stays. Its documents would otherwise fill the
     // invoice card, the letters and the header balance until this case's arrive, and a draft
     // it left running (its panel is gone, so it never reports the end) would keep a drafting
-    // card on this timeline.
+    // card on this timeline. A delete or status change still running for it lands nowhere.
+    openTurn++
     detail.value = null
     docs.value = null
     docsLoading.value = true
     docsError.value = null
     counselBanner.value = false
     statusError.value = null
+    statusBusy.value = false
+    deleting.value = false
     externalDrafting.value = false
     load(true)
   },
