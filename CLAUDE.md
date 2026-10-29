@@ -163,8 +163,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   (`centsToUsd()`); typed money is parsed strictly (`utils/amount`). The client never computes totals
   the API owns. The invoice card and the header's balance show the API's `InvoiceBreakdown` (storage
   billed through the shop's day, UTC for a shop with no state; the card refreshes when the local or
-  UTC day turns over). Its local preview shows only while an edit is unsaved, saving or awaiting
-  its refresh (`utils/invoiceFigures`); a failed refresh falls back to the server's invoice.
+  UTC day turns over, and on each UTC hour while the server still bills an open range through an
+  earlier day — `dayRefreshDue`). Its local preview shows only while an edit is unsaved, saving or
+  awaiting its refresh (`utils/invoiceFigures`); a failed refresh falls back to the server's
+  invoice. `CaseWorkspaceView` keeps only the newest documents reload's result or error.
 - **In-app copy never says "playbook" or a state count** (identifiers like `hasPlaybook` are fine).
   Say "attorney-reviewed citations". The product name is "DSM Negotiator".
 - Use `ApiError.code` for branching, not message text. New endpoints go in the matching `src/api/*.ts`
