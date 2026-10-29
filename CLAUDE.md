@@ -106,9 +106,12 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    The workspace re-reads the case after every save and status change, and only the newest
    read's case or error lands (the case read and the documents reload each take their own
    turns), so a slower earlier read never puts back the case as it was before a save, or the
-   previous case. Opening another case first clears the previous one's case, documents, counsel
-   banner, status error and drafting flag. The linked car's label (`CarLinkCard` → `getCar`) only
-   lands while the case still links that car.
+   previous case; only the newest read clears the spinner. Opening another case first clears the
+   previous one's case, documents, counsel banner, status error, drafting flag and busy status
+   picker / Delete button, and a status change or delete still running for it lands nowhere (no
+   error, and a finished delete doesn't send the user to the list, nor does one that finishes
+   after they left the workspace). The linked car's label (`CarLinkCard` → `getCar`) only lands
+   while the case still links that car.
 2. **Correspondence** — `TimelinePanel`: paste an adjuster email (`extractPaste` pre-fills
    sender, subject and date) or drop an `.eml` (`intakeEml`); the API saves it and returns its **tactic** and an
    AI read (`analysisSummary`), shown as `TacticBadge` + "AI read". Letters the shop sent are logged
