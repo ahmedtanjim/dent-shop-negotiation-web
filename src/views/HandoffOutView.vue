@@ -5,6 +5,7 @@ import { createHandoff } from '@/api/auth'
 import { CRM_URL } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { isChallenge } from '@/utils/pkce'
+import { safeRedirect } from '@/utils/safeRedirect'
 
 /** Step 2 of a sign-in carried over TO the shop system (/auth/handoff/out?challenge=…&next=…):
  *  the shop system's tab sent the hash of a verifier it keeps; mint a code bound to it and send
@@ -18,9 +19,9 @@ const confirm = ref(false)
 const error = ref<string | null>(null)
 
 const challenge = route.query.challenge
-const nextRaw = typeof route.query.next === 'string' ? route.query.next : '/'
-// The shop system validates its own path too; never let this become another site.
-const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') && !nextRaw.startsWith('/\\') ? nextRaw : '/'
+// A path on the shop system, checked by the same rule as every ?redirect here (the shop
+// system validates it again); never let this become another site.
+const next = safeRedirect(route.query.next)
 
 function fromCrm(): boolean {
   try {

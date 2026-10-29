@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Gate: type-check + production build. Deploy depends on this, so a broken build
-  # (type errors, template errors) blocks the deploy.
+  # Gate: unit tests, then type-check + production build. Deploy depends on this, so a
+  # failing test or a broken build (type errors, template errors) blocks the deploy.
   test:
     runs-on: ubuntu-latest
     steps:
@@ -21,6 +21,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - name: Unit tests
+        run: npm test
       - name: Type-check & build
         run: npm run build
 

@@ -38,24 +38,25 @@ export function readChargeConfirmation(message: string, body: Record<string, unk
   }
 }
 
-/** Stripe Checkout for a fresh subscription (owner only). `returnUrl` must be on one of
- *  the API's configured web origins or it falls back to the CRM billing page. When the shop
- *  already has a live subscription the API may change it in place instead; a change that
- *  would charge at once needs `confirmCharge` (see {@link ChargeConfirmation}). */
-export function startCheckout(shopId: string, plan: 'ai', returnUrl: string, confirmCharge = false): Promise<{ url: string }> {
-  return api.post<{ url: string }>(`${base(shopId)}/checkout`, {
-    plan,
-    returnUrl,
-    ...(confirmCharge ? { confirmCharge: true } : {}),
-  })
+/** What `POST …/billing/checkout` did. `url` is where the browser goes next: Stripe
+ *  Checkout, the portal's confirm-upgrade flow, or `returnUrl` with `?status=success` /
+ *  `?status=unchanged` when the plan was switched, resumed or already right. */
+export interface CheckoutResult {
+  url: string | null
+  action: 'checkout' | 'portal' | 'switched' | 'unchanged' | 'resumed' | (string & {})
+  plan: string | null
+  trialDays: number | null
 }
 
-/** Stripe customer portal, deep-linked into the confirm-upgrade flow for `upgradeToPlan`
- *  (owner only). The existing subscription is switched and prorated — no second one. Same
- *  `confirmCharge` rule as {@link startCheckout}. */
-export function openPortal(shopId: string, upgradeToPlan: 'ai', returnUrl: string, confirmCharge = false): Promise<{ url: string }> {
-  return api.post<{ url: string }>(`${base(shopId)}/portal`, {
-    upgradeToPlan,
+/** Buy a plan (owner only). The API picks the route from the shop's live Stripe
+ *  subscription — a new Checkout when there is none (a comp or a bare Stripe customer
+ *  included), otherwise a change of that subscription, never a second one — so callers
+ *  never choose between Checkout and the portal themselves. `returnUrl` must be on one of
+ *  the API's configured web origins or it falls back to the CRM billing page. A change that
+ *  would charge at once needs `confirmCharge` (see {@link ChargeConfirmation}). */
+export function startCheckout(shopId: string, plan: 'ai', returnUrl: string, confirmCharge = false): Promise<CheckoutResult> {
+  return api.post<CheckoutResult>(`${base(shopId)}/checkout`, {
+    plan,
     returnUrl,
     ...(confirmCharge ? { confirmCharge: true } : {}),
   })

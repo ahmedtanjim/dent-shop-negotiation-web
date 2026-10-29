@@ -8,12 +8,16 @@ import { ApiError, CRM_URL } from '@/api/client'
 import type { AiUsageSummary, CaseListItem } from '@/api/types'
 import { centsToUsd, formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
+import { useEntitlementStore } from '@/stores/entitlement'
 import StatusPill from '@/components/StatusPill.vue'
 import NewCaseModal from '@/components/NewCaseModal.vue'
 import ShopRatesModal from '@/components/ShopRatesModal.vue'
 import { casesTourSeen, startCasesTour } from '@/tour'
 
 const auth = useAuthStore()
+/** A shop whose AI plan ended reads its cases (ent.readOnly) but can't add or change them:
+ *  the API refuses every write with 402, which would bounce the user to the paywall. */
+const ent = useEntitlementStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -22,12 +26,10 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const showNew = ref(false)
 const showRates = ref(false)
-/** Fair-use meter: what the shop has spent of its AI allowance this month. Owners and
- *  managers see it; a failed read simply hides it (the API's 429 is the real gate). */
+/** Fair-use meter: what the shop has spent of its AI allowance this month. Owners,
+ *  managers and admins see it (auth.canSeeUsage); a failed read simply hides it (the API's
+ *  429 is the real gate). Deleting and restoring cases is auth.canDeleteCases. */
 const usage = ref<AiUsageSummary | null>(null)
-const canSeeUsage = ['owner', 'manager', 'admin'].includes(auth.role?.toLowerCase() ?? '')
-/** Deleting and restoring cases is for the owner/manager (the API enforces it too). */
-const canDelete = ['owner', 'manager'].includes(auth.role?.toLowerCase() ?? '')
 
 // ---- list tools: search, filters, sort. Closed cases are hidden by default — "Closed" is the
 // archive, so nothing else is needed to tidy the list. Choices stick per browser. ----
@@ -127,7 +129,7 @@ async function restore(c: CaseListItem) {
 const deletedOn = (iso: string | null) => (iso ? formatDateTime(iso) : '')
 
 async function loadUsage() {
-  if (!auth.shopId || !canSeeUsage) return
+  if (!auth.shopId || !auth.canSeeUsage) return
   try {
     usage.value = await getAiUsage(auth.shopId)
   } catch {
@@ -161,6 +163,14 @@ function onCreated(c: CaseListItem) {
   router.push({ name: 'case', params: { id: c.id } })
 }
 
+// The role can change under an open page (the session refresh re-reads it).
+watch(
+  () => auth.canSeeUsage,
+  (can) => {
+    if (can && !usage.value) void loadUsage()
+  },
+)
+
 onMounted(async () => {
   void loadUsage()
   await load()
@@ -168,7 +178,7 @@ onMounted(async () => {
   // The ?tour=1 is consumed immediately — leaving it in the URL replayed the guide on
   // every reload, which is what the "don't show again" complaints were about.
   if (route.query.tour === '1' || !casesTourSeen()) {
-    setTimeout(startCasesTour, 600)
+    setTimeout(() => startCasesTour({ readOnly: ent.readOnly }), 600)
     if (route.query.tour === '1') router.replace({ query: {} })
   }
 })
@@ -182,10 +192,15 @@ onMounted(async () => {
         <p class="muted">Track insurer correspondence, tactics, and drafts per case.</p>
       </div>
       <div class="head-actions">
-        <button class="btn" title="Shop rates — TL invoice defaults" @click="showRates = true">
+        <button
+          v-if="auth.canEditShopRates && !ent.readOnly"
+          class="btn"
+          title="Shop rates — TL invoice defaults"
+          @click="showRates = true"
+        >
           <Settings2 :size="15" /> Shop rates
         </button>
-        <button class="btn btn-primary" data-tour="new-case" @click="showNew = true">
+        <button v-if="!ent.readOnly" class="btn btn-primary" data-tour="new-case" @click="showNew = true">
           <Plus :size="15" /> New case
         </button>
       </div>
@@ -193,7 +208,7 @@ onMounted(async () => {
 
     <p v-if="error" class="error-text">{{ error }}</p>
 
-    <div v-if="usage" class="usage card" :class="{ over: usage.month.exceeded || usage.today.exceeded }" data-tour="ai-usage">
+    <div v-if="usage && auth.canSeeUsage" class="usage card" :class="{ over: usage.month.exceeded || usage.today.exceeded }" data-tour="ai-usage">
       <div class="usage-row">
         <span class="usage-label">AI usage this month</span>
         <span class="usage-figures mono">
@@ -226,12 +241,21 @@ onMounted(async () => {
 
     <div v-else-if="cases.length === 0 && !showDeleted" class="empty card" data-tour="case-list">
       <FolderOpen :size="30" class="muted" />
-      <h3>No cases yet</h3>
-      <p class="muted">
-        Create a case for each insurance claim you're negotiating, then feed it the insurer's
-        emails.
-      </p>
-      <button class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
+      <template v-if="ent.readOnly">
+        <h3>No cases to show</h3>
+        <p class="muted">
+          Your DSM Negotiator plan has ended, so new cases can't be started. Renew from the
+          banner at the top of the page to open cases again.
+        </p>
+      </template>
+      <template v-else>
+        <h3>No cases yet</h3>
+        <p class="muted">
+          Create a case for each insurance claim you're negotiating, then feed it the insurer's
+          emails.
+        </p>
+        <button class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
+      </template>
     </div>
 
     <template v-else>
@@ -269,12 +293,12 @@ onMounted(async () => {
           </select>
         </label>
         <button v-if="filtersActive" class="btn btn-ghost btn-sm" @click="clearFilters"><X :size="13" /> Clear</button>
-        <button v-if="canDelete" class="btn btn-ghost btn-sm deleted-toggle" :class="{ on: showDeleted }" @click="toggleDeleted">
+        <button v-if="auth.canDeleteCases" class="btn btn-ghost btn-sm deleted-toggle" :class="{ on: showDeleted }" @click="toggleDeleted">
           <Trash2 :size="13" /> Recently deleted
         </button>
       </div>
 
-      <div v-if="showDeleted" class="card table-card deleted-card">
+      <div v-if="showDeleted && auth.canDeleteCases" class="card table-card deleted-card">
         <div class="deleted-head">
           <b>Recently deleted</b>
           <span class="muted">A deleted case can be restored for 30 days; after that it and its documents are erased.</span>
@@ -292,7 +316,12 @@ onMounted(async () => {
               <td data-label="Customer">{{ c.customerName || '—' }}</td>
               <td data-label="Deleted" class="muted">{{ deletedOn(c.deletedAt) }}</td>
               <td class="num">
-                <button class="btn btn-sm" :disabled="restoring === c.id" @click="restore(c)">
+                <button
+                  class="btn btn-sm"
+                  :disabled="restoring === c.id || ent.readOnly"
+                  :title="ent.readOnly ? 'Restoring a case needs the DSM Negotiator plan' : undefined"
+                  @click="restore(c)"
+                >
                   <RotateCcw :size="13" /> {{ restoring === c.id ? 'Restoring…' : 'Restore' }}
                 </button>
               </td>
@@ -347,8 +376,8 @@ onMounted(async () => {
       </div>
     </template>
 
-    <NewCaseModal v-if="showNew" @close="showNew = false" @created="onCreated" />
-    <ShopRatesModal v-if="showRates" @close="showRates = false" />
+    <NewCaseModal v-if="showNew && !ent.readOnly" @close="showNew = false" @created="onCreated" />
+    <ShopRatesModal v-if="showRates && auth.canEditShopRates && !ent.readOnly" @close="showRates = false" />
   </div>
 </template>
 

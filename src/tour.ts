@@ -43,7 +43,9 @@ function shared(markSeen: () => void) {
   }
 }
 
-export function startCasesTour() {
+/** `readOnly`: the shop's plan ended (`ent.readOnly`) — it has no New case button, so that
+ *  step is skipped rather than shown pointing at nothing. */
+export function startCasesTour({ readOnly = false }: { readOnly?: boolean } = {}) {
   const { config, setInstance } = shared(markCasesTourSeen)
   const d = driver({
     ...config,
@@ -55,14 +57,18 @@ export function startCasesTour() {
             'Your co-pilot against insurer short pays and stall tactics. Here’s the 45-second lay of the land — replay it anytime from the ? button up top.',
         },
       },
-      {
-        element: '[data-tour="new-case"]',
-        popover: {
-          title: 'One case per claim',
-          description:
-            'Start a case for every insurance claim — pick the customer from your DSM and the vehicle, title, and state fill themselves.',
-        },
-      },
+      ...(readOnly
+        ? []
+        : [
+            {
+              element: '[data-tour="new-case"]',
+              popover: {
+                title: 'One case per claim',
+                description:
+                  'Start a case for every insurance claim — pick the customer from your DSM and the vehicle, title, and state fill themselves.',
+              },
+            },
+          ]),
       {
         element: '[data-tour="case-list"]',
         popover: {
