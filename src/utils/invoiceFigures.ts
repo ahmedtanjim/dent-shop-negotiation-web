@@ -68,3 +68,33 @@ export function serverBillingDay(server: InvoiceBreakdown | null, savedEnd: stri
   const saved = calendarDay(savedEnd)
   return saved === null || saved > billedTo ? billedTo : null
 }
+
+const DAY_MS = 86_400_000
+const HOUR_MS = 3_600_000
+
+/** The browser's own calendar date at `ms`, as a whole-day number (same scale as calendarDay). */
+export function localDayOf(ms: number): number {
+  const n = new Date(ms)
+  return Math.floor(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / DAY_MS)
+}
+
+/** The UTC calendar date at `ms`, as a whole-day number. */
+export function utcDayOf(ms: number): number {
+  return Math.floor(ms / DAY_MS)
+}
+
+/**
+ * Whether a tab left open should re-read the invoice because the shop's "today" may have moved
+ * on between two clock readings. The server bills through the shop's own day — its state's US
+ * zone, or UTC with no state on file (ShopClock) — and every one of those midnights falls on a
+ * whole UTC hour. So a refresh is due when:
+ * - the browser's date or the UTC date turned over, or
+ * - a new UTC hour began while the invoice still bills an open range (`serverDay`, from
+ *   serverBillingDay) through a day before the later of those two dates: the shop's midnight
+ *   is still to come (a Colorado shop seen from Chicago turns over an hour after the browser).
+ */
+export function dayRefreshDue(beforeMs: number, nowMs: number, serverDay: number | null): boolean {
+  if (localDayOf(nowMs) !== localDayOf(beforeMs) || utcDayOf(nowMs) !== utcDayOf(beforeMs)) return true
+  if (serverDay === null || Math.floor(nowMs / HOUR_MS) === Math.floor(beforeMs / HOUR_MS)) return false
+  return serverDay < Math.max(localDayOf(nowMs), utcDayOf(nowMs))
+}

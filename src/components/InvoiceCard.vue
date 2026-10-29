@@ -11,7 +11,14 @@ import { usd } from '@/utils/format'
 import { parseMoney, parsePercent } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import { useFlushOnLeave } from '@/utils/flushOnLeave'
-import { calendarDay, invoiceView, serverBillingDay } from '@/utils/invoiceFigures'
+import {
+  calendarDay,
+  dayRefreshDue,
+  invoiceView,
+  localDayOf,
+  serverBillingDay,
+  utcDayOf,
+} from '@/utils/invoiceFigures'
 import { useCaseReadOnly } from '@/utils/readOnly'
 
 const props = defineProps<{
@@ -102,24 +109,18 @@ type Figure = keyof typeof parsed.value
    - "Storage ends" follows the API's own check (CaseInvoiceInputValidator), which refuses an
      end date only past UTC today + 1: the card allows UTC today, or the user's date when it
      is already a day ahead of UTC, so it never accepts a date the API would refuse.
-   `clock` ticks each minute and on focus. When the browser's date OR the UTC date rolls over
-   (a shop with no state on file bills in UTC) and nothing is waiting to save, the card asks
-   for a refresh, so an open range on a tab left open overnight gains its new day from the
-   server whichever day the shop bills by. */
+   `clock` ticks each minute and on focus. When nothing is waiting to save and the shop's day
+   may have turned over (dayRefreshDue: the browser's or the UTC date changed, or a new UTC
+   hour began while the server still bills an open range through an earlier day — every
+   shop's midnight, its state's zone or UTC, falls on a UTC hour), the card asks for a
+   refresh. So an open range on a tab left open overnight gains its new day from the server
+   within a minute of the shop's midnight, whatever zone the browser is in. */
 const clock = ref(Date.now())
-function localDayOf(ms: number): number {
-  const n = new Date(ms)
-  return Math.floor(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / 86400000)
-}
-function utcDayOf(ms: number): number {
-  return Math.floor(ms / 86400000)
-}
 function tick() {
   const before = clock.value
   clock.value = Date.now()
-  const rolledOver =
-    localDayOf(clock.value) !== localDayOf(before) || utcDayOf(clock.value) !== utcDayOf(before)
-  if (rolledOver && !editPending.value) emit('refresh')
+  const serverDay = serverBillingDay(props.invoice, props.detail.storageEndDate)
+  if (!editPending.value && dayRefreshDue(before, clock.value, serverDay)) emit('refresh')
 }
 const clockTimer = setInterval(tick, 60_000)
 window.addEventListener('focus', tick)
