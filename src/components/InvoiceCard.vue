@@ -88,18 +88,24 @@ type Figure = keyof typeof parsed.value
    - "Storage ends" follows the API's own check (CaseInvoiceInputValidator), which refuses an
      end date only past UTC today + 1: the card allows UTC today, or the user's date when it
      is already a day ahead of UTC, so it never accepts a date the API would refuse.
-   `clock` ticks each minute and on focus. When the date rolls over and nothing is waiting to
-   save, the card asks for a refresh, so an open range on a tab left open overnight gains
-   its new day from the server. */
+   `clock` ticks each minute and on focus. When the browser's date OR the UTC date rolls over
+   (a shop with no state on file bills in UTC) and nothing is waiting to save, the card asks
+   for a refresh, so an open range on a tab left open overnight gains its new day from the
+   server whichever day the shop bills by. */
 const clock = ref(Date.now())
 function localDayOf(ms: number): number {
   const n = new Date(ms)
   return Math.floor(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / 86400000)
 }
+function utcDayOf(ms: number): number {
+  return Math.floor(ms / 86400000)
+}
 function tick() {
-  const before = localDayOf(clock.value)
+  const before = clock.value
   clock.value = Date.now()
-  if (localDayOf(clock.value) !== before && !editPending.value) emit('refresh')
+  const rolledOver =
+    localDayOf(clock.value) !== localDayOf(before) || utcDayOf(clock.value) !== utcDayOf(before)
+  if (rolledOver && !editPending.value) emit('refresh')
 }
 const clockTimer = setInterval(tick, 60_000)
 window.addEventListener('focus', tick)
@@ -112,7 +118,7 @@ function isoOfDay(day: number): string {
   return new Date(day * 86400000).toISOString().slice(0, 10)
 }
 const localToday = computed(() => localDayOf(clock.value))
-const todayUtc = computed(() => Math.floor(clock.value / 86400000))
+const todayUtc = computed(() => utcDayOf(clock.value))
 /** The day an unsaved edit's preview bills storage through. */
 const billingDay = computed(
   () => serverBillingDay(props.invoice, props.detail.storageEndDate) ?? localToday.value,
