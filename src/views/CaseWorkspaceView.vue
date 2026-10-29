@@ -46,20 +46,29 @@ const docs = ref<GeneratedDocs | null>(null)
 const docsLoading = ref(true)
 const docsError = ref<string | null>(null)
 
-async function loadDocs() {
-  if (!auth.shopId || !detail.value) return
+/* Reloads overlap (an invoice save's refresh, a sidebar edit, the day-change refresh, Retry,
+   another case opened). Each takes a turn when it starts and only the newest turn's documents
+   — or error — land: an earlier, slower reload can't put back an older invoice (or another
+   case's), nor tell the invoice card its save's refresh failed while that one is still on
+   its way. */
+let docsTurn = 0
+async function loadDocs(turn = ++docsTurn) {
+  if (!auth.shopId || !detail.value || turn !== docsTurn) return
   docsError.value = null
   try {
-    docs.value = await getGeneratedDocs(auth.shopId, props.id)
+    const next = await getGeneratedDocs(auth.shopId, props.id)
+    if (turn === docsTurn) docs.value = next
   } catch (e) {
-    docsError.value = e instanceof ApiError ? e.message : 'Could not generate the documents.'
+    if (turn === docsTurn) docsError.value = e instanceof ApiError ? e.message : 'Could not generate the documents.'
   } finally {
-    docsLoading.value = false
+    if (turn === docsTurn) docsLoading.value = false
   }
 }
 
 async function load(showSpinner = false) {
   if (!auth.shopId) return
+  // Taken now, not after the case loads: from here on this reload's documents are the newest.
+  const turn = ++docsTurn
   if (showSpinner) loading.value = true
   error.value = null
   notFound.value = false
@@ -77,7 +86,7 @@ async function load(showSpinner = false) {
   }
   // Fee edits, customer link, intake (adjuster name reaches the greeting) all land in
   // the letters immediately.
-  if (detail.value) void loadDocs()
+  if (detail.value) void loadDocs(turn)
 }
 
 function refresh() {
@@ -315,7 +324,7 @@ watch(
               :refresh-error="docsError"
               @refresh="refresh"
             />
-            <LetterColumns :docs="docs" :loading="docsLoading" :error="docsError" @reload="loadDocs" />
+            <LetterColumns :docs="docs" :loading="docsLoading" :error="docsError" @reload="loadDocs()" />
           </div>
         </div>
       </section>
