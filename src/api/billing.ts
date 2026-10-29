@@ -62,17 +62,6 @@ export function startCheckout(shopId: string, plan: 'ai', returnUrl: string, con
   })
 }
 
-/** Stripe customer portal, deep-linked into the confirm-upgrade flow for `upgradeToPlan`
- *  (owner only). The existing subscription is switched and prorated — no second one. Same
- *  `confirmCharge` rule as {@link startCheckout}. */
-export function openPortal(shopId: string, upgradeToPlan: 'ai', returnUrl: string, confirmCharge = false): Promise<{ url: string }> {
-  return api.post<{ url: string }>(`${base(shopId)}/portal`, {
-    upgradeToPlan,
-    returnUrl,
-    ...(confirmCharge ? { confirmCharge: true } : {}),
-  })
-}
-
 export function listMembers(shopId: string): Promise<MemberSummary[]> {
   return api.get<MemberSummary[]>(`/api/shops/${shopId}/members`)
 }

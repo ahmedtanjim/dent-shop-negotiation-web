@@ -6,7 +6,6 @@ import type { BillingState } from '@/api/types'
 
 const billing = vi.hoisted(() => ({
   startCheckout: vi.fn(),
-  openPortal: vi.fn(),
   listMembers: vi.fn(async () => []),
   getBilling: vi.fn(),
   syncBilling: vi.fn(),
@@ -93,7 +92,7 @@ describe('PaywallView — buying the AI plan', () => {
       `${window.location.origin}/upgrade?redirect=${encodeURIComponent('/cases/7')}`,
       false,
     )
-    expect(billing.openPortal).not.toHaveBeenCalled()
+    expect(billing.startCheckout).toHaveBeenCalledTimes(1)
     expect(href).toHaveBeenCalledWith('https://checkout.stripe.test/c/1')
   })
 
@@ -102,7 +101,7 @@ describe('PaywallView — buying the AI plan', () => {
     const { wrapper } = await mountPaywall({ ...compWithStripeCustomer, hasLiveSubscription: true })
     await addButton(wrapper).trigger('click')
     await flushPromises()
-    expect(billing.openPortal).not.toHaveBeenCalled()
+    expect(billing.startCheckout).toHaveBeenCalledTimes(1)
     expect(href).toHaveBeenCalledWith('https://billing.stripe.test/p/1')
   })
 
