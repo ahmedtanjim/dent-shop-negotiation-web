@@ -137,9 +137,12 @@ const canDelete = computed(
 )
 /* A delete or status change can still be running when the user opens another case (back and
    forward) or leaves the workspace. Each case opened takes a turn; a request started under an
-   earlier turn lands nowhere — no error, busy state, select or move to the list on the case
-   the user is looking at now. */
+   earlier turn lands nowhere — no error, busy state or select on the case the user is looking
+   at now. Its success still counts when the user is back on that same case (A → B → A): the
+   case is re-read, or a deleted one leaves for the list. */
 let openTurn = 0
+let mounted = true
+const stillShowing = (caseId: string) => mounted && props.id === caseId
 const deleting = ref(false)
 async function onDelete() {
   if (!detail.value || deleting.value) return
@@ -148,11 +151,12 @@ async function onDelete() {
   )
   if (!ok) return
   const turn = openTurn
+  const caseId = props.id
   deleting.value = true
   statusError.value = null
   try {
-    await deleteCase(auth.shopId!, props.id)
-    if (turn === openTurn) router.push({ name: 'cases' })
+    await deleteCase(auth.shopId!, caseId)
+    if (stillShowing(caseId)) router.push({ name: 'cases' })
   } catch (err) {
     if (turn !== openTurn) return
     statusError.value = err instanceof ApiError ? err.message : 'Could not delete the case.'
@@ -170,11 +174,12 @@ async function onStatus(e: Event) {
     return
   }
   const turn = openTurn
+  const caseId = props.id
   statusBusy.value = true
   statusError.value = null
   try {
-    await setCaseStatus(auth.shopId!, props.id, next)
-    if (turn === openTurn) await load(false)
+    await setCaseStatus(auth.shopId!, caseId, next)
+    if (stillShowing(caseId)) await load(false)
   } catch (err) {
     if (turn !== openTurn) return
     statusError.value = err instanceof ApiError ? err.message : 'Could not change the status.'
@@ -220,7 +225,9 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   window.removeEventListener('dsm-neg-ws-tab', onTabEvent)
-  openTurn++ // a delete still running mustn't send the user to the list from wherever they went
+  // A delete still running mustn't send the user to the list from wherever they went.
+  openTurn++
+  mounted = false
 })
 watch(
   () => route.params.id,
