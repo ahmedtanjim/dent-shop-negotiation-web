@@ -246,6 +246,7 @@ onMounted(async () => {
         <p class="muted">
           Your DSM Negotiator plan has ended, so new cases can't be started. Renew from the
           banner at the top of the page to open cases again.
+          <template v-if="auth.canDeleteCases">Cases deleted in the last 30 days are under Recently deleted.</template>
         </p>
       </template>
       <template v-else>
@@ -256,43 +257,51 @@ onMounted(async () => {
         </p>
         <button class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
       </template>
+      <!-- The toolbar's toggle is not on this screen: without this one, once every case was
+           deleted none of them could be reached to restore before the 30-day purge. -->
+      <button v-if="auth.canDeleteCases" class="btn btn-ghost btn-sm" @click="toggleDeleted">
+        <Trash2 :size="13" /> Recently deleted
+      </button>
     </div>
 
     <template v-else>
       <div class="toolbar" data-tour="case-list">
-        <label class="search">
-          <Search :size="14" aria-hidden="true" />
-          <input v-model="query" type="search" placeholder="Search customer, claim #, insurer, storm" aria-label="Search cases" />
-        </label>
-        <select v-model="statusFilter" aria-label="Status">
-          <option value="active">Active (not closed)</option>
-          <option value="Open">Open</option>
-          <option value="Settled">Settled</option>
-          <option value="Litigation">Litigation</option>
-          <option value="Closed">Closed{{ closedCount ? ` (${closedCount})` : '' }}</option>
-          <option value="all">All statuses</option>
-        </select>
-        <select v-if="storms.length" v-model="stormFilter" aria-label="Storm">
-          <option value="">Any storm</option>
-          <option v-for="st in storms" :key="st.id" :value="st.id">{{ st.name }}</option>
-          <option v-if="hasUnstormed" value="none">No storm</option>
-        </select>
-        <select v-if="insurers.length > 1" v-model="insurerFilter" aria-label="Insurer">
-          <option value="">Any insurer</option>
-          <option v-for="i in insurers" :key="i" :value="i">{{ i }}</option>
-        </select>
-        <label class="sort">
-          <span class="muted">Sort</span>
-          <select v-model="sortBy" aria-label="Sort by">
-            <option value="updated">Last activity</option>
-            <option value="created">Newest created</option>
-            <option value="customer">Customer</option>
-            <option value="insurer">Insurer</option>
-            <option value="storm">Storm</option>
-            <option value="invoice">Repair estimate</option>
+        <!-- Only "Recently deleted" while every case is deleted: there is nothing to filter. -->
+        <template v-if="cases.length > 0">
+          <label class="search">
+            <Search :size="14" aria-hidden="true" />
+            <input v-model="query" type="search" placeholder="Search customer, claim #, insurer, storm" aria-label="Search cases" />
+          </label>
+          <select v-model="statusFilter" aria-label="Status">
+            <option value="active">Active (not closed)</option>
+            <option value="Open">Open</option>
+            <option value="Settled">Settled</option>
+            <option value="Litigation">Litigation</option>
+            <option value="Closed">Closed{{ closedCount ? ` (${closedCount})` : '' }}</option>
+            <option value="all">All statuses</option>
           </select>
-        </label>
-        <button v-if="filtersActive" class="btn btn-ghost btn-sm" @click="clearFilters"><X :size="13" /> Clear</button>
+          <select v-if="storms.length" v-model="stormFilter" aria-label="Storm">
+            <option value="">Any storm</option>
+            <option v-for="st in storms" :key="st.id" :value="st.id">{{ st.name }}</option>
+            <option v-if="hasUnstormed" value="none">No storm</option>
+          </select>
+          <select v-if="insurers.length > 1" v-model="insurerFilter" aria-label="Insurer">
+            <option value="">Any insurer</option>
+            <option v-for="i in insurers" :key="i" :value="i">{{ i }}</option>
+          </select>
+          <label class="sort">
+            <span class="muted">Sort</span>
+            <select v-model="sortBy" aria-label="Sort by">
+              <option value="updated">Last activity</option>
+              <option value="created">Newest created</option>
+              <option value="customer">Customer</option>
+              <option value="insurer">Insurer</option>
+              <option value="storm">Storm</option>
+              <option value="invoice">Repair estimate</option>
+            </select>
+          </label>
+          <button v-if="filtersActive" class="btn btn-ghost btn-sm" @click="clearFilters"><X :size="13" /> Clear</button>
+        </template>
         <button v-if="auth.canDeleteCases" class="btn btn-ghost btn-sm deleted-toggle" :class="{ on: showDeleted }" @click="toggleDeleted">
           <Trash2 :size="13" /> Recently deleted
         </button>
@@ -330,7 +339,8 @@ onMounted(async () => {
         </table>
       </div>
 
-      <div v-if="visible.length === 0" class="empty card">
+      <p v-if="cases.length === 0" class="empty muted">No cases outside Recently deleted.</p>
+      <div v-else-if="visible.length === 0" class="empty card">
         <h3>No cases match</h3>
         <p class="muted">
           {{ statusFilter === 'active' && closedCount === cases.length ? 'Every case is closed.' : 'Try a different search or filter.' }}
