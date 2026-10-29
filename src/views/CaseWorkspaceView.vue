@@ -65,28 +65,37 @@ async function loadDocs(turn = ++docsTurn) {
   }
 }
 
+/* The case read follows the same rule with its own turns: a save's refresh, a status change
+   or another case opened can overlap, and only the newest read's case — or error — lands, so
+   a slower earlier read can't put back the case as it was before a save, or the previous
+   case. (Own turns: a documents Retry mid-read must not drop the case it is reading.) */
+let caseTurn = 0
 async function load(showSpinner = false) {
   if (!auth.shopId) return
+  const turn = ++caseTurn
   // Taken now, not after the case loads: from here on this reload's documents are the newest.
-  const turn = ++docsTurn
+  const docsTurnNow = ++docsTurn
   if (showSpinner) loading.value = true
   error.value = null
   notFound.value = false
   try {
-    detail.value = await getCase(auth.shopId, props.id)
-    setTitle(detail.value.case.title)
+    const next = await getCase(auth.shopId, props.id)
+    if (turn !== caseTurn) return
+    detail.value = next
+    setTitle(next.case.title)
   } catch (e) {
+    if (turn !== caseTurn) return
     if (e instanceof ApiError && (e.status === 404 || e.status === 400)) {
       notFound.value = true
       detail.value = null
       setTitle('Case not found')
     } else error.value = e instanceof ApiError ? e.message : 'Could not load the case.'
   } finally {
-    loading.value = false
+    if (turn === caseTurn) loading.value = false
   }
   // Fee edits, customer link, intake (adjuster name reaches the greeting) all land in
   // the letters immediately.
-  if (detail.value) void loadDocs(turn)
+  if (detail.value) void loadDocs(docsTurnNow)
 }
 
 function refresh() {
