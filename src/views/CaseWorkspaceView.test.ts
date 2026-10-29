@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, shallowMount } from '@vue/test-utils'
+import { flushPromises, shallowMount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import type { CaseDetail, GeneratedDocs, InvoiceBreakdown } from '@/api/types'
 
 const api = vi.hoisted(() => ({
@@ -15,7 +15,12 @@ vi.mock('@/router', () => ({ setTitle: vi.fn() }))
 vi.mock('@/tour', () => ({ workspaceTourSeen: () => true, startWorkspaceTour: vi.fn() }))
 
 import CaseWorkspaceView from './CaseWorkspaceView.vue'
+import CaseSidebar from '@/components/CaseSidebar.vue'
+import DraftPanel from '@/components/DraftPanel.vue'
 import InvoiceCard from '@/components/InvoiceCard.vue'
+import LetterColumns from '@/components/LetterColumns.vue'
+import TimelinePanel from '@/components/TimelinePanel.vue'
+import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
 const detail = {
@@ -65,8 +70,19 @@ async function mountWorkspace() {
   const wrapper = shallowMount(CaseWorkspaceView, { props: { id: 'case-1' }, global: { plugins: [router] } })
   await flushPromises()
   const card = () => wrapper.getComponent(InvoiceCard)
-  return { wrapper, card }
+  return { wrapper, router, card }
 }
+
+/** Another case, as the app opens it: RouterView hands the view the new id, then the route
+ *  changes (the view re-reads on the route's id). */
+async function openCase(wrapper: VueWrapper, router: Router, id: string) {
+  await wrapper.setProps({ id })
+  await router.push(`/cases/${id}`)
+}
+
+/** The case `id` titled `title` — the same case as `detail` otherwise. */
+const caseWith = (id: string, title: string): CaseDetail => ({ ...detail, case: { ...detail.case, id, title } })
+const caseB = caseWith('case-2', 'Jones — 2019 F-150')
 
 describe('CaseWorkspaceView documents reloads', () => {
   beforeEach(() => {
@@ -128,5 +144,133 @@ describe('CaseWorkspaceView documents reloads', () => {
     await flushPromises()
     expect(card().props('refreshError')).toBe('Could not generate the documents.')
     expect(card().props('invoice')?.total).toBe(100)
+  })
+})
+
+describe('CaseWorkspaceView case reads', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api.getCase.mockResolvedValue(detail)
+    // A documents read nobody expects shows up as 999.
+    api.getGeneratedDocs.mockResolvedValue(docsWith(999))
+  })
+
+  it("the previous case's slower read never lands under the case opened after it", async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { wrapper, router, card } = await mountWorkspace()
+    expect(wrapper.get('h1').text()).toBe('Smith — 2021 Tahoe')
+
+    // Case A's refresh (after a save) is still reading when the user opens case B.
+    const aRead = deferred<CaseDetail>()
+    const bRead = deferred<CaseDetail>()
+    api.getCase.mockReturnValueOnce(aRead.promise).mockReturnValueOnce(bRead.promise)
+    card().vm.$emit('refresh')
+    await flushPromises()
+    await openCase(wrapper, router, 'case-2')
+    expect(api.getCase).toHaveBeenLastCalledWith('shop-1', 'case-2')
+
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(300))
+    bRead.resolve(caseB)
+    await flushPromises()
+    expect(wrapper.get('h1').text()).toBe('Jones — 2019 F-150')
+    aRead.resolve(detail) // case A's read lands last
+    await flushPromises()
+
+    expect(wrapper.get('h1').text()).toBe('Jones — 2019 F-150')
+    expect(wrapper.getComponent(CaseSidebar).props('detail').case.id).toBe('case-2')
+    expect(card().props('detail').case.id).toBe('case-2')
+    expect(card().props('invoice')?.total).toBe(300)
+    expect(api.getGeneratedDocs).toHaveBeenLastCalledWith('shop-1', 'case-2')
+  })
+
+  it('a slower earlier read never puts back the case as it was before a save', async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { wrapper } = await mountWorkspace()
+    const sidebar = () => wrapper.getComponent(CaseSidebar)
+
+    // An edit's refresh starts reading; a save lands and its refresh reads again.
+    const beforeSave = deferred<CaseDetail>()
+    const afterSave = deferred<CaseDetail>()
+    api.getCase.mockReturnValueOnce(beforeSave.promise).mockReturnValueOnce(afterSave.promise)
+    sidebar().vm.$emit('refresh')
+    await flushPromises()
+    sidebar().vm.$emit('refresh')
+    await flushPromises()
+
+    afterSave.resolve(caseWith('case-1', 'Smith — 2021 Tahoe (total loss)'))
+    await flushPromises()
+    beforeSave.resolve(detail) // the earlier read lands last, with the old title
+    await flushPromises()
+
+    expect(wrapper.get('h1').text()).toBe('Smith — 2021 Tahoe (total loss)')
+    expect(sidebar().props('detail').case.title).toBe('Smith — 2021 Tahoe (total loss)')
+  })
+
+  it("an earlier read's failure never replaces the case a newer read brought", async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { wrapper } = await mountWorkspace()
+
+    const first = deferred<CaseDetail>()
+    api.getCase.mockReturnValueOnce(first.promise).mockResolvedValueOnce(detail)
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(300))
+    wrapper.getComponent(CaseSidebar).vm.$emit('refresh')
+    await flushPromises()
+    wrapper.getComponent(CaseSidebar).vm.$emit('refresh')
+    await flushPromises()
+    first.reject(new ApiError(404, 'Not found'))
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Case not found')
+    expect(wrapper.get('h1').text()).toBe('Smith — 2021 Tahoe')
+    expect(wrapper.getComponent(InvoiceCard).props('invoice')?.total).toBe(300)
+  })
+
+  it("another case never shows the previous case's documents while its own load", async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { wrapper, router, card } = await mountWorkspace()
+    expect(wrapper.text()).toContain('$100.00')
+
+    const bDocs = deferred<GeneratedDocs>()
+    api.getCase.mockResolvedValueOnce(caseB)
+    api.getGeneratedDocs.mockReturnValueOnce(bDocs.promise)
+    await openCase(wrapper, router, 'case-2')
+    await flushPromises()
+
+    expect(wrapper.get('h1').text()).toBe('Jones — 2019 F-150')
+    expect(card().props('invoice')).toBeNull()
+    expect(wrapper.getComponent(LetterColumns).props()).toMatchObject({ docs: null, loading: true })
+    expect(wrapper.text()).not.toContain('$100.00')
+
+    bDocs.resolve(docsWith(300))
+    await flushPromises()
+    expect(card().props('invoice')?.total).toBe(300)
+    expect(wrapper.getComponent(LetterColumns).props('loading')).toBe(false)
+  })
+
+  it("the previous case's counsel banner, status error and running draft don't carry over", async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { wrapper, router } = await mountWorkspace()
+    useAuthStore().role = 'Owner' // the status picker shows
+    await flushPromises()
+
+    wrapper.getComponent(TimelinePanel).vm.$emit('counsel')
+    wrapper.getComponent(DraftPanel).vm.$emit('drafting', true)
+    api.setCaseStatus.mockRejectedValueOnce(new ApiError(409, 'Status not changed.'))
+    await wrapper.get('select').setValue('Settled')
+    await flushPromises()
+    expect(wrapper.find('.counsel-banner').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Status not changed.')
+    expect(wrapper.getComponent(TimelinePanel).props('externalDrafting')).toBe(true)
+
+    // Case A's draft panel unmounts with A, so it never reports its draft ending.
+    api.getCase.mockResolvedValueOnce(caseB)
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(300))
+    await openCase(wrapper, router, 'case-2')
+    await flushPromises()
+
+    expect(wrapper.get('h1').text()).toBe('Jones — 2019 F-150')
+    expect(wrapper.find('.counsel-banner').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Status not changed.')
+    expect(wrapper.getComponent(TimelinePanel).props('externalDrafting')).toBe(false)
   })
 })
