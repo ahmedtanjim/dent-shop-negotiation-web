@@ -91,7 +91,7 @@ function pickHelp(which: 'tour' | 'support') {
 function replayTour() {
   // Each screen has its own tour — replay the one for where the user actually is.
   if (route.name === 'case') startWorkspaceTour()
-  else if (route.name === 'cases') startCasesTour()
+  else if (route.name === 'cases') startCasesTour({ readOnly: ent.readOnly })
   else router.push({ name: 'cases', query: { tour: '1' } })
 }
 

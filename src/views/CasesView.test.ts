@@ -19,7 +19,8 @@ vi.mock('@/api/negotiation', () => ({
   restoreCase: api.restoreCase,
 }))
 vi.mock('@/api/usage', () => ({ getAiUsage: api.getAiUsage }))
-vi.mock('@/tour', () => ({ casesTourSeen: () => true, startCasesTour: vi.fn() }))
+const tour = vi.hoisted(() => ({ seen: true, startCasesTour: vi.fn() }))
+vi.mock('@/tour', () => ({ casesTourSeen: () => tour.seen, startCasesTour: tour.startCasesTour }))
 
 import CasesView from './CasesView.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -89,6 +90,7 @@ describe('CasesView controls follow the role and the plan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    tour.seen = true
   })
 
   it('shows Shop rates to the owner and a manager only (the API refuses an admin)', async () => {
@@ -120,6 +122,30 @@ describe('CasesView controls follow the role and the plan', () => {
     expect(buttons(wrapper, 'New case')).toHaveLength(0) // header and empty state
     expect(buttons(wrapper, 'Shop rates')).toHaveLength(0)
     expect(api.listCases).toHaveBeenCalledWith('shop-1')
+  })
+
+  it('read-only: the empty list points at the renew banner instead of inviting a new case', async () => {
+    const { wrapper } = await mountCases('Owner', plan('Free', true))
+    const empty = wrapper.get('.empty.card').text()
+    expect(empty).toContain('plan has ended')
+    expect(empty).toContain('banner at the top')
+    expect(empty).not.toMatch(/create a case/i)
+  })
+
+  it('read-only: the first-visit tour skips the New case step', async () => {
+    vi.useFakeTimers()
+    try {
+      tour.seen = false
+      await mountCases('Owner', plan('Free', true))
+      vi.runAllTimers()
+      expect(tour.startCasesTour).toHaveBeenCalledWith({ readOnly: true })
+      tour.startCasesTour.mockClear()
+      await mountCases('Owner')
+      vi.runAllTimers()
+      expect(tour.startCasesTour).toHaveBeenCalledWith({ readOnly: false })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('read-only: a deleted case is listed but Restore (a write) is off', async () => {

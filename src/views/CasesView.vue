@@ -178,7 +178,7 @@ onMounted(async () => {
   // The ?tour=1 is consumed immediately — leaving it in the URL replayed the guide on
   // every reload, which is what the "don't show again" complaints were about.
   if (route.query.tour === '1' || !casesTourSeen()) {
-    setTimeout(startCasesTour, 600)
+    setTimeout(() => startCasesTour({ readOnly: ent.readOnly }), 600)
     if (route.query.tour === '1') router.replace({ query: {} })
   }
 })
@@ -241,12 +241,21 @@ onMounted(async () => {
 
     <div v-else-if="cases.length === 0 && !showDeleted" class="empty card" data-tour="case-list">
       <FolderOpen :size="30" class="muted" />
-      <h3>No cases yet</h3>
-      <p class="muted">
-        Create a case for each insurance claim you're negotiating, then feed it the insurer's
-        emails.
-      </p>
-      <button v-if="!ent.readOnly" class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
+      <template v-if="ent.readOnly">
+        <h3>No cases to show</h3>
+        <p class="muted">
+          Your DSM Negotiator plan has ended, so new cases can't be started. Renew from the
+          banner at the top of the page to open cases again.
+        </p>
+      </template>
+      <template v-else>
+        <h3>No cases yet</h3>
+        <p class="muted">
+          Create a case for each insurance claim you're negotiating, then feed it the insurer's
+          emails.
+        </p>
+        <button class="btn btn-primary" @click="showNew = true"><Plus :size="15" /> New case</button>
+      </template>
     </div>
 
     <template v-else>
