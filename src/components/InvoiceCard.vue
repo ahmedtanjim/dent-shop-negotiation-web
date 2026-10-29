@@ -14,7 +14,12 @@ import { useFlushOnLeave } from '@/utils/flushOnLeave'
 import { calendarDay, invoiceView, serverBillingDay } from '@/utils/invoiceFigures'
 import { useCaseReadOnly } from '@/utils/readOnly'
 
-const props = defineProps<{ detail: CaseDetail; invoice: InvoiceBreakdown | null }>()
+const props = defineProps<{
+  detail: CaseDetail
+  invoice: InvoiceBreakdown | null
+  /** The workspace's last documents reload failed (its message), else null. */
+  refreshError?: string | null
+}>()
 const emit = defineEmits<{ refresh: [] }>()
 
 const auth = useAuthStore()
@@ -66,6 +71,15 @@ watch(
     if (edited.value.size === 0) resetFields()
   },
   { immediate: true },
+)
+// The refresh a save asked for failed, so no new invoice is coming: stop waiting and show
+// the server's (last loaded) invoice again rather than the preview indefinitely. The
+// workspace's reload error says what went wrong and offers a retry.
+watch(
+  () => props.refreshError,
+  (e) => {
+    if (e) awaitingRefresh.value = false
+  },
 )
 
 /* Figures are parsed strictly (utils/amount): "-50" or "1e6" is an error under the

@@ -312,6 +312,7 @@ watch(
               v-model:storage-issue="storageIssue"
               :detail="detail"
               :invoice="invoice"
+              :refresh-error="docsError"
               @refresh="refresh"
             />
             <LetterColumns :docs="docs" :loading="docsLoading" :error="docsError" @reload="loadDocs" />
