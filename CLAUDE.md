@@ -55,7 +55,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/router/index.ts` — routes + the auth/plan guard; `setTitle`, SEO and GA per route.
 - `src/api/` — `client.ts` (fetch wrapper: bearer, 401 → `/login?redirect=`, 402/429 handling,
   `ApiError{status, code, body}`, `download()`), `auth`, `handoff`, `billing`, `usage`,
-  `negotiation` (all case endpoints under `/api/shops/{shopId}/negotiation`), `customers`,
+  `negotiation` (all case endpoints under `/api/shops/{shopId}/negotiation`; `getCar` labels the
+  linked car, `listCars` loads the whole garage for the picker only), `customers`,
   `shops`, `support` (support address from the public `GET /api/app/contact`, API setting
   `App:SupportEmail`; fallback `dentshopmanager@gmail.com`; loaded in `main.ts`), `types.ts`
   (wire DTOs — keep in step with the API's `Dtos/`).
@@ -69,14 +70,17 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
   mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case details + linked car,
   uploads), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
-  `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal`,
+  `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal` (sends only
+  the boxes edited since it opened; untouched = null = keep),
   `HelpSupportModal` (Help & support), `DateField`,
   `StatusPill`, `TacticBadge`, `PrivacyChoicesLink`.
 - Unit tests sit next to the code as `*.test.ts` (Vitest + happy-dom + `@vue/test-utils`,
   `vitest.config.ts`); `src/landing.test.ts` runs the landing's form script against `welcome.html`.
 - `src/utils/` — `letterMarkdown` (letter renderer + rich clipboard), `placeholders` (blank
   detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing),
-  `safeRedirect` (the one `?redirect` / `?next` rule), `freshBuild`, `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`,
+  `safeRedirect` (the one `?redirect` / `?next` rule), `freshBuild`, `seo`, `uploads` (25 MB limit),
+  `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`, `invoiceFigures` (which invoice
+  figures show), `readOnly` (the case workspace's read-only flag),
   `help` (`openHelp()`), `supportReport` (support details / mailto builder; same file as the CRM's).
 - `src/analytics/` — `ga.ts`, `sentry.ts`, `privacy.ts` (opt-out + Global Privacy Control).
 - `src/tour.ts` + `src/styles/tour.css` — driver.js tours on `[data-tour]` anchors.
@@ -114,21 +118,24 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 5. **Documents** — `getGeneratedDocs` (invoice breakdown + ready-made letters + `missing`),
    `downloadInvoicePdf`, case document upload/download/delete (`CaseSidebar` → Uploads).
    **The fact ledger has no UI** (removed in fe3375f (2026-08-25, after the owner's 2026-08-22
-   walkthrough)): `CaseDetail.facts` is fetched but not shown, and `addFact`/`deleteFact` and `getChat`/`sendChat` (copilot) exist in
+   walkthrough)): `CaseDetail.facts` is fetched but not shown, and `addFact`/`deleteFact` exist in
    `api/negotiation.ts` with no caller. Answers to the pre-draft questions are still saved as facts
    by the API, so nobody can see or remove them here (open owner question).
 6. **Paywall / AI plan** — the router guard loads the entitlement once per shop; below the AI tier
    every signed-in page redirects to `/upgrade`. A mid-session 402 `ai_required` sets
-   `aiPlanRequired` and `App.vue` re-reads the plan and opens the paywall. Other 402s show the
-   subscription banner. A failed plan lookup leaves pages open (the API's 402 is the real gate).
+   `aiPlanRequired` and `App.vue` re-reads the plan and opens the paywall (not for a read-only
+   shop: its banner explains). Other 402s show the subscription banner. A failed plan lookup
+   leaves pages open (the API's 402 is the real gate).
    Buying always calls `startCheckout` (`POST …/billing/checkout`): the API looks at the live
    Stripe subscription and answers with Checkout, the portal's confirm-upgrade, an in-place switch
    or "unchanged", and the paywall follows `url`. Never pick the portal in the client —
    `hasStripeCustomer` is not a subscription (comped and abandoned-Checkout shops have one; if a
    hint is ever needed, `hasLiveSubscription`). A 409 `charge_confirmation_required` must be
-   confirmed and re-sent with `confirmCharge`. Only the owner changes the plan. A shop whose plan
-   ended (`ent.readOnly`) gets no New case / Shop rates / Restore on the case list; its empty
-   state points at the renew banner and the cases tour skips the New case step.
+   confirmed and re-sent with `confirmCharge`. Only the owner changes the plan.
+   **Read-only:** a lapsed AI shop with cases (`ent.readOnly`) reads everything but writes
+   nothing. The case list has no New case / Shop rates / Restore, its empty state points at the
+   renew banner and the cases tour skips the New case step. `CaseWorkspaceView` provides the flag
+   (`utils/readOnly`); panels disable inputs, hide write actions and never save on leave.
 7. **Fair-use caps** — 429 `ai_cap_daily` / `ai_cap_monthly` sets `aiCapNotice` (banner with reset
    time). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to
    owner/manager/admin (`auth.canSeeUsage`); a failed read just hides it.
@@ -152,7 +159,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   clipboard copy. Don't add a markdown library or `v-html` raw API text.
 - **Money:** fees and invoices travel as decimal dollars (`usd()`), cent fields as integers
   (`centsToUsd()`); typed money is parsed strictly (`utils/amount`). The client never computes totals
-  the API owns.
+  the API owns. The invoice card and the header's balance show the API's `InvoiceBreakdown` (storage
+  billed through the shop's day, UTC for a shop with no state; the card refreshes when the local or
+  UTC day turns over). Its local preview shows only while an edit is unsaved, saving or awaiting
+  its refresh (`utils/invoiceFigures`); a failed refresh falls back to the server's invoice.
 - **In-app copy never says "playbook" or a state count** (identifiers like `hasPlaybook` are fine).
   Say "attorney-reviewed citations". The product name is "DSM Negotiator".
 - Use `ApiError.code` for branching, not message text. New endpoints go in the matching `src/api/*.ts`
