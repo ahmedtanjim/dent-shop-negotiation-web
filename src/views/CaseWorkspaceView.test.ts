@@ -1,0 +1,132 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, shallowMount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import type { CaseDetail, GeneratedDocs, InvoiceBreakdown } from '@/api/types'
+
+const api = vi.hoisted(() => ({
+  getCase: vi.fn(),
+  getGeneratedDocs: vi.fn(),
+  deleteCase: vi.fn(),
+  setCaseStatus: vi.fn(),
+}))
+vi.mock('@/api/negotiation', () => api)
+vi.mock('@/router', () => ({ setTitle: vi.fn() }))
+vi.mock('@/tour', () => ({ workspaceTourSeen: () => true, startWorkspaceTour: vi.fn() }))
+
+import CaseWorkspaceView from './CaseWorkspaceView.vue'
+import InvoiceCard from '@/components/InvoiceCard.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const detail = {
+  case: {
+    id: 'case-1',
+    title: 'Smith — 2021 Tahoe',
+    status: 'Open',
+    insurerName: null,
+    insurerClaimNumber: null,
+    customerName: 'Smith',
+    state: null,
+    invoiceTotalCents: 0,
+  },
+  messages: [],
+  facts: [],
+  documents: [],
+  storagePerDayCents: 5000,
+  storageStartDate: '2026-10-20',
+  storageEndDate: null,
+} as unknown as CaseDetail
+
+/** Documents whose invoice totals `total` — enough to tell one reload's result from another. */
+const docsWith = (total: number): GeneratedDocs => ({
+  invoice: { total, storageEnd: '2026-10-29' } as InvoiceBreakdown,
+  documents: [],
+})
+
+/** A promise the test settles by hand, so reloads can land in any order. */
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  let reject!: (e: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+async function mountWorkspace() {
+  setActivePinia(createPinia())
+  useAuthStore().shopId = 'shop-1'
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/cases/:id', name: 'case', component: { render: () => null } }],
+  })
+  await router.push('/cases/case-1')
+  const wrapper = shallowMount(CaseWorkspaceView, { props: { id: 'case-1' }, global: { plugins: [router] } })
+  await flushPromises()
+  const card = () => wrapper.getComponent(InvoiceCard)
+  return { wrapper, card }
+}
+
+describe('CaseWorkspaceView documents reloads', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api.getCase.mockResolvedValue(detail)
+  })
+
+  it('a slower earlier reload never puts back an older invoice', async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { card } = await mountWorkspace()
+    expect(card().props('invoice')?.total).toBe(100)
+
+    const first = deferred<GeneratedDocs>()
+    const second = deferred<GeneratedDocs>()
+    api.getGeneratedDocs.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    card().vm.$emit('refresh')
+    await flushPromises()
+    card().vm.$emit('refresh')
+    await flushPromises()
+
+    second.resolve(docsWith(300))
+    await flushPromises()
+    expect(card().props('invoice')?.total).toBe(300)
+    first.resolve(docsWith(200)) // lands last, but it is the older reload
+    await flushPromises()
+    expect(card().props('invoice')?.total).toBe(300)
+  })
+
+  it("an earlier reload's failure is not reported while a newer one is on its way", async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { card } = await mountWorkspace()
+
+    // Save 1's refresh reads the case and starts on the documents…
+    const firstDocs = deferred<GeneratedDocs>()
+    api.getGeneratedDocs.mockReturnValueOnce(firstDocs.promise)
+    card().vm.$emit('refresh')
+    await flushPromises()
+    // …save 2's refresh is still reading the case when save 1's documents fail.
+    const secondCase = deferred<CaseDetail>()
+    api.getCase.mockReturnValueOnce(secondCase.promise)
+    card().vm.$emit('refresh')
+    await flushPromises()
+    firstDocs.reject(new Error('network'))
+    await flushPromises()
+    expect(card().props('refreshError')).toBeNull()
+
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(300))
+    secondCase.resolve(detail)
+    await flushPromises()
+    expect(card().props('invoice')?.total).toBe(300)
+    expect(card().props('refreshError')).toBeNull()
+  })
+
+  it('the newest reload failing is reported to the invoice card', async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { card } = await mountWorkspace()
+    api.getGeneratedDocs.mockRejectedValueOnce(new Error('network'))
+    card().vm.$emit('refresh')
+    await flushPromises()
+    expect(card().props('refreshError')).toBe('Could not generate the documents.')
+    expect(card().props('invoice')?.total).toBe(100)
+  })
+})

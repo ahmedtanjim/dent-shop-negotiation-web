@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { InvoiceBreakdown } from '@/api/types'
-import { calendarDay, invoiceView, serverBillingDay, type InvoiceFigures } from './invoiceFigures'
+import {
+  calendarDay,
+  dayRefreshDue,
+  invoiceView,
+  localDayOf,
+  serverBillingDay,
+  type InvoiceFigures,
+} from './invoiceFigures'
 
 /** The API's invoice: storage billed through the shop's day (2026-10-29 here). */
 const server: InvoiceBreakdown = {
@@ -84,5 +91,54 @@ describe('serverBillingDay', () => {
   it('no end date on the invoice, or no invoice: unknown', () => {
     expect(serverBillingDay({ ...server, storageEnd: null }, null)).toBeNull()
     expect(serverBillingDay(null, null)).toBeNull()
+  })
+})
+
+describe('dayRefreshDue', () => {
+  // A Chicago browser in late October (UTC-5): its midnight is 05:00 UTC.
+  const savedTz = process.env.TZ
+  beforeAll(() => {
+    process.env.TZ = 'America/Chicago'
+  })
+  afterAll(() => {
+    if (savedTz === undefined) delete process.env.TZ
+    else process.env.TZ = savedTz
+  })
+  const at = (iso: string) => new Date(iso).getTime()
+  const oct29 = calendarDay('2026-10-29')
+  const oct30 = calendarDay('2026-10-30')
+
+  it('the browser and UTC day numbers', () => {
+    expect(localDayOf(at('2026-10-30T04:59:00Z'))).toBe(oct29) // 11:59 pm in Chicago
+    expect(localDayOf(at('2026-10-30T05:00:00Z'))).toBe(oct30)
+  })
+
+  it("the browser's date turns over: due, whatever the invoice says", () => {
+    expect(dayRefreshDue(at('2026-10-30T04:59:30Z'), at('2026-10-30T05:00:30Z'), null)).toBe(true)
+  })
+
+  it('the UTC date turns over while the browser is still on its day (a shop with no state): due', () => {
+    expect(dayRefreshDue(at('2026-10-29T23:59:30Z'), at('2026-10-30T00:00:30Z'), null)).toBe(true)
+  })
+
+  it("a Colorado shop seen from Chicago: due at Denver's midnight, an hour after the browser's", () => {
+    // The refresh at Chicago midnight still came back on Denver's 29th.
+    expect(dayRefreshDue(at('2026-10-30T05:59:30Z'), at('2026-10-30T06:00:30Z'), oct29)).toBe(true)
+  })
+
+  it('a new UTC hour once the server is on the later date: not due', () => {
+    expect(dayRefreshDue(at('2026-10-30T05:59:30Z'), at('2026-10-30T06:00:30Z'), oct30)).toBe(false)
+  })
+
+  it('a new UTC hour with no open range (or no invoice yet): not due', () => {
+    expect(dayRefreshDue(at('2026-10-30T05:59:30Z'), at('2026-10-30T06:00:30Z'), null)).toBe(false)
+  })
+
+  it('a tick inside the same UTC hour, even with the server behind: not due', () => {
+    expect(dayRefreshDue(at('2026-10-30T05:30:00Z'), at('2026-10-30T05:31:00Z'), oct29)).toBe(false)
+  })
+
+  it('a tab woken after hours: due when the server is behind the date now', () => {
+    expect(dayRefreshDue(at('2026-10-30T05:10:00Z'), at('2026-10-30T09:00:00Z'), oct29)).toBe(true)
   })
 })

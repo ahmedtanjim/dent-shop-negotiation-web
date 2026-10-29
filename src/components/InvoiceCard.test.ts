@@ -60,11 +60,11 @@ const server: InvoiceBreakdown = {
   total: 600,
 }
 
-function mountCard() {
+function mountCard(invoice: InvoiceBreakdown = server, caseDetail: CaseDetail = detail) {
   setActivePinia(createPinia())
   useAuthStore().shopId = 'shop-1'
   return mount(InvoiceCard, {
-    props: { detail, invoice: server, refreshError: null },
+    props: { detail: caseDetail, invoice, refreshError: null },
     global: { stubs: { DateField: true } },
   })
 }
@@ -86,6 +86,29 @@ describe('InvoiceCard', () => {
     vi.advanceTimersByTime(60_000) // 00:00:30 UTC, 7:00 pm in Chicago
     expect(new Date().getDate()).toBe(29) // the browser's own date has not moved
     expect(w.emitted('refresh')).toHaveLength(1)
+  })
+
+  it("a shop west of the browser: refreshes at the shop's midnight, not only the browser's", () => {
+    // 12:59 am in Chicago, 11:59 pm in Denver: the refresh at Chicago midnight came back with a
+    // Colorado shop's invoice still billed through the 29th.
+    vi.setSystemTime(new Date('2026-10-30T05:59:30Z'))
+    const w = mountCard()
+    vi.advanceTimersByTime(60_000) // midnight in Denver
+    expect(w.emitted('refresh')).toHaveLength(1)
+    vi.advanceTimersByTime(30 * 60_000) // the rest of the hour: nothing more
+    expect(w.emitted('refresh')).toHaveLength(1)
+  })
+
+  it('no hourly refresh once the server is on the date, or for a closed range', () => {
+    vi.setSystemTime(new Date('2026-10-30T05:59:30Z'))
+    const caughtUp = mountCard({ ...server, storageEnd: '2026-10-30', storageDays: 11 })
+    const closed = mountCard({ ...server, storageEnd: '2026-10-25', storageDays: 6 }, {
+      ...detail,
+      storageEndDate: '2026-10-25',
+    })
+    vi.advanceTimersByTime(60_000)
+    expect(caughtUp.emitted('refresh')).toBeUndefined()
+    expect(closed.emitted('refresh')).toBeUndefined()
   })
 
   it('shows the server invoice, the preview while an edit saves, and the server invoice again when the reload fails', async () => {
