@@ -17,9 +17,14 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 
 /* Typed as text and parsed strictly (utils/amount): "-50" or "1e6" is an error under the
-   box, never a silent number. An EMPTY box keeps the shop's current default (sent as null,
-   which the API leaves unchanged); 0 clears it. */
+   box, never a silent number. Only a box whose text was changed since the dialog opened is
+   sent: an untouched box sends null (the API keeps the stored value), so a rate changed in
+   the CRM while this dialog was open is never written back. An edited box that is EMPTY
+   also keeps the current default; 0 clears it. */
 const f = ref({ admin: '', lot: '', perDay: '', tax: '' })
+type Box = keyof typeof f.value
+/** Each box's text as the dialog opened (after the profile loaded). */
+const opened = ref({ ...f.value })
 /** A saved default as its box shows it; 0 is "not set" and shows empty. */
 function money(n: number | null): string {
   return n ? n.toFixed(2) : ''
@@ -35,6 +40,7 @@ onMounted(async () => {
       perDay: money(p.defaultStoragePerDay),
       tax: p.salesTaxPercent ? String(p.salesTaxPercent) : '',
     }
+    opened.value = { ...f.value }
     loaded.value = true
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Could not load the shop profile.'
@@ -50,6 +56,10 @@ const parsed = computed(() => ({
   tax: parsePercent(f.value.tax, 'Sales tax'),
 }))
 const hasErrors = computed(() => Object.values(parsed.value).some((p) => p.error))
+/** What a box sends: its typed value once edited, otherwise null (keep). */
+function sent(k: Box): number | null {
+  return f.value[k].trim() === opened.value[k].trim() ? null : parsed.value[k].value
+}
 
 const busy = ref(false)
 const saved = ref(false)
@@ -59,12 +69,11 @@ async function save() {
   busy.value = true
   error.value = null
   try {
-    const p = parsed.value
     await updateShopRates(auth.shopId, {
-      defaultStoragePerDay: p.perDay.value,
-      adminFee: p.admin.value,
-      lotFee: p.lot.value,
-      salesTaxPercent: p.tax.value,
+      defaultStoragePerDay: sent('perDay'),
+      adminFee: sent('admin'),
+      lotFee: sent('lot'),
+      salesTaxPercent: sent('tax'),
     })
     saved.value = true
     setTimeout(() => emit('close'), 700)
