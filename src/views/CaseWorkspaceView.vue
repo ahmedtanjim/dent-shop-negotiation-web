@@ -7,6 +7,8 @@ import { ApiError } from '@/api/client'
 import type { CaseDetail, CaseStatus, GeneratedDocs } from '@/api/types'
 import { centsToUsd, usd } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
+import { useEntitlementStore } from '@/stores/entitlement'
+import { provideCaseReadOnly } from '@/utils/readOnly'
 import StatusPill from '@/components/StatusPill.vue'
 import CaseSidebar from '@/components/CaseSidebar.vue'
 import InvoiceCard from '@/components/InvoiceCard.vue'
@@ -19,8 +21,15 @@ import { setTitle } from '@/router'
 const props = defineProps<{ id: string }>()
 
 const auth = useAuthStore()
+const ent = useEntitlementStore()
 const route = useRoute()
 const router = useRouter()
+
+/* The shop's DSM Negotiator plan ended: its cases, letters and PDFs stay readable, but the
+   API refuses every write (audit 2026-10-26 #10). Every panel below reads this and hides or
+   disables what would write; the banner in App.vue says why. */
+const readOnly = computed(() => ent.readOnly)
+provideCaseReadOnly(readOnly)
 
 const detail = ref<CaseDetail | null>(null)
 const loading = ref(true)
@@ -101,9 +110,13 @@ watch(
 
 /* ---------- case status: open → settled / closed (NEG-8) ---------- */
 const STATUSES: CaseStatus[] = ['Open', 'Settled', 'Closed', 'Litigation']
-const canManage = computed(() => ['owner', 'manager', 'admin'].includes((auth.role ?? '').toLowerCase()))
+const canManage = computed(
+  () => !readOnly.value && ['owner', 'manager', 'admin'].includes((auth.role ?? '').toLowerCase()),
+)
 /** Delete is owner/manager only (the API enforces it). Soft: restorable from the list for 30 days. */
-const canDelete = computed(() => ['owner', 'manager'].includes((auth.role ?? '').toLowerCase()))
+const canDelete = computed(
+  () => !readOnly.value && ['owner', 'manager'].includes((auth.role ?? '').toLowerCase()),
+)
 const deleting = ref(false)
 async function onDelete() {
   if (!detail.value || deleting.value) return
@@ -151,8 +164,8 @@ function jumpToDraft() {
 }
 const invoice = computed(() => docs.value?.invoice ?? null)
 
-// The header's balance follows the invoice card's live math while an edit is in
-// flight, so the big number reacts to every keystroke like the mockup promised.
+// The header's balance is the one the invoice card shows: the server's invoice (what the
+// PDF and letters print), or the card's preview while an edit is on its way to the server.
 const liveTotal = ref<number | null>(null)
 // The invoice card names exactly why storage bills nothing ($0 rate, end before start…).
 const storageIssue = ref<string | null>(null)
@@ -299,6 +312,7 @@ watch(
               v-model:storage-issue="storageIssue"
               :detail="detail"
               :invoice="invoice"
+              :refresh-error="docsError"
               @refresh="refresh"
             />
             <LetterColumns :docs="docs" :loading="docsLoading" :error="docsError" @reload="loadDocs" />
@@ -308,7 +322,7 @@ watch(
 
       <!-- Tab 2 · negotiation -->
       <section v-show="tab === 'nego'" class="tabpanel">
-        <button v-if="detail.case.status !== 'Litigation'" type="button" class="btn jump-draft" @click="jumpToDraft">
+        <button v-if="detail.case.status !== 'Litigation' && !readOnly" type="button" class="btn jump-draft" @click="jumpToDraft">
           <PenLine :size="14" /> Generate new correspondence
         </button>
         <div class="nego-grid">

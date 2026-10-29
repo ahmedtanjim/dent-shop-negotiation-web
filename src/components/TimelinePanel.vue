@@ -24,6 +24,7 @@ import DraftQuestions from '@/components/DraftQuestions.vue'
 import { findBlanks } from '@/utils/placeholders'
 import { readEmlPreview, type EmlPreview } from '@/utils/emlHeaders'
 import { looksLikeEmlName, tooLargeMessage } from '@/utils/uploads'
+import { useCaseReadOnly } from '@/utils/readOnly'
 
 const props = defineProps<{
   detail: CaseDetail
@@ -35,6 +36,9 @@ const emit = defineEmits<{ refresh: []; counsel: [] }>()
 const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
+/** The shop's plan ended: the record reads and copies; intake and every per-entry change
+ *  (mark sent, re-file, remove) are hidden. */
+const readOnly = useCaseReadOnly()
 
 // Newest first: the latest email/draft is what the owner acts on, so it sits at the top
 // right under the intake box — no scrolling to the bottom to find out what just happened.
@@ -306,6 +310,7 @@ async function autoDraftReply(inbound: NegMessage) {
 }
 
 async function runIntake(intake: () => Promise<NegMessage>): Promise<boolean> {
+  if (readOnly.value) return false
   intakeBusy.value = true
   intakeError.value = null
   draftFailNote.value = null
@@ -445,6 +450,7 @@ const actionError = ref<string | null>(null)
 const confirmSendId = ref<string | null>(null)
 async function onMarkSent(m: NegMessage) {
   confirmSendId.value = null
+  if (readOnly.value) return
   sendingId.value = m.id
   actionError.value = null
   try {
@@ -462,6 +468,7 @@ const confirmDeleteId = ref<string | null>(null)
 const busyId = ref<string | null>(null)
 async function onDelete(m: NegMessage) {
   confirmDeleteId.value = null
+  if (readOnly.value) return
   busyId.value = m.id
   actionError.value = null
   try {
@@ -474,6 +481,7 @@ async function onDelete(m: NegMessage) {
   }
 }
 async function onRefile(m: NegMessage, kind: 'Inbound' | 'Sent') {
+  if (readOnly.value) return
   busyId.value = m.id
   actionError.value = null
   try {
@@ -519,13 +527,13 @@ function fromLine(m: NegMessage): string {
     </div>
 
     <!-- intake trigger: the paste strip -->
-    <button v-if="!showIntake" class="paste-strip" @click="showIntake = true">
+    <button v-if="!showIntake && !readOnly" class="paste-strip" @click="showIntake = true">
       <span>New letter from the adjuster? Paste it — the assistant names the tactic and drafts your reply.</span>
       <span class="btn"><MailPlus :size="15" /> Add insurer email</span>
     </button>
 
     <!-- intake panel -->
-    <div v-if="showIntake" ref="intakeCard" class="card intake">
+    <div v-if="showIntake && !readOnly" ref="intakeCard" class="card intake">
       <!-- pipeline stepper replaces the form while the email is processed -->
       <div v-if="intakePhase !== 'idle'" class="intake-progress">
         <div v-for="s in STEPS" :key="s.key" class="pstep" :class="stepState(s.key)">
@@ -672,7 +680,8 @@ function fromLine(m: NegMessage): string {
     <!-- messages -->
     <div v-if="sorted.length === 0 && !draftingVisible" class="card empty-timeline">
       <Inbox :size="26" class="muted" />
-      <p class="muted">
+      <p v-if="readOnly" class="muted">No correspondence on this case.</p>
+      <p v-else class="muted">
         No correspondence yet. Add the insurer's first email — the assistant reads it, flags the
         tactic, and drafts your reply.
       </p>
@@ -767,7 +776,7 @@ function fromLine(m: NegMessage): string {
         </div>
       </div>
 
-      <footer v-if="confirmDeleteId === m.id" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-del-${m.id}`">
+      <footer v-if="confirmDeleteId === m.id && !readOnly" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-del-${m.id}`">
         <p :id="`confirm-del-${m.id}`" class="confirm-q">
           {{ deleteQuestion(m) }}
           <span>It's removed from the case timeline{{ m.kind === 'Inbound' ? ', with the facts read from it' : '' }}. The removal is kept in the activity log.</span>
@@ -779,7 +788,7 @@ function fromLine(m: NegMessage): string {
           </button>
         </div>
       </footer>
-      <footer v-else-if="m.kind === 'Draft' && confirmSendId === m.id" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-${m.id}`">
+      <footer v-else-if="m.kind === 'Draft' && confirmSendId === m.id && !readOnly" class="msg-actions confirm-send" role="alertdialog" :aria-labelledby="`confirm-${m.id}`">
         <p :id="`confirm-${m.id}`" class="confirm-q">
           Did you send this from your own mailbox?
           <span>It moves to the docket as sent{{ detail.case.insurerName ? ` to ${detail.case.insurerName}` : '' }}. This can't be undone.</span>
@@ -801,14 +810,16 @@ function fromLine(m: NegMessage): string {
             <Copy v-else :size="14" />
             {{ copiedId === m.id ? 'Copied' : 'Copy' }}
           </button>
-          <button class="btn btn-ghost btn-sm" title="Discard draft" aria-label="Discard draft" @click="confirmDeleteId = m.id">
-            <Trash2 :size="14" />
-          </button>
-          <button class="btn btn-primary btn-sm" :disabled="sendingId === m.id" @click="confirmSendId = m.id">
-            <span v-if="sendingId === m.id" class="spinner"></span>
-            <Send v-else :size="14" />
-            Mark as sent
-          </button>
+          <template v-if="!readOnly">
+            <button class="btn btn-ghost btn-sm" title="Discard draft" aria-label="Discard draft" @click="confirmDeleteId = m.id">
+              <Trash2 :size="14" />
+            </button>
+            <button class="btn btn-primary btn-sm" :disabled="sendingId === m.id" @click="confirmSendId = m.id">
+              <span v-if="sendingId === m.id" class="spinner"></span>
+              <Send v-else :size="14" />
+              Mark as sent
+            </button>
+          </template>
         </div>
       </footer>
       <footer v-else-if="m.kind === 'Sent'" class="msg-actions">
@@ -819,21 +830,23 @@ function fromLine(m: NegMessage): string {
             <Copy v-else :size="14" />
             {{ copiedId === m.id ? 'Copied' : 'Copy' }}
           </button>
-          <button
-            v-if="m.tone === null"
-            class="btn btn-ghost btn-sm"
-            :disabled="busyId === m.id"
-            title="This was received from the insurer, not sent by the shop"
-            @click="onRefile(m, 'Inbound')"
-          >
-            <ArrowDownLeft :size="14" /> File as received
-          </button>
-          <button class="btn btn-ghost btn-sm" title="Remove from the record" aria-label="Remove from the record" @click="confirmDeleteId = m.id">
-            <Trash2 :size="14" />
-          </button>
+          <template v-if="!readOnly">
+            <button
+              v-if="m.tone === null"
+              class="btn btn-ghost btn-sm"
+              :disabled="busyId === m.id"
+              title="This was received from the insurer, not sent by the shop"
+              @click="onRefile(m, 'Inbound')"
+            >
+              <ArrowDownLeft :size="14" /> File as received
+            </button>
+            <button class="btn btn-ghost btn-sm" title="Remove from the record" aria-label="Remove from the record" @click="confirmDeleteId = m.id">
+              <Trash2 :size="14" />
+            </button>
+          </template>
         </div>
       </footer>
-      <footer v-else-if="m.kind === 'Inbound'" class="msg-actions">
+      <footer v-else-if="m.kind === 'Inbound' && !readOnly" class="msg-actions">
         <div></div>
         <div class="msg-buttons">
           <button

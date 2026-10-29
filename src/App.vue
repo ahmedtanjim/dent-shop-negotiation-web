@@ -42,6 +42,12 @@ async function onSwitchShop(e: Event) {
 function logout() {
   auth.logout()
   ent.reset()
+  // The notices belong to the session that raised them: left set, the "for owners and
+  // managers" screen hid the login form until a reload, and the last shop's banners greeted
+  // the next sign-in.
+  negotiatorAccessDenied.value = null
+  aiCapNotice.value = null
+  subscriptionNotice.value = null
   router.push({ name: 'login' })
 }
 
@@ -53,6 +59,11 @@ watch(aiPlanRequired, (hit) => {
   // invalidate() marks the cached plan stale synchronously, so the router guard below
   // waits for the fresh answer instead of bouncing the paywall back (NEG-7).
   if (auth.shopId) void ent.invalidate(auth.shopId)
+  // A shop whose plan ended reads its cases (#10): the read-only banner says why its writes
+  // are refused, and the page stays where it is instead of jumping to the paywall. (Checked
+  // after invalidate(): the plan no longer counts as AI, so a shop with cases reads as
+  // read-only right away.)
+  if (ent.readOnly) return
   if (route.name !== 'paywall') {
     router.push({ name: 'paywall', query: route.fullPath !== '/cases' ? { redirect: route.fullPath } : {} })
   }
@@ -196,7 +207,7 @@ const capResets = computed(() => {
     <main class="app-main">
       <!-- Field staff (or an admin without financials): the API refuses every case read.
            Say why and where their letters are, instead of a page of red errors. -->
-      <section v-if="negotiatorAccessDenied" class="no-access">
+      <section v-if="auth.isAuthed && negotiatorAccessDenied" class="no-access">
         <h1>DSM Negotiator is for owners and managers</h1>
         <p>{{ negotiatorAccessDenied }}</p>
         <p class="muted">Open a car in Dent Shop Manager and pick its <b>Letters</b> tab to copy the letters to the adjuster.</p>

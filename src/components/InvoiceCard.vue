@@ -11,13 +11,22 @@ import { usd } from '@/utils/format'
 import { parseMoney, parsePercent } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
 import { useFlushOnLeave } from '@/utils/flushOnLeave'
+import { calendarDay, invoiceView, serverBillingDay } from '@/utils/invoiceFigures'
+import { useCaseReadOnly } from '@/utils/readOnly'
 
-const props = defineProps<{ detail: CaseDetail; invoice: InvoiceBreakdown | null }>()
+const props = defineProps<{
+  detail: CaseDetail
+  invoice: InvoiceBreakdown | null
+  /** The workspace's last documents reload failed (its message), else null. */
+  refreshError?: string | null
+}>()
 const emit = defineEmits<{ refresh: [] }>()
 
 const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
+/** The shop's plan ended: the invoice reads and downloads, but nothing edits or saves. */
+const readOnly = useCaseReadOnly()
 
 /* ---------- inline-editable figures ----------
    The inputs show the EFFECTIVE numbers (case override, else shop default) so the card
@@ -28,6 +37,9 @@ const caseId = computed(() => props.detail.case.id)
 
 const f = ref({ admin: '', lot: '', perDay: '', tax: '', since: '', until: '' })
 const edited = ref(new Set<string>())
+const saving = ref(false)
+/** A save landed and the refresh it asked for hasn't brought the new invoice back yet. */
+const awaitingRefresh = ref(false)
 
 function fmtNum(n: number): string {
   return n.toFixed(2)
@@ -53,15 +65,22 @@ function resetFields() {
 watch(
   () => props.invoice,
   () => {
+    // The server's figures are back: the card shows them again instead of the preview.
+    awaitingRefresh.value = false
     // A refresh only re-syncs the figures when no edit is waiting to save.
     if (edited.value.size === 0) resetFields()
   },
   { immediate: true },
 )
-
-/* ---------- live math — mirrors TotalLossInvoice.Compute on the server ----------
-   Storage days are inclusive of both endpoints; an open-ended range accrues through
-   today; tax rounds half away from zero. */
+// The refresh a save asked for failed, so no new invoice is coming: stop waiting and show
+// the server's (last loaded) invoice again rather than the preview indefinitely. The
+// workspace's reload error says what went wrong and offers a retry.
+watch(
+  () => props.refreshError,
+  (e) => {
+    if (e) awaitingRefresh.value = false
+  },
+)
 
 /* Figures are parsed strictly (utils/amount): "-50" or "1e6" is an error under the
    invoice, never a silent 50 / 16, and nothing saves while any figure is invalid. */
@@ -74,15 +93,33 @@ const parsed = computed(() => ({
 }))
 type Figure = keyof typeof parsed.value
 
-/* ---------- "today", on the server's day basis ----------
-   The server counts storage in UTC calendar days: an open range accrues through today in
-   UTC, a set end date is clamped to it, and an end date is refused only past UTC today + 1
-   (slack for users east of UTC). Mixing the browser's local date in here put the card a
-   day off the server every US evening, after UTC midnight. `clock` ticks each minute and
-   on focus, so a tab left open overnight rolls over instead of keeping the day it mounted. */
+/* ---------- "today" ----------
+   The figures on the card come from the API, which bills storage through the SHOP's own
+   calendar day (ShopClock) — the same invoice the PDF and the letters print. Two days are
+   still judged here:
+   - the preview of an unsaved edit bills through the server's day when its invoice shows it
+     (serverBillingDay), else the browser's date (the shop's day for anyone working there);
+   - "Storage ends" follows the API's own check (CaseInvoiceInputValidator), which refuses an
+     end date only past UTC today + 1: the card allows UTC today, or the user's date when it
+     is already a day ahead of UTC, so it never accepts a date the API would refuse.
+   `clock` ticks each minute and on focus. When the browser's date OR the UTC date rolls over
+   (a shop with no state on file bills in UTC) and nothing is waiting to save, the card asks
+   for a refresh, so an open range on a tab left open overnight gains its new day from the
+   server whichever day the shop bills by. */
 const clock = ref(Date.now())
+function localDayOf(ms: number): number {
+  const n = new Date(ms)
+  return Math.floor(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / 86400000)
+}
+function utcDayOf(ms: number): number {
+  return Math.floor(ms / 86400000)
+}
 function tick() {
+  const before = clock.value
   clock.value = Date.now()
+  const rolledOver =
+    localDayOf(clock.value) !== localDayOf(before) || utcDayOf(clock.value) !== utcDayOf(before)
+  if (rolledOver && !editPending.value) emit('refresh')
 }
 const clockTimer = setInterval(tick, 60_000)
 window.addEventListener('focus', tick)
@@ -91,30 +128,24 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', tick)
 })
 
-function utcDay(dateStr: string): number | null {
-  if (!dateStr) return null
-  const t = Date.parse(`${dateStr}T00:00:00Z`)
-  return Number.isNaN(t) ? null : Math.floor(t / 86400000)
-}
 function isoOfDay(day: number): string {
   return new Date(day * 86400000).toISOString().slice(0, 10)
 }
-/** Today as a UTC day number — what the server bills through. */
-const todayUtc = computed(() => Math.floor(clock.value / 86400000))
-/** The latest end date that isn't "in the future": UTC today, or the user's own date when
- *  it is already a day ahead of UTC (inside the server's one-day slack). */
-const latestEnd = computed(() => {
-  const n = new Date(clock.value)
-  const local = Math.floor(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / 86400000)
-  return Math.max(todayUtc.value, local)
-})
+const localToday = computed(() => localDayOf(clock.value))
+const todayUtc = computed(() => utcDayOf(clock.value))
+/** The day an unsaved edit's preview bills storage through. */
+const billingDay = computed(
+  () => serverBillingDay(props.invoice, props.detail.storageEndDate) ?? localToday.value,
+)
+/** The latest end date the API accepts (see above). */
+const latestEnd = computed(() => Math.max(todayUtc.value, localToday.value))
 const today = computed(() => isoOfDay(latestEnd.value))
 
 const errors = computed(() => {
   const out: Partial<Record<Figure | 'until', string>> = {}
   for (const [k, p] of Object.entries(parsed.value)) if (p.error) out[k as Figure] = p.error
   // A future end date would bill days that haven't happened yet.
-  const until = utcDay(f.value.until)
+  const until = calendarDay(f.value.until)
   if (until !== null && until > latestEnd.value)
     out.until =
       "Storage can't end in the future. Leave \"Storage ends\" empty while the car is on your lot; it accrues through today."
@@ -126,41 +157,52 @@ function val(k: Figure): number {
   return parsed.value[k].value ?? 0
 }
 
-const live = computed(() => {
+/* ---------- preview of an unsaved edit ----------
+   Same rules as TotalLossInvoice.Compute on the server (inclusive days, an open range
+   accrues through today, tax rounds half away from zero), so the numbers follow the
+   keystrokes. It is shown ONLY while an edit is on its way: once the save's refresh brings
+   the server's invoice back, the card and the header show the server's figures again. */
+const preview = computed(() => {
   const admin = val('admin')
   const lot = val('lot')
   const rate = val('perDay')
-  const start = utcDay(f.value.since)
+  const start = calendarDay(f.value.since)
   let days = 0
   if (start !== null && rate > 0) {
-    // Same clamp as the server: an open range, or an end past today, stops at UTC today.
-    const until = utcDay(f.value.until)
-    const end = until !== null && until < todayUtc.value ? until : todayUtc.value
+    // Same clamp as the server: an open range, or an end past today, stops at today.
+    const until = calendarDay(f.value.until)
+    const end = until !== null && until < billingDay.value ? until : billingDay.value
     days = Math.max(0, end - start + 1)
   }
   const storage = days * rate
   const subtotal = admin + lot + storage
-  const taxPct = val('tax')
   // Server rounds tax in integer cents, half away from zero: round(subtotalCents · pct/100).
-  const tax = Math.round(subtotal * taxPct) / 100
-  return { days, storage, subtotal, taxPct, tax, total: subtotal + tax }
+  const tax = Math.round(subtotal * val('tax')) / 100
+  return { days, storage, subtotal, tax, total: subtotal + tax }
 })
+/** Typed but not saved, a save in flight, or the save's refresh not back yet. */
+const editPending = computed(() => edited.value.size > 0 || saving.value || awaitingRefresh.value)
+const view = computed(() =>
+  invoiceView(props.invoice, preview.value, { editPending: editPending.value, invalid: hasErrors.value }),
+)
+const shown = computed(() => view.value.figures)
 /** Why storage bills nothing — named precisely, never a generic "set the date". */
 const storageIssue = computed<string | null>(() => {
-  const start = utcDay(f.value.since)
-  const end = utcDay(f.value.until)
+  const start = calendarDay(f.value.since)
+  const end = calendarDay(f.value.until)
   if (start === null) return 'no start date (set "Storage since")'
   if (val('perDay') <= 0) return 'the daily rate is $0 (enter your storage rate)'
-  if (start > todayUtc.value) return 'the start date is in the future'
+  if (start > billingDay.value) return 'the start date is in the future'
   if (end !== null && end < start) return 'the end date is before the start date'
-  return live.value.days === 0 ? 'no storage days in the date range' : null
+  return shown.value.days === 0 ? 'no storage days in the date range' : null
 })
 const storageMissing = computed(() => storageIssue.value !== null)
+// The header shows the same balance as the card; while a figure is invalid it keeps the
+// last saved one.
 const emitTotal = defineModel<number | null>('liveTotal')
-// While a figure is invalid the header keeps the last saved balance.
 watch(
-  [live, hasErrors],
-  ([v, bad]) => (emitTotal.value = bad ? (props.invoice?.total ?? null) : v.total),
+  () => view.value.headerTotal,
+  (t) => (emitTotal.value = t),
   { immediate: true },
 )
 const emitIssue = defineModel<string | null>('storageIssue')
@@ -168,27 +210,40 @@ watch(storageIssue, (v) => (emitIssue.value = v), { immediate: true })
 
 /* ---------- debounced auto-save ---------- */
 
-const saving = ref(false)
 const savedFlash = ref(false)
 const saveError = ref<string | null>(null)
 let timer: ReturnType<typeof setTimeout> | undefined
 
 let debouncePending = false
 function touched(field: string) {
+  if (readOnly.value) return
   edited.value = new Set(edited.value).add(field)
   clearTimeout(timer)
   debouncePending = true
   timer = setTimeout(() => void save(), 800)
 }
 // Leaving the page (another case, the case list, closing the tab) inside the debounce
-// window used to cancel the save and lose the edit (NEG-6) — flush it instead.
+// window used to cancel the save and lose the edit (NEG-6) — flush it instead. Read-only,
+// there is never anything to flush.
 useFlushOnLeave(
-  () => debouncePending || rerun,
+  () => !readOnly.value && (debouncePending || rerun),
   (keepalive) => {
+    if (readOnly.value) return
     clearTimeout(timer)
     void save(keepalive)
   },
 )
+
+// The plan ended mid-edit (the save came back 402 and the shop now reads as read-only):
+// that edit can never be saved, so the card returns to the saved invoice.
+watch(readOnly, (ro) => {
+  if (!ro) return
+  clearTimeout(timer)
+  debouncePending = false
+  rerun = false
+  awaitingRefresh.value = false
+  resetFields()
+})
 
 function optOverride(field: Figure, original: number | null): number | null {
   if (!edited.value.has(field)) return original
@@ -200,6 +255,7 @@ let rerun = false
 
 async function save(keepalive = false) {
   debouncePending = false
+  if (readOnly.value) return
   tick() // judge "future" against the day it is now, not the last minute tick
   // Invalid figures stay on screen with their message; nothing is sent until they're fixed.
   if (hasErrors.value) return
@@ -230,6 +286,9 @@ async function save(keepalive = false) {
     edited.value = still
     savedFlash.value = true
     setTimeout(() => (savedFlash.value = false), 1600)
+    // Keep the preview up until the refresh brings the server's recomputed invoice: the
+    // old one would otherwise flash back for a moment.
+    awaitingRefresh.value = true
     emit('refresh')
   } catch (e) {
     saveError.value = e instanceof ApiError ? e.message : 'Save failed.'
@@ -288,7 +347,9 @@ async function onPdf() {
       </span>
     </div>
 
-    <div class="lines">
+    <!-- read-only (plan ended): a disabled fieldset turns off every input inside it, the
+         date chips included -->
+    <fieldset class="lines" :disabled="readOnly">
       <div class="line">
         <span class="desc">Admin / blueprinting fee</span>
         <span class="val"
@@ -308,13 +369,13 @@ async function onPdf() {
           Storage since
           <DateField v-model="f.since" variant="chip" label="In shop since" @input="touched('since')" />
           <template v-if="!storageMissing">
-            · <span class="mono days">{{ live.days }}</span>&nbsp;{{ live.days === 1 ? 'day' : 'days' }} ·
+            · <span class="mono days">{{ shown.days }}</span>&nbsp;{{ shown.days === 1 ? 'day' : 'days' }} ·
           </template>
           <template v-else> · </template>
           $ <input v-model="f.perDay" class="blank rate" :class="{ invalid: errors.perDay }" :aria-invalid="!!errors.perDay" inputmode="decimal" aria-label="Storage per day, dollars"
             @input="touched('perDay')" /> /day
         </span>
-        <span class="val mono">{{ errors.perDay || errors.until ? '—' : usd(live.storage) }}</span>
+        <span class="val mono">{{ errors.perDay || errors.until ? '—' : usd(shown.storage) }}</span>
       </div>
       <div class="line sub">
         <span class="desc">
@@ -339,13 +400,13 @@ async function onPdf() {
           <input v-model="f.tax" class="blank pct" :class="{ invalid: errors.tax }" :aria-invalid="!!errors.tax" inputmode="decimal" aria-label="Sales tax percent"
             @input="touched('tax')" /> %
         </span>
-        <span class="val mono">{{ hasErrors ? '—' : usd(live.tax) }}</span>
+        <span class="val mono">{{ hasErrors ? '—' : usd(shown.tax) }}</span>
       </div>
       <div class="line total">
         <span class="desc">Total recovery balance</span>
-        <span class="val mono">{{ hasErrors ? '—' : usd(live.total) }}</span>
+        <span class="val mono">{{ hasErrors ? '—' : usd(shown.total) }}</span>
       </div>
-    </div>
+    </fieldset>
 
     <div v-if="hasErrors" class="field-errs" role="alert">
       <p v-for="(msg, k) in errors" :key="k" class="field-err">{{ msg }}</p>
@@ -365,7 +426,10 @@ async function onPdf() {
     </div>
 
     <div class="inv-foot">
-      <span class="hint">
+      <span v-if="readOnly" class="hint">
+        Read-only — your DSM Negotiator plan has ended. The PDF still downloads.
+      </span>
+      <span v-else class="hint">
         Click any figure to edit — it saves itself and every letter updates. Cleared fees fall back
         to your shop defaults.
       </span>
@@ -503,6 +567,23 @@ async function onPdf() {
 .hint-inline {
   color: var(--text-faint);
   font-size: 12px;
+}
+fieldset.lines {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+/* read-only: the figures read as plain text — no hover ring, no date picker */
+.blank:disabled {
+  cursor: default;
+}
+.blank:disabled:hover {
+  background: transparent;
+  outline-color: transparent;
+}
+.lines:disabled :deep(.df) {
+  pointer-events: none;
 }
 /* figures edit in place — invisible until hovered, ringed when focused */
 .blank {

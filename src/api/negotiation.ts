@@ -3,7 +3,6 @@ import type {
   CaseDetail,
   CaseListItem,
   CaseStatus,
-  ChatMessage,
   DraftQuestion,
   DraftRequest,
   DraftResult,
@@ -65,9 +64,26 @@ export interface CarOption {
   status: string
 }
 
-/** The shop's cars (the CRM's own list, the same records the Garage shows). */
+/** The shop's cars (the CRM's own list, the same records the Garage shows). The whole
+ *  garage: load it only for the "Linked car" picker, never just to label one car. */
 export function listCars(shopId: string): Promise<CarOption[]> {
   return api.get<CarOption[]>(`/api/shops/${shopId}/claims`)
+}
+
+/** The car a case is linked to — the fields the "Linked car" card shows from the CRM's
+ *  single-car read (`ClaimDetailDto`). Archived cars come back too. */
+export interface LinkedCar {
+  id: string
+  roNumber: number
+  customerName: string
+  vehicle: string
+  status: string
+  /** set when the owner archived the car (off the Garage; still this case's car) */
+  archivedAt: string | null
+}
+
+export function getCar(shopId: string, claimId: string): Promise<LinkedCar> {
+  return api.get<LinkedCar>(`/api/shops/${shopId}/claims/${claimId}`)
 }
 
 /** Link the case to a car (null unlinks). A car keeps one case: 409 car_has_case. The car's
@@ -171,14 +187,6 @@ function saveBlob(blob: Blob, fileName: string) {
 
 export function markSent(shopId: string, caseId: string, messageId: string): Promise<NegMessage> {
   return api.post<NegMessage>(`${base(shopId)}/cases/${caseId}/messages/${messageId}/mark-sent`)
-}
-
-export function getChat(shopId: string, caseId: string): Promise<ChatMessage[]> {
-  return api.get<ChatMessage[]>(`${base(shopId)}/cases/${caseId}/chat`)
-}
-
-export function sendChat(shopId: string, caseId: string, message: string): Promise<ChatMessage> {
-  return api.post<ChatMessage>(`${base(shopId)}/cases/${caseId}/chat`, { message })
 }
 
 export function addFact(
