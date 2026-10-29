@@ -24,7 +24,7 @@ import { useCaseReadOnly } from '@/utils/readOnly'
 const props = defineProps<{
   detail: CaseDetail
   invoice: InvoiceBreakdown | null
-  /** The workspace's last documents reload failed (its message), else null. */
+  /** The workspace's newest documents reload failed (its message), else null. */
   refreshError?: string | null
 }>()
 const emit = defineEmits<{ refresh: [] }>()
@@ -79,9 +79,10 @@ watch(
   },
   { immediate: true },
 )
-// The refresh a save asked for failed, so no new invoice is coming: stop waiting and show
-// the server's (last loaded) invoice again rather than the preview indefinitely. The
-// workspace's reload error says what went wrong and offers a retry.
+// The newest reload failed (the workspace reports only the newest one, so an earlier
+// reload's failure can't end the wait for a later save's), so no new invoice is coming:
+// stop waiting and show the server's (last loaded) invoice again rather than the preview
+// indefinitely. The workspace's reload error says what went wrong and offers a retry.
 watch(
   () => props.refreshError,
   (e) => {
