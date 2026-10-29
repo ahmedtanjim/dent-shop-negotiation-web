@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -59,15 +59,20 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-async function mountWorkspace() {
+/** `errors` collects what the view throws (an event handler's rejection) instead of failing the run. */
+async function mountWorkspace(errors?: unknown[]) {
   setActivePinia(createPinia())
   useAuthStore().shopId = 'shop-1'
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/cases/:id', name: 'case', component: { render: () => null } }],
+    routes: [
+      { path: '/', name: 'cases', component: { render: () => null } },
+      { path: '/cases/:id', name: 'case', component: { render: () => null } },
+    ],
   })
   await router.push('/cases/case-1')
-  const wrapper = shallowMount(CaseWorkspaceView, { props: { id: 'case-1' }, global: { plugins: [router] } })
+  const config = errors ? { errorHandler: (e: unknown) => void errors.push(e) } : {}
+  const wrapper = shallowMount(CaseWorkspaceView, { props: { id: 'case-1' }, global: { plugins: [router], config } })
   await flushPromises()
   const card = () => wrapper.getComponent(InvoiceCard)
   return { wrapper, router, card }
@@ -247,6 +252,28 @@ describe('CaseWorkspaceView case reads', () => {
     expect(wrapper.getComponent(LetterColumns).props('loading')).toBe(false)
   })
 
+  it('an earlier read landing first keeps the spinner until the opened case arrives', async () => {
+    api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
+    const { wrapper, router, card } = await mountWorkspace()
+
+    // Case A's refresh is still reading when the user opens case B; A's read lands first.
+    const aRead = deferred<CaseDetail>()
+    const bRead = deferred<CaseDetail>()
+    api.getCase.mockReturnValueOnce(aRead.promise).mockReturnValueOnce(bRead.promise)
+    card().vm.$emit('refresh')
+    await flushPromises()
+    await openCase(wrapper, router, 'case-2')
+    aRead.resolve(detail)
+    await flushPromises()
+    expect(wrapper.text()).toContain('Loading case…')
+    expect(wrapper.find('h1').exists()).toBe(false)
+
+    bRead.resolve(caseB)
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Loading case…')
+    expect(wrapper.get('h1').text()).toBe('Jones — 2019 F-150')
+  })
+
   it("the previous case's counsel banner, status error and running draft don't carry over", async () => {
     api.getGeneratedDocs.mockResolvedValueOnce(docsWith(100))
     const { wrapper, router } = await mountWorkspace()
@@ -272,5 +299,103 @@ describe('CaseWorkspaceView case reads', () => {
     expect(wrapper.find('.counsel-banner').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Status not changed.')
     expect(wrapper.getComponent(TimelinePanel).props('externalDrafting')).toBe(false)
+  })
+})
+
+describe('CaseWorkspaceView requests still running when another case opens', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api.getCase.mockResolvedValue(detail)
+    api.getGeneratedDocs.mockResolvedValue(docsWith(999))
+    vi.stubGlobal('confirm', () => true)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** Case A's workspace as its owner, so the status picker and Delete show. */
+  async function asOwner(errors?: unknown[]) {
+    const mounted = await mountWorkspace(errors)
+    useAuthStore().role = 'Owner'
+    await flushPromises()
+    return mounted
+  }
+  const deleteButton = (wrapper: VueWrapper) => wrapper.get<HTMLButtonElement>('.delete-case')
+
+  it("the previous case's failing status change shows nothing on the case opened after it", async () => {
+    const errors: unknown[] = []
+    const { wrapper, router } = await asOwner(errors)
+    const change = deferred<void>()
+    api.setCaseStatus.mockReturnValueOnce(change.promise)
+    await wrapper.get('select').setValue('Settled')
+    expect(wrapper.get('select').element.disabled).toBe(true)
+
+    // Case B is still loading when A's status change fails.
+    const bRead = deferred<CaseDetail>()
+    api.getCase.mockReturnValueOnce(bRead.promise)
+    await openCase(wrapper, router, 'case-2')
+    change.reject(new ApiError(409, 'Status not changed.'))
+    await flushPromises()
+    bRead.resolve(caseB)
+    await flushPromises()
+
+    expect(errors).toEqual([])
+    expect(wrapper.get('h1').text()).toBe('Jones — 2019 F-150')
+    expect(wrapper.text()).not.toContain('Status not changed.')
+    expect(wrapper.get('select').element.value).toBe('Open')
+    expect(wrapper.get('select').element.disabled).toBe(false)
+  })
+
+  it.each([
+    ['goes through', (d: ReturnType<typeof deferred<void>>) => d.resolve()],
+    ['fails', (d: ReturnType<typeof deferred<void>>) => d.reject(new ApiError(500, 'Delete failed.'))],
+  ])("the previous case's delete that %s never reaches the case opened after it", async (_, settle) => {
+    const errors: unknown[] = []
+    const { wrapper, router } = await asOwner(errors)
+    const del = deferred<void>()
+    api.deleteCase.mockReturnValueOnce(del.promise)
+    await deleteButton(wrapper).trigger('click')
+    expect(deleteButton(wrapper).text()).toBe('Deleting…')
+
+    api.getCase.mockResolvedValueOnce(caseB)
+    await openCase(wrapper, router, 'case-2')
+    await flushPromises()
+    expect(deleteButton(wrapper).text()).toBe('Delete case')
+    expect(deleteButton(wrapper).element.disabled).toBe(false)
+
+    settle(del)
+    await flushPromises()
+    expect(errors).toEqual([])
+    expect(router.currentRoute.value.fullPath).toBe('/cases/case-2')
+    expect(wrapper.get('h1').text()).toBe('Jones — 2019 F-150')
+    expect(wrapper.text()).not.toContain('Delete failed.')
+    expect(deleteButton(wrapper).text()).toBe('Delete case')
+  })
+
+  it('a delete that finishes after the user left the workspace leaves them where they went', async () => {
+    const { wrapper, router } = await asOwner()
+    const del = deferred<void>()
+    api.deleteCase.mockReturnValueOnce(del.promise)
+    await deleteButton(wrapper).trigger('click')
+
+    // Back to the list and into another case: a new workspace, this one is gone.
+    wrapper.unmount()
+    await router.push('/cases/case-2')
+    del.resolve()
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/cases/case-2')
+  })
+
+  it("the case's own status change and delete still land", async () => {
+    const { wrapper, router } = await asOwner()
+    api.setCaseStatus.mockRejectedValueOnce(new ApiError(409, 'Status not changed.'))
+    await wrapper.get('select').setValue('Settled')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Status not changed.')
+    expect(wrapper.get('select').element.value).toBe('Open')
+    expect(wrapper.get('select').element.disabled).toBe(false)
+
+    api.deleteCase.mockResolvedValueOnce(undefined)
+    await deleteButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('cases')
   })
 })
