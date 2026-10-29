@@ -113,8 +113,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    `placeholders.ts` / `<mark class="blank-mark">` exist only for older letters that still carry one.
 5. **Documents** — `getGeneratedDocs` (invoice breakdown + ready-made letters + `missing`),
    `downloadInvoicePdf`, case document upload/download/delete (`CaseSidebar` → Uploads).
-   **The fact ledger has no UI** (removed 2026-08-22 in fe3375f): `CaseDetail.facts` is fetched but
-   not shown, and `addFact`/`deleteFact` and `getChat`/`sendChat` (copilot) exist in
+   **The fact ledger has no UI** (removed in fe3375f (2026-08-25, after the owner's 2026-08-22
+   walkthrough)): `CaseDetail.facts` is fetched but not shown, and `addFact`/`deleteFact` and `getChat`/`sendChat` (copilot) exist in
    `api/negotiation.ts` with no caller. Answers to the pre-draft questions are still saved as facts
    by the API, so nobody can see or remove them here (open owner question).
 6. **Paywall / AI plan** — the router guard loads the entitlement once per shop; below the AI tier
@@ -127,7 +127,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    `hasStripeCustomer` is not a subscription (comped and abandoned-Checkout shops have one; if a
    hint is ever needed, `hasLiveSubscription`). A 409 `charge_confirmation_required` must be
    confirmed and re-sent with `confirmCharge`. Only the owner changes the plan. A shop whose plan
-   ended (`ent.readOnly`) gets no New case / Shop rates / Restore on the case list.
+   ended (`ent.readOnly`) gets no New case / Shop rates / Restore on the case list; its empty
+   state points at the renew banner and the cases tour skips the New case step.
 7. **Fair-use caps** — 429 `ai_cap_daily` / `ai_cap_monthly` sets `aiCapNotice` (banner with reset
    time). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to
    owner/manager/admin (`auth.canSeeUsage`); a failed read just hides it.
