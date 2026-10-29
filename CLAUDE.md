@@ -103,6 +103,12 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 ## Key flows
 
 1. **Case** — `NewCaseModal` → `createCase`; the list (`CasesView`) and workspace load via `getCase`.
+   The workspace re-reads the case after every save and status change, and only the newest
+   read's case or error lands (the case read and the documents reload each take their own
+   turns), so a slower earlier read never puts back the case as it was before a save, or the
+   previous case. Opening another case first clears the previous one's case, documents, counsel
+   banner, status error and drafting flag. The linked car's label (`CarLinkCard` → `getCar`) only
+   lands while the case still links that car.
 2. **Correspondence** — `TimelinePanel`: paste an adjuster email (`extractPaste` pre-fills
    sender, subject and date) or drop an `.eml` (`intakeEml`); the API saves it and returns its **tactic** and an
    AI read (`analysisSummary`), shown as `TacticBadge` + "AI read". Letters the shop sent are logged
