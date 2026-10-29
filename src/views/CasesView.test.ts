@@ -160,6 +160,41 @@ describe('CasesView controls follow the role and the plan', () => {
     expect(restore[0].attributes('disabled')).toBeDefined()
   })
 
+  it('every case deleted: the empty list still opens Recently deleted, and Restore works', async () => {
+    api.listDeletedCases.mockResolvedValueOnce([aCase])
+    api.restoreCase.mockResolvedValueOnce({ ...aCase, deletedAt: null })
+    const { wrapper } = await mountCases('Owner')
+    expect(wrapper.get('.empty.card').text()).toContain('No cases yet')
+    await buttons(wrapper, 'Recently deleted')[0].trigger('click')
+    await flushPromises()
+    expect(api.listDeletedCases).toHaveBeenCalledWith('shop-1')
+    expect(wrapper.text()).toContain('No cases outside Recently deleted.')
+    expect(wrapper.text()).not.toContain('Every case is closed') // the old, wrong "no match" text
+    expect(wrapper.find('input[type="search"]').exists()).toBe(false) // nothing to filter yet
+    const restore = buttons(wrapper, 'Restore')
+    expect(restore).toHaveLength(1)
+    await restore[0].trigger('click')
+    await flushPromises()
+    expect(api.restoreCase).toHaveBeenCalledWith('shop-1', 'c1')
+    expect(wrapper.find('input[type="search"]').exists()).toBe(true) // back as a live case
+  })
+
+  it('read-only with every case deleted: says where the cases are and lists them', async () => {
+    api.listDeletedCases.mockResolvedValueOnce([aCase])
+    const { wrapper } = await mountCases('Owner', plan('Free', true))
+    expect(wrapper.get('.empty.card').text()).toContain('under Recently deleted')
+    await buttons(wrapper, 'Recently deleted')[0].trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Smith — 2021 Tahoe')
+    expect(buttons(wrapper, 'Restore')[0].attributes('disabled')).toBeDefined()
+  })
+
+  it('the empty list offers Recently deleted only to roles that may restore', async () => {
+    const { wrapper } = await mountCases('Technician', plan('Free', true))
+    expect(buttons(wrapper, 'Recently deleted')).toHaveLength(0)
+    expect(wrapper.get('.empty.card').text()).not.toContain('Recently deleted')
+  })
+
   it('an AI shop keeps both', async () => {
     const { wrapper } = await mountCases('Owner')
     expect(buttons(wrapper, 'New case')).toHaveLength(2) // header and empty state
