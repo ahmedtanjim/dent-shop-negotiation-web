@@ -307,7 +307,9 @@ export interface Entitlement {
 export interface BillingState {
   billingEnabled: boolean
   entitlement: Entitlement
-  /** A real Stripe subscription (the portal works) vs one granted by a platform admin. */
+  /** The shop has a Stripe customer, so the portal opens (card, invoices). NOT proof of a
+   *  subscription: a comped shop or an abandoned Checkout has one too. Never route a
+   *  purchase on it — `POST …/billing/checkout` picks Checkout or the portal itself. */
   hasStripeCustomer: boolean
   /** A Stripe subscription that isn't canceled — a card trial or a paid plan. Missing on an
    *  older API. */
@@ -323,10 +325,9 @@ export interface MemberSummary {
   role: string
 }
 
-/** One fair-use window of the shop's AI allowance (GET /ai-usage). Money is preformatted
- *  by the API; the micros are there for math. */
-/** One fair-use window. No money on purpose — shops never see dollar figures for AI use;
- *  percentUsed is still the tighter of cost% and calls%, so the bar stays honest. */
+/** One fair-use window of the shop's AI allowance (GET /ai-usage). No money on purpose —
+ *  shops never see dollar figures for AI use; percentUsed is still the tighter of cost% and
+ *  calls%, so the bar stays honest. */
 export interface AiUsageWindow {
   calls: number
   capCalls: number

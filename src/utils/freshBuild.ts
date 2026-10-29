@@ -44,9 +44,12 @@ export function watchForNewBuild(router: Router): void {
     // navigation to the browser so the new page comes from the new build.
     if (stale && from.matched.length) {
       // Only ever a page of this app: a route built from a crafted ?redirect must not turn
-      // the full page load into a trip to another site ("//evil.test" is protocol-relative).
+      // the full page load into a trip to another site ("//evil.test" is protocol-relative,
+      // and "/.//evil.test" keeps this origin but normalises to the pathname "//evil.test").
       const url = new URL(to.fullPath, location.origin)
-      window.location.assign(url.origin === location.origin ? url.pathname + url.search + url.hash : '/')
+      window.location.assign(url.origin === location.origin && !url.pathname.startsWith('//')
+        ? url.pathname + url.search + url.hash
+        : '/')
       return false
     }
   })

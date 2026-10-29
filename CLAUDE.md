@@ -32,11 +32,13 @@ Manager (hail/PDR auto-body shops). Live at https://ai.dentshopmanager.com. GitH
 ```bash
 npm install
 npm run dev       # Vite on http://localhost:5174 (the API's dev CORS allows 5173 + 5174)
-npm run build     # vue-tsc -b (type-check) + vite build -> dist/   (this is the CI gate)
-npm run preview   # serve dist/
+npm test          # Vitest unit tests (happy-dom), once; `npm run test:watch` re-runs on save
+npm run build     # vue-tsc -b (type-check, tests included) + vite build -> dist/
+npm run preview   # serve dist/ (the landing at /welcome.html; `/` is the SWA rewrite in production)
 ```
 
-There is **no** `build:all`, `build:site`, lint or test script on `main` (see Marketing site).
+`npm test` then `npm run build` is the CI gate. There is no `build:all`, `build:site` or lint script
+on `main` (see Landing page).
 Locally the API must run on `http://localhost:5080` (`dotnet run --project src/DentShop.Presentation`
 in `dent_shop_api`). Without `Anthropic:ApiKey` the API uses a deterministic fake assistant, so
 every flow works with placeholder drafts. "Back to the shop" links go to `http://localhost:5173`
@@ -53,23 +55,32 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/router/index.ts` — routes + the auth/plan guard; `setTitle`, SEO and GA per route.
 - `src/api/` — `client.ts` (fetch wrapper: bearer, 401 → `/login?redirect=`, 402/429 handling,
   `ApiError{status, code, body}`, `download()`), `auth`, `handoff`, `billing`, `usage`,
-  `negotiation` (all case endpoints under `/api/shops/{shopId}/negotiation`), `customers`,
+  `negotiation` (all case endpoints under `/api/shops/{shopId}/negotiation`; `getCar` labels the
+  linked car, `listCars` loads the whole garage for the picker only), `customers`,
   `shops`, `support` (support address from the public `GET /api/app/contact`, API setting
   `App:SupportEmail`; fallback `dentshopmanager@gmail.com`; loaded in `main.ts`), `types.ts`
   (wire DTOs — keep in step with the API's `Dtos/`).
-- `src/stores/` — `auth` (session in `localStorage`), `entitlement` (the shop's plan; "unknown" is
-  never treated as the AI plan).
+- `src/stores/` — `auth` (session in `localStorage`; role gates as computeds: `isOwner`,
+  `canManageCases`, `canDeleteCases`, `canEditShopRates` (owner/manager — the shop profile PUT is
+  `[ShopOwnerOrManager]`), `canSeeUsage` — use these, never role string literals in a component),
+  `entitlement` (the shop's plan; "unknown" is never treated as the AI plan; `readOnly` = the AI
+  plan ended but the shop had cases).
 - `src/views/` — `LoginView`, `HandoffView`,
   `PaywallView` (`/upgrade`), `CasesView` (`/cases`), `CaseWorkspaceView` (`/cases/:id`), `NotFoundView`.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
-  mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case fields, facts,
-  documents), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
-  `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal`,
+  mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case details + linked car,
+  uploads), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
+  `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal` (sends only
+  the boxes edited since it opened; untouched = null = keep),
   `HelpSupportModal` (Help & support), `DateField`,
   `StatusPill`, `TacticBadge`, `PrivacyChoicesLink`.
+- Unit tests sit next to the code as `*.test.ts` (Vitest + happy-dom + `@vue/test-utils`,
+  `vitest.config.ts`); `src/landing.test.ts` runs the landing's form script against `welcome.html`.
 - `src/utils/` — `letterMarkdown` (letter renderer + rich clipboard), `placeholders` (blank
-  detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing), `freshBuild`,
-  `seo`, `uploads` (25 MB limit), `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`,
+  detection), `theme`, `format` (cents/dollars/dates), `amount` (strict money parsing),
+  `safeRedirect` (the one `?redirect` / `?next` rule), `freshBuild`, `seo`, `uploads` (25 MB limit),
+  `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`, `invoiceFigures` (which invoice
+  figures show), `readOnly` (the case workspace's read-only flag),
   `help` (`openHelp()`), `supportReport` (support details / mailto builder; same file as the CRM's).
 - `src/analytics/` — `ga.ts`, `sentry.ts`, `privacy.ts` (opt-out + Global Privacy Control).
 - `src/tour.ts` + `src/styles/tour.css` — driver.js tours on `[data-tour]` anchors.
@@ -78,12 +89,30 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   rewrite, with its own CSP allowing Webflow's image/video hosts). It is a static copy of the
   Webflow page "AI site home", rendered through `dent_shop_home`'s `Webflow.astro` layout, with
   inline scripts moved to `welcome-assets/welcome-N.js` (CSP) and relative links made absolute to
-  dentshopmanager.com. To update it: export the Webflow page (dent_shop_home `webflow-export/SPEC.md`),
-  build it there as a temporary page, and redo those steps. `/welcome` 301s to `/`; `welcome-0.js` sends a signed-in visitor to `/cases`. The SPA's `/` route (`welcome`) goes to the cases when signed in and otherwise leaves the SPA for it.
+  dentshopmanager.com. Its total-loss training form (`welcome-2.js`, same script as the apex
+  site's `Webflow.astro`) POSTs the lead to `https://api.dentshopmanager.com/api/public/leads`
+  (`data-source="ai-home"`, hidden `website` honeypot, `<p data-consent>` wording sent as consent;
+  the API's `Marketing:LeadOrigins` must list `https://ai.dentshopmanager.com` or the browser
+  blocks it) and then opens the video at `data-redirect` whatever the answer, after 3 s at most.
+  The page's CSP already allows that `connect-src`; never add inline script (`script-src 'self'`).
+  To update it: export the Webflow page (dent_shop_home `webflow-export/SPEC.md`), build it there
+  as a temporary page, and redo those steps (keep the form script and fields). `/welcome` 301s to
+  `/`; `welcome-0.js` sends a signed-in visitor to `/cases`. The SPA's `/` route (`welcome`) goes to
+  the cases when signed in and otherwise leaves the SPA for it.
 
 ## Key flows
 
 1. **Case** — `NewCaseModal` → `createCase`; the list (`CasesView`) and workspace load via `getCase`.
+   The workspace re-reads the case after every save and status change, and only the newest
+   read's case or error lands (the case read and the documents reload each take their own
+   turns), so a slower earlier read never puts back the case as it was before a save, or the
+   previous case; only the newest read clears the spinner. Opening another case first clears the
+   previous one's case, documents, counsel banner, status error, drafting flag and busy status
+   picker / Delete button, and a status change or delete still running for it lands nowhere (no
+   error, and a finished delete doesn't send the user to the list, nor does one that finishes
+   after they left the workspace) — unless the user is back on that same case (A → B → A): then
+   a success still re-reads the case, or sends a deleted one to the list. The linked car's label (`CarLinkCard` → `getCar`) only lands
+   while the case still links that car.
 2. **Correspondence** — `TimelinePanel`: paste an adjuster email (`extractPaste` pre-fills
    sender, subject and date) or drop an `.eml` (`intakeEml`); the API saves it and returns its **tactic** and an
    AI read (`analysisSummary`), shown as `TacticBadge` + "AI read". Letters the shop sent are logged
@@ -97,17 +126,31 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    returns them as `missing`; `BlanksNotice` lists them (profile items link to CRM Settings).
    `placeholders.ts` / `<mark class="blank-mark">` exist only for older letters that still carry one.
 5. **Documents** — `getGeneratedDocs` (invoice breakdown + ready-made letters + `missing`),
-   `downloadInvoicePdf`, case document upload/download/delete, the fact ledger (`addFact`/`deleteFact`).
-   `getChat`/`sendChat` (copilot) exist in `api/negotiation.ts` but no UI calls them yet.
+   `downloadInvoicePdf`, case document upload/download/delete (`CaseSidebar` → Uploads).
+   **The fact ledger has no UI** (removed in fe3375f (2026-08-25, after the owner's 2026-08-22
+   walkthrough)): `CaseDetail.facts` is fetched but not shown, and `addFact`/`deleteFact` exist in
+   `api/negotiation.ts` with no caller. Answers to the pre-draft questions are still saved as facts
+   by the API, so nobody can see or remove them here (open owner question).
 6. **Paywall / AI plan** — the router guard loads the entitlement once per shop; below the AI tier
    every signed-in page redirects to `/upgrade`. A mid-session 402 `ai_required` sets
-   `aiPlanRequired` and `App.vue` re-reads the plan and opens the paywall. Other 402s show the
-   subscription banner. A failed plan lookup leaves pages open (the API's 402 is the real gate).
-   Checkout/portal go through `api/billing.ts`; a 409 `charge_confirmation_required` must be
+   `aiPlanRequired` and `App.vue` re-reads the plan and opens the paywall (not for a read-only
+   shop: its banner explains). Other 402s show the subscription banner. A failed plan lookup
+   leaves pages open (the API's 402 is the real gate).
+   Buying always calls `startCheckout` (`POST …/billing/checkout`): the API looks at the live
+   Stripe subscription and answers with Checkout, the portal's confirm-upgrade, an in-place switch
+   or "unchanged", and the paywall follows `url`. Never pick the portal in the client —
+   `hasStripeCustomer` is not a subscription (comped and abandoned-Checkout shops have one; if a
+   hint is ever needed, `hasLiveSubscription`). A 409 `charge_confirmation_required` must be
    confirmed and re-sent with `confirmCharge`. Only the owner changes the plan.
+   **Read-only:** a lapsed AI shop with cases (`ent.readOnly`) reads everything but writes
+   nothing. The case list has no New case / Shop rates / Restore, its empty state points at the
+   renew banner and the cases tour skips the New case step. `CaseWorkspaceView` provides the flag
+   (`utils/readOnly`); panels disable inputs, hide write actions and never save on leave.
+   The empty case list has its own Recently deleted button (owner/manager) because the toolbar
+   isn't shown there, so a shop whose every case is deleted can still reach them.
 7. **Fair-use caps** — 429 `ai_cap_daily` / `ai_cap_monthly` sets `aiCapNotice` (banner with reset
    time). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to
-   owner/manager/admin; a failed read just hides it.
+   owner/manager/admin (`auth.canSeeUsage`); a failed read just hides it.
 
 ## Conventions
 
@@ -128,7 +171,12 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   clipboard copy. Don't add a markdown library or `v-html` raw API text.
 - **Money:** fees and invoices travel as decimal dollars (`usd()`), cent fields as integers
   (`centsToUsd()`); typed money is parsed strictly (`utils/amount`). The client never computes totals
-  the API owns.
+  the API owns. The invoice card and the header's balance show the API's `InvoiceBreakdown` (storage
+  billed through the shop's day, UTC for a shop with no state; the card refreshes when the local or
+  UTC day turns over, and on each UTC hour while the server still bills an open range through an
+  earlier day — `dayRefreshDue`). Its local preview shows only while an edit is unsaved, saving or
+  awaiting its refresh (`utils/invoiceFigures`); a failed refresh falls back to the server's
+  invoice. `CaseWorkspaceView` keeps only the newest documents reload's result or error.
 - **In-app copy never says "playbook" or a state count** (identifiers like `hasPlaybook` are fine).
   Say "attorney-reviewed citations". The product name is "DSM Negotiator".
 - Use `ApiError.code` for branching, not message text. New endpoints go in the matching `src/api/*.ts`
@@ -140,7 +188,7 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 | --- | --- |
 | `VITE_API_BASE` | API origin. Default `http://localhost:5080`. Deploy: repo secret. |
 | `VITE_CRM_URL` | CRM origin. Default `http://localhost:5173` in dev, `https://app.dentshopmanager.com` in prod. Not set by the workflow. |
-| `VITE_GA_MEASUREMENT_ID` | GA4, public pages (`/`, `/login`) only; off under GPC/opt-out. Repo variable. |
+| `VITE_GA_MEASUREMENT_ID` | GA4 on the SPA's public route `/login` only (the static landing at `/` has no GA); off under GPC/opt-out. Repo variable. |
 | `VITE_SENTRY_DSN` | Sentry for the signed-in app; no PII. Repo secret. |
 | `VITE_RELEASE` | Sentry release tag; workflow falls back to the commit SHA. |
 
@@ -148,28 +196,32 @@ All analytics is dormant when unset. `vite.config.ts`'s `analyticsCsp` plugin ad
 to the **built** `dist/staticwebapp.config.json` CSP only when those vars are set. Deploy also uses
 the secret `AZURE_SWA_TOKEN`. Never commit values.
 
-## Marketing site (`site/`)
+## Landing page
 
-On `main`, `site/` is only a stub: `site/src/pages/index.astro` plus a committed `.astro/` cache. It
-imports `../layouts/Base.astro`, which is not on `main`, and there is no `site/package.json`, so it is
-neither built nor deployed. The public landing that ships today is `public/welcome.html` at `/` (the cases list is `/cases`; `/pricing` signed out goes to dentshopmanager.com/pricing). The full Astro site, `build:site`/`build:all`
-(`scripts/merge-dist.mjs`) and moving the Vue app under `/app/` exist only on the unmerged branch
-`feat/ai-paywall`. **Today the app is served at the root in both dev and production** (no Vite
-`base`, `createWebHistory()` with no base, hard-coded `/login` in `client.ts`).
+The public landing that ships is `public/welcome.html` at `/` (the cases list is `/cases`; `/pricing`
+signed out goes to dentshopmanager.com/pricing). The old non-built `site/` Astro stub was deleted
+(2026-10-29). A full Astro site, `build:site`/`build:all` (`scripts/merge-dist.mjs`) and moving the
+Vue app under `/app/` exist only on the unmerged branch `feat/ai-paywall` (2026-09-20), which now
+conflicts with that deletion if it is ever merged. **Today the app is served at the root in both
+dev and production** (no Vite `base`, `createWebHistory()` with no base, hard-coded `/login` in
+`client.ts`).
 
 ## Deploy
 
 `.github/workflows/deploy-web.yml` ("Deploy Web") runs on **push to `main`** and `workflow_dispatch`.
-Job `test`: Node 20, `npm ci`, `npm run build`. Job `deploy` (needs `test`) targets the GitHub
-Environment **`dev`**, which has a required-reviewer approval gate, then `Azure/static-web-apps-deploy@v1`
-builds with the env vars above and uploads `dist` to the Static Web App `dentshop-negotiator-dev`.
+Job `test`: Node 20, `npm ci`, `npm test`, `npm run build`. Job `deploy` (needs `test`) targets the
+GitHub Environment **`dev`**, which has a required-reviewer approval gate, then
+`Azure/static-web-apps-deploy@v1` builds with the env vars above and uploads `dist` to the Static Web App `dentshop-negotiator-dev`.
 Approving that gate is a deploy: only on the owner's explicit "deploy".
 
 ## Testing / verification
 
-No automated tests. Before committing: `npm run build` must pass. For UI changes, run the app
-against the local API, exercise the flow, and check light + dark and a phone width. The draft quality
-rules (no blanks, citations) are tested in the API's eval harness, not here.
+`npm test` (Vitest, `*.test.ts` next to the code) and `npm run build` must pass before
+committing. Security- and money-critical helpers (the letter renderer before `v-html`,
+`safeRedirect`, `amount`, the Sentry scrubbers, PKCE) have suites; add a test with every fix to a
+helper, store or view rule. For UI changes, also run the app against the local API, exercise the
+flow, and check light + dark and a phone width. The draft quality rules (no blanks, citations) are
+tested in the API's eval harness, not here.
 
 ## Gotchas
 
@@ -185,7 +237,7 @@ rules (no blanks, citations) are tested in the API's eval harness, not here.
 
 ## Workflow
 
-- Branch off `main`: `feat/…`, `fix/…`, `chore/…`, `docs/…`. `npm run build` passes before any push.
+- Branch off `main`: `feat/…`, `fix/…`, `chore/…`, `docs/…`. `npm test` and `npm run build` pass before any push.
 - Nothing is pushed to `main` or deployed (and the `dev` gate is never approved) without the owner's
   explicit "deploy" for that change. Pushing `main` starts a deploy.
 - Merge and push `main` from a dedicated worktree

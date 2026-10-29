@@ -7,6 +7,8 @@ import { ApiError } from '@/api/client'
 import type { CaseDetail, CaseStatus, GeneratedDocs } from '@/api/types'
 import { centsToUsd, usd } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
+import { useEntitlementStore } from '@/stores/entitlement'
+import { provideCaseReadOnly } from '@/utils/readOnly'
 import StatusPill from '@/components/StatusPill.vue'
 import CaseSidebar from '@/components/CaseSidebar.vue'
 import InvoiceCard from '@/components/InvoiceCard.vue'
@@ -19,8 +21,15 @@ import { setTitle } from '@/router'
 const props = defineProps<{ id: string }>()
 
 const auth = useAuthStore()
+const ent = useEntitlementStore()
 const route = useRoute()
 const router = useRouter()
+
+/* The shop's DSM Negotiator plan ended: its cases, letters and PDFs stay readable, but the
+   API refuses every write (audit 2026-10-26 #10). Every panel below reads this and hides or
+   disables what would write; the banner in App.vue says why. */
+const readOnly = computed(() => ent.readOnly)
+provideCaseReadOnly(readOnly)
 
 const detail = ref<CaseDetail | null>(null)
 const loading = ref(true)
@@ -37,38 +46,56 @@ const docs = ref<GeneratedDocs | null>(null)
 const docsLoading = ref(true)
 const docsError = ref<string | null>(null)
 
-async function loadDocs() {
-  if (!auth.shopId || !detail.value) return
+/* Reloads overlap (an invoice save's refresh, a sidebar edit, the day-change refresh, Retry,
+   another case opened). Each takes a turn when it starts and only the newest turn's documents
+   — or error — land: an earlier, slower reload can't put back an older invoice (or another
+   case's), nor tell the invoice card its save's refresh failed while that one is still on
+   its way. */
+let docsTurn = 0
+async function loadDocs(turn = ++docsTurn) {
+  if (!auth.shopId || !detail.value || turn !== docsTurn) return
   docsError.value = null
   try {
-    docs.value = await getGeneratedDocs(auth.shopId, props.id)
+    const next = await getGeneratedDocs(auth.shopId, props.id)
+    if (turn === docsTurn) docs.value = next
   } catch (e) {
-    docsError.value = e instanceof ApiError ? e.message : 'Could not generate the documents.'
+    if (turn === docsTurn) docsError.value = e instanceof ApiError ? e.message : 'Could not generate the documents.'
   } finally {
-    docsLoading.value = false
+    if (turn === docsTurn) docsLoading.value = false
   }
 }
 
+/* The case read follows the same rule with its own turns: a save's refresh, a status change
+   or another case opened can overlap, and only the newest read's case — or error — lands, so
+   a slower earlier read can't put back the case as it was before a save, or the previous
+   case. (Own turns: a documents Retry mid-read must not drop the case it is reading.) */
+let caseTurn = 0
 async function load(showSpinner = false) {
   if (!auth.shopId) return
+  const turn = ++caseTurn
+  // Taken now, not after the case loads: from here on this reload's documents are the newest.
+  const docsTurnNow = ++docsTurn
   if (showSpinner) loading.value = true
   error.value = null
   notFound.value = false
   try {
-    detail.value = await getCase(auth.shopId, props.id)
-    setTitle(detail.value.case.title)
+    const next = await getCase(auth.shopId, props.id)
+    if (turn !== caseTurn) return
+    detail.value = next
+    setTitle(next.case.title)
   } catch (e) {
+    if (turn !== caseTurn) return
     if (e instanceof ApiError && (e.status === 404 || e.status === 400)) {
       notFound.value = true
       detail.value = null
       setTitle('Case not found')
     } else error.value = e instanceof ApiError ? e.message : 'Could not load the case.'
   } finally {
-    loading.value = false
+    if (turn === caseTurn) loading.value = false
   }
   // Fee edits, customer link, intake (adjuster name reaches the greeting) all land in
   // the letters immediately.
-  if (detail.value) void loadDocs()
+  if (detail.value) void loadDocs(docsTurnNow)
 }
 
 function refresh() {
@@ -101,9 +128,21 @@ watch(
 
 /* ---------- case status: open → settled / closed (NEG-8) ---------- */
 const STATUSES: CaseStatus[] = ['Open', 'Settled', 'Closed', 'Litigation']
-const canManage = computed(() => ['owner', 'manager', 'admin'].includes((auth.role ?? '').toLowerCase()))
+const canManage = computed(
+  () => !readOnly.value && ['owner', 'manager', 'admin'].includes((auth.role ?? '').toLowerCase()),
+)
 /** Delete is owner/manager only (the API enforces it). Soft: restorable from the list for 30 days. */
-const canDelete = computed(() => ['owner', 'manager'].includes((auth.role ?? '').toLowerCase()))
+const canDelete = computed(
+  () => !readOnly.value && ['owner', 'manager'].includes((auth.role ?? '').toLowerCase()),
+)
+/* A delete or status change can still be running when the user opens another case (back and
+   forward) or leaves the workspace. Each case opened takes a turn; a request started under an
+   earlier turn lands nowhere — no error, busy state or select on the case the user is looking
+   at now. Its success still counts when the user is back on that same case (A → B → A): the
+   case is re-read, or a deleted one leaves for the list. */
+let openTurn = 0
+let mounted = true
+const stillShowing = (caseId: string) => mounted && props.id === caseId
 const deleting = ref(false)
 async function onDelete() {
   if (!detail.value || deleting.value) return
@@ -111,12 +150,15 @@ async function onDelete() {
     `Delete "${detail.value.case.title}"?\n\nIt disappears from the list now. You can restore it from "Recently deleted" for 30 days; after that it and its documents are erased.`,
   )
   if (!ok) return
+  const turn = openTurn
+  const caseId = props.id
   deleting.value = true
   statusError.value = null
   try {
-    await deleteCase(auth.shopId!, props.id)
-    router.push({ name: 'cases' })
+    await deleteCase(auth.shopId!, caseId)
+    if (stillShowing(caseId)) router.push({ name: 'cases' })
   } catch (err) {
+    if (turn !== openTurn) return
     statusError.value = err instanceof ApiError ? err.message : 'Could not delete the case.'
     deleting.value = false
   }
@@ -124,22 +166,26 @@ async function onDelete() {
 const statusBusy = ref(false)
 const statusError = ref<string | null>(null)
 async function onStatus(e: Event) {
-  const next = (e.target as HTMLSelectElement).value as CaseStatus
+  const select = e.target as HTMLSelectElement
+  const next = select.value as CaseStatus
   if (!detail.value || next === detail.value.case.status) return
   if (next === 'Litigation' && !window.confirm('Mark this case as in litigation? The assistant stops drafting correspondence for it — your attorney takes over.')) {
-    ;(e.target as HTMLSelectElement).value = detail.value.case.status
+    select.value = detail.value.case.status
     return
   }
+  const turn = openTurn
+  const caseId = props.id
   statusBusy.value = true
   statusError.value = null
   try {
-    await setCaseStatus(auth.shopId!, props.id, next)
-    await load(false)
+    await setCaseStatus(auth.shopId!, caseId, next)
+    if (stillShowing(caseId)) await load(false)
   } catch (err) {
+    if (turn !== openTurn) return
     statusError.value = err instanceof ApiError ? err.message : 'Could not change the status.'
-    ;(e.target as HTMLSelectElement).value = detail.value.case.status
+    if (detail.value) select.value = detail.value.case.status
   } finally {
-    statusBusy.value = false
+    if (turn === openTurn) statusBusy.value = false
   }
 }
 
@@ -151,8 +197,8 @@ function jumpToDraft() {
 }
 const invoice = computed(() => docs.value?.invoice ?? null)
 
-// The header's balance follows the invoice card's live math while an edit is in
-// flight, so the big number reacts to every keystroke like the mockup promised.
+// The header's balance is the one the invoice card shows: the server's invoice (what the
+// PDF and letters print), or the card's preview while an edit is on its way to the server.
 const liveTotal = ref<number | null>(null)
 // The invoice card names exactly why storage bills nothing ($0 rate, end before start…).
 const storageIssue = ref<string | null>(null)
@@ -177,12 +223,31 @@ onMounted(async () => {
   // First case ever opened: tour the workspace once its panels are mounted.
   if (detail.value && !workspaceTourSeen()) setTimeout(startWorkspaceTour, 600)
 })
-onBeforeUnmount(() => window.removeEventListener('dsm-neg-ws-tab', onTabEvent))
+onBeforeUnmount(() => {
+  window.removeEventListener('dsm-neg-ws-tab', onTabEvent)
+  // A delete still running mustn't send the user to the list from wherever they went.
+  openTurn++
+  mounted = false
+})
 watch(
   () => route.params.id,
   (id, prev) => {
     if (!id || id === prev) return
     tab.value = tabFromQuery()
+    // Another case: nothing of the previous one stays. Its documents would otherwise fill the
+    // invoice card, the letters and the header balance until this case's arrive, and a draft
+    // it left running (its panel is gone, so it never reports the end) would keep a drafting
+    // card on this timeline. A delete or status change still running for it lands nowhere.
+    openTurn++
+    detail.value = null
+    docs.value = null
+    docsLoading.value = true
+    docsError.value = null
+    counselBanner.value = false
+    statusError.value = null
+    statusBusy.value = false
+    deleting.value = false
+    externalDrafting.value = false
     load(true)
   },
 )
@@ -299,16 +364,17 @@ watch(
               v-model:storage-issue="storageIssue"
               :detail="detail"
               :invoice="invoice"
+              :refresh-error="docsError"
               @refresh="refresh"
             />
-            <LetterColumns :docs="docs" :loading="docsLoading" :error="docsError" @reload="loadDocs" />
+            <LetterColumns :docs="docs" :loading="docsLoading" :error="docsError" @reload="loadDocs()" />
           </div>
         </div>
       </section>
 
       <!-- Tab 2 · negotiation -->
       <section v-show="tab === 'nego'" class="tabpanel">
-        <button v-if="detail.case.status !== 'Litigation'" type="button" class="btn jump-draft" @click="jumpToDraft">
+        <button v-if="detail.case.status !== 'Litigation' && !readOnly" type="button" class="btn jump-draft" @click="jumpToDraft">
           <PenLine :size="14" /> Generate new correspondence
         </button>
         <div class="nego-grid">

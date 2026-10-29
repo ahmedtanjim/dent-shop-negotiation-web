@@ -6,6 +6,7 @@ import { ApiError } from '@/api/client'
 import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, DraftVoice } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
+import { useCaseReadOnly } from '@/utils/readOnly'
 import DraftQuestions from '@/components/DraftQuestions.vue'
 
 const props = defineProps<{ detail: CaseDetail }>()
@@ -19,6 +20,8 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
+/** The shop's plan ended: no new drafts (the letters already written stay readable). */
+const readOnly = useCaseReadOnly()
 
 const voice = ref<DraftVoice>('Shop')
 const customerAuthorized = ref(false)
@@ -58,7 +61,7 @@ watch(voice, (v) => {
 })
 
 const canSubmit = computed(() => {
-  if (busy.value || isLitigation.value) return false
+  if (busy.value || isLitigation.value || readOnly.value) return false
   if (voice.value === 'Customer' && !customerAuthorized.value) return false
   return true
 })
@@ -68,6 +71,7 @@ const canSubmit = computed(() => {
 // Two steps (owner decision 2026-10-03): first the assistant asks up to 3 questions about
 // facts the letter needs, then it writes a letter with no [BLANKS] in it.
 async function generate() {
+  if (readOnly.value) return
   const request: DraftRequest = {
     voice: voice.value,
     customerAuthorized: customerAuthorized.value,
@@ -101,6 +105,7 @@ async function generate() {
 }
 
 async function write(request: DraftRequest, answers: DraftAnswer[]) {
+  if (readOnly.value) return
   busy.value = true
   step.value = 'drafting'
   emit('drafting', true)
@@ -132,6 +137,12 @@ function answer(answers: DraftAnswer[]) {
     <div v-if="isLitigation" class="notice-amber">
       This case is in litigation — the assistant no longer drafts correspondence. Your attorney
       handles communication from here.
+    </div>
+
+    <div v-else-if="readOnly" class="notice-amber">
+      Your DSM Negotiator plan has ended, so new drafts are off. The letters on this case stay
+      here to read and copy.
+      <RouterLink to="/upgrade">Renew to draft again</RouterLink>
     </div>
 
     <template v-else>

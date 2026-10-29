@@ -691,7 +691,7 @@
           <b class="dsm-t-card-h">Watch the training</b>
           <span class="dsm-t-card-t">Enter your details and the video opens right away.</span>
           <div class="dsm-t-form">
-            <form id="wf-form-Total-Loss-Training-Signup" name="Total Loss Training Signup" method="get" data-webflow-form="Total Loss Training Signup" data-redirect="https://dentshopmanager.com/total-loss-watch">
+            <form id="wf-form-Total-Loss-Training-Signup" name="Total Loss Training Signup" method="get" data-webflow-form="Total Loss Training Signup" data-redirect="https://dentshopmanager.com/total-loss-watch" data-source="ai-home">
               <label class="dsm-t-label" for="tl-name">Name</label>
               <input class="dsm-t-input" id="tl-name" type="text" name="Name" required>
               <label class="dsm-t-label" for="tl-email">Email</label>
@@ -700,7 +700,9 @@
               <input class="dsm-t-input" id="tl-phone" type="tel" name="Phone">
               <label class="dsm-t-label" for="tl-shop">Shop name</label>
               <input class="dsm-t-input" id="tl-shop" type="text" name="Shop">
+              <div style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden" aria-hidden="true"><label for="tl-website">Website</label><input id="tl-website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
               <input class="dsm-t-submit" type="submit" value="Watch the free training" data-wait="Opening the training...">
+              <p class="dsm-t-consent" data-consent style="font-size:13px;line-height:1.4;opacity:.75;margin:10px 0 0">We'll email you the training and a few follow-ups. Unsubscribe anytime.</p>
             </form>
             <div style="display:none">
               <div>Thank you! Your submission has been received!</div>

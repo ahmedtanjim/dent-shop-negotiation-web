@@ -38,10 +38,6 @@ export const useEntitlementStore = defineStore('entitlement', () => {
       entitlement.value?.status === 'Free' &&
       !state.value?.hasLiveSubscription,
   )
-  /** A live Stripe subscription — upgrades go through the portal, not a new Checkout. */
-  const canUpgradeInPlace = computed(
-    () => !!state.value?.hasStripeCustomer && entitlement.value?.status === 'Active',
-  )
 
   async function load(shopId: string, force = false): Promise<void> {
     // A refresh in flight always wins over the cached answer: after a 402 the plan is
@@ -92,5 +88,5 @@ export const useEntitlementStore = defineStore('entitlement', () => {
   /** Below the AI plan but the shop has cases: they open read-only, never the paywall (#10). */
   const readOnly = computed(() => known.value && !isAi.value && state.value?.hadAiPlan === true)
 
-  return { state, entitlement, known, failed, tier, isAi, readOnly, unfinishedSignup, canUpgradeInPlace, load, invalidate, sync, reset }
+  return { state, entitlement, known, failed, tier, isAi, readOnly, unfinishedSignup, load, invalidate, sync, reset }
 })
