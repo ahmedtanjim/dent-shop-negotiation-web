@@ -106,7 +106,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    **Car data** (owner 2026-11-03, "isn't pulling the claim number or insurance company from the
    garage"): picking a CRM customer — in New case or in the sidebar's Case details — fills the blank
    insurer, claim # and state from their car (`fillFromCar` in `utils/caseBody`, the search's
-   `latestCar`) and links an unlinked case to that car; the API itself fills a linked case's blank
+   `latestCar`) and links an unlinked case to that car. A case already linked to a car takes nothing
+   from a suggested car that isn't its own, a car that belongs to another case is never used
+   (`pickCustomerOnCase`), the vehicle is the suggested car's own (`carVehicle`), and the note under
+   the picker names only what was really filled (`customerPickNote`); the API itself fills a linked case's blank
    insurer / claim # / customer / vehicle / state from the car on every read. The sidebar's save
    sends only the fields the user changed (`editedFields`) over the server's current values, so a
    refresh held back while the form had edits is never wiped. A case also opens from the CRM car

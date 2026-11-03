@@ -10,7 +10,7 @@ import {
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, CustomerSearchResult } from '@/api/types'
-import { caseBodyFromDetail, editedFields, fillFromCar } from '@/utils/caseBody'
+import { caseBodyFromDetail, customerPickNote, editedFields, pickCustomerOnCase } from '@/utils/caseBody'
 import { formatBytes, oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
@@ -88,25 +88,25 @@ const carNote = ref<string | null>(null)
 watch(caseId, () => (carNote.value = null))
 
 // Picking the customer pulls their car from the garage, as New case does (owner 2026-11-03: the
-// TL portal "isn't pulling the claim number or insurance company from the garage"): blank
-// insurer, claim # and state fill in, and a case with no car yet is linked to it.
+// TL portal "isn't pulling the claim number or insurance company from the garage"): on a case with
+// no car, the blank insurer, claim # and state fill from their car and the case is linked to it.
+// A case already linked to another car takes nothing from the suggestion (pickCustomerOnCase).
 async function onCustomerPicked(c: CustomerSearchResult) {
   carNote.value = null
-  if (!form.value.vehicleDescription.trim() && c.vehicleLabel)
-    form.value.vehicleDescription = c.vehicleLabel
-  const car = c.latestCar
-  if (!car) return
-  Object.assign(form.value, fillFromCar(form.value, car))
-  if (props.detail.claimId || car.hasCase || readOnly.value) {
-    carNote.value = `Insurer and claim # filled from RO-${car.roNumber} in your garage.`
+  if (readOnly.value) return
+  const pick = pickCustomerOnCase(form.value, c, props.detail.claimId)
+  Object.assign(form.value, pick.fields)
+  const ro = pick.car?.roNumber ?? null
+  if (!pick.link || !pick.car) {
+    carNote.value = customerPickNote(pick.filled, ro, 'none')
     return
   }
   try {
-    await linkCaseToCar(shopId.value, caseId.value, car.claimId)
-    carNote.value = `Insurer and claim # filled from RO-${car.roNumber}, and the case is linked to that car.`
+    await linkCaseToCar(shopId.value, caseId.value, pick.car.claimId)
+    carNote.value = customerPickNote(pick.filled, ro, 'linked')
     emit('refresh')
   } catch {
-    carNote.value = `Insurer and claim # filled from RO-${car.roNumber}. Link the car below to share its letters.`
+    carNote.value = customerPickNote(pick.filled, ro, 'failed')
   }
 }
 
