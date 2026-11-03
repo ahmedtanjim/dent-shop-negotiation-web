@@ -62,3 +62,19 @@ export function oneLine(v: string | null | undefined): string | null {
   const t = (v ?? '').replace(/\s+/g, ' ').trim()
   return t ? t : null
 }
+
+/** When the shop's daily AI allowance comes back, in the viewer's own time zone. The API
+ *  resets the window at a fixed instant (`resetsAt`, midnight UTC — evening in the US), so
+ *  "midnight UTC" means nothing to a shop: show the clock time it is for them, naming the day
+ *  when it is not today ("7:00 PM your time", "tomorrow at 8:00 AM your time"). */
+export function dailyResetLabel(iso: string | null | undefined, now: Date = new Date()): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const dayNo = (x: Date) => Math.floor(Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()) / 86_400_000)
+  const ahead = dayNo(d) - dayNo(now)
+  if (ahead <= 0) return `${time} your time`
+  if (ahead === 1) return `tomorrow at ${time} your time`
+  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${time} your time`
+}

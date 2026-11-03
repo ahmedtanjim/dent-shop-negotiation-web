@@ -149,7 +149,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    The empty case list has its own Recently deleted button (owner/manager) because the toolbar
    isn't shown there, so a shop whose every case is deleted can still reach them.
 7. **Fair-use caps** — 429 `ai_cap_daily` / `ai_cap_monthly` sets `aiCapNotice` (banner with reset
-   time). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to
+   time). The daily reset (`resetsAt`, midnight UTC) is always shown as a clock time in the viewer's
+   zone (`dailyResetLabel`: "7:00 PM your time", "tomorrow at …"), never "midnight UTC" — the banner
+   words the daily cap itself rather than showing an older API's UTC message; the monthly reset
+   shows the UTC calendar day (the 1st). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to
    owner/manager/admin (`auth.canSeeUsage`); a failed read just hides it.
 
 ## Conventions

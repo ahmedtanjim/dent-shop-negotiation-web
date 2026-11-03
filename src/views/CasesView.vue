@@ -6,7 +6,7 @@ import { listCases, listDeletedCases, restoreCase } from '@/api/negotiation'
 import { getAiUsage } from '@/api/usage'
 import { ApiError, CRM_URL } from '@/api/client'
 import type { AiUsageSummary, CaseListItem } from '@/api/types'
-import { centsToUsd, formatDateTime } from '@/utils/format'
+import { centsToUsd, dailyResetLabel, formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import StatusPill from '@/components/StatusPill.vue'
@@ -136,8 +136,9 @@ async function loadUsage() {
     usage.value = null
   }
 }
-// Windows reset at midnight UTC (monthly on the 1st), so show the UTC calendar day —
-// in US time zones the local date is still the evening before ("Sep 30" for Oct 1).
+// The month resets at midnight UTC on the 1st, so show the UTC calendar day — in US time
+// zones the local date is still the evening before ("Sep 30" for Oct 1). The daily reset is a
+// clock time instead, shown in the viewer's zone (dailyResetLabel).
 const resetsOn = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
@@ -221,7 +222,7 @@ onMounted(async () => {
         <span :style="{ width: `${Math.max(usage.month.percentUsed, usage.month.calls ? 1 : 0)}%` }"></span>
       </div>
       <p v-if="usage.today.exceeded" class="usage-note">
-        Today's allowance is used up — drafting resumes at midnight UTC.
+        Today's allowance is used up — drafting resumes at {{ dailyResetLabel(usage.today.resetsAt) }}.
       </p>
       <p v-else-if="usage.month.exceeded" class="usage-note">
         This month's allowance is used up — drafting resumes on {{ resetsOn(usage.month.resetsAt) }}.
