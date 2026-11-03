@@ -299,8 +299,10 @@ export interface Entitlement {
   currentPeriodEnd: string | null
   cancelAtPeriodEnd: boolean
   daysLeft: number | null
-  /** Effective feature tier; missing on an older API. A Monthly/Annual trial runs at that
-   *  plan's tier — the AI plan is bought outright and never has a trial. */
+  /** Effective feature tier; missing on an older API. A card trial runs at its plan's tier.
+   *  New trials are Monthly only (owner 2026-11-03: Annual is charged at once), but a shop
+   *  can still be trialing Annual — a trial started before that, or a Monthly trial switched
+   *  to Annual. The AI plan is bought outright and never has a trial. */
   tier?: PlanTier
 }
 

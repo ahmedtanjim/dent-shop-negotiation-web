@@ -14,7 +14,8 @@ export function syncBilling(shopId: string): Promise<BillingState> {
 }
 
 /** The 409 `charge_confirmation_required` body: the change would charge the card right
- *  away (e.g. a trialing Monthly/Annual shop adding the AI plan ends its trial now), so the
+ *  away (e.g. a shop in its card trial — Monthly, or an Annual trial from before 2026-11-03 —
+ *  adding the AI plan ends its trial now), so the
  *  API refuses it until the owner confirms and the call is repeated with `confirmCharge`. */
 export interface ChargeConfirmation {
   message: string

@@ -22,7 +22,7 @@ import bgLight from '@/assets/paywall-light.jpg'
 /** The Negotiator for a shop below the AI tier. The shop's own workspace sits blurred
  *  behind one sheet: one headline, one price, one button. Owners buy it (Stripe Checkout,
  *  Stripe's confirm-upgrade screen, or — when the change charges the card at once, as for
- *  a trialing Monthly/Annual shop — an explicit confirm right here); everyone else gets a
+ *  a shop in its card trial — an explicit confirm right here); everyone else gets a
  *  note to hand the owner. Coming back from Stripe (?status=success) this same view
  *  re-syncs the plan and drops itself. A shop that never picked a plan (signed up, left
  *  before paying) gets "Finish setup" instead: one button to the shop system's Billing
@@ -46,8 +46,10 @@ const planLabel = computed(() => {
   }
 })
 const paying = computed(() => ent.tier === 'Annual' || ent.tier === 'Monthly')
-/** A Monthly/Annual plan still in its card-on-file trial: nothing has been charged yet,
- *  so there is nothing to prorate. (The AI plan itself never has a trial.) */
+/** A plan still in its card-on-file trial: nothing has been charged yet, so there is nothing
+ *  to prorate. New trials are Monthly only (owner 2026-11-03), but a shop may still be
+ *  trialing Annual (started before that, or switched from a Monthly trial) — same handling.
+ *  (The AI plan itself never has a trial.) */
 const trialing = computed(() => paying.value && ent.entitlement?.status === 'Trialing')
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
