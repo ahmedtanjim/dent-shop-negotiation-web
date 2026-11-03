@@ -142,6 +142,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    `hasStripeCustomer` is not a subscription (comped and abandoned-Checkout shops have one; if a
    hint is ever needed, `hasLiveSubscription`). A 409 `charge_confirmation_required` must be
    confirmed and re-sent with `confirmCharge`. Only the owner changes the plan.
+   **Trials:** the AI plan never has one. Since 2026-11-03 (owner) only Monthly offers the 7-day
+   card trial — Annual is charged at once — but a shop can still be *trialing* Annual (started
+   earlier, or a Monthly trial switched to Annual); the paywall's `trialing` copy ("adding it
+   ends your <plan> trial today") covers both.
    **Read-only:** a lapsed AI shop with cases (`ent.readOnly`) reads everything but writes
    nothing. The case list has no New case / Shop rates / Restore, its empty state points at the
    renew banner and the cases tour skips the New case step. `CaseWorkspaceView` provides the flag
