@@ -8,6 +8,7 @@ import { ApiError } from '@/api/client'
 import type { CaseListItem, CustomerCar, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
+import { fillFromCar } from '@/utils/caseBody'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
 import DateField from '@/components/DateField.vue'
@@ -70,13 +71,15 @@ watch(linkedCustomerId, (id) => {
 
 function onCustomerPicked(c: CustomerSearchResult) {
   car.value = c.latestCar ?? null
-  if (car.value) {
-    if (!insurerName.value.trim() && car.value.insurerName) insurerName.value = car.value.insurerName
-    if (!insurerClaimNumber.value.trim() && car.value.claimNumber)
-      insurerClaimNumber.value = car.value.claimNumber
-    // The storm's state beats the one guessed from the shop's address.
-    if (car.value.state && US_STATES.includes(car.value.state)) state.value = car.value.state
-  }
+  // The storm's state beats the one guessed from the shop's address.
+  const filled = fillFromCar(
+    { insurerName: insurerName.value, insurerClaimNumber: insurerClaimNumber.value, state: state.value },
+    car.value,
+    { replaceState: true },
+  )
+  insurerName.value = filled.insurerName
+  insurerClaimNumber.value = filled.insurerClaimNumber
+  state.value = filled.state
   if (!vehicleDescription.value.trim() && c.vehicleLabel) vehicleDescription.value = c.vehicleLabel
   // Auto-title so the form stays a two-field job for CRM customers.
   if (!title.value.trim())
@@ -157,6 +160,9 @@ async function submit() {
             v-model:customer-id="linkedCustomerId"
             @picked="onCustomerPicked"
           />
+          <small v-if="!linkedCustomerId && customerName.trim()" class="car-hint">
+            Pick the customer from the list to fill the insurer and claim # from their car in your garage.
+          </small>
           <small v-if="car" class="car-hint">
             <template v-if="car.hasCase">
               RO-{{ car.roNumber }} already has a case, so this one won't be linked to it.

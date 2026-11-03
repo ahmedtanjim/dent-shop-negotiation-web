@@ -103,6 +103,14 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 ## Key flows
 
 1. **Case** — `NewCaseModal` → `createCase`; the list (`CasesView`) and workspace load via `getCase`.
+   **Car data** (owner 2026-11-03, "isn't pulling the claim number or insurance company from the
+   garage"): picking a CRM customer — in New case or in the sidebar's Case details — fills the blank
+   insurer, claim # and state from their car (`fillFromCar` in `utils/caseBody`, the search's
+   `latestCar`) and links an unlinked case to that car; the API itself fills a linked case's blank
+   insurer / claim # / customer / vehicle / state from the car on every read. The sidebar's save
+   sends only the fields the user changed (`editedFields`) over the server's current values, so a
+   refresh held back while the form had edits is never wiped. A case also opens from the CRM car
+   bar's "Send to TL portal" button via the hand-off (`/auth/handoff/start?redirect=/cases/:id`).
    The workspace re-reads the case after every save and status change, and only the newest
    read's case or error lands (the case read and the documents reload each take their own
    turns), so a slower earlier read never puts back the case as it was before a save, or the
