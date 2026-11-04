@@ -4,12 +4,13 @@ import { Download, Trash2, Upload } from 'lucide-vue-next'
 import {
   deleteDocument,
   downloadDocument,
+  linkCaseToCar,
   updateCase,
   uploadDocument,
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, CustomerSearchResult } from '@/api/types'
-import { caseBodyFromDetail } from '@/utils/caseBody'
+import { caseBodyFromDetail, customerPickNote, editedFields, pickCustomerOnCase } from '@/utils/caseBody'
 import { formatBytes, oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
 import { useAuthStore } from '@/stores/auth'
@@ -82,9 +83,31 @@ watch(readOnly, (ro) => {
   if (ro) resetForm()
 })
 
-function onCustomerPicked(c: CustomerSearchResult) {
-  if (!form.value.vehicleDescription.trim() && c.vehicleLabel)
-    form.value.vehicleDescription = c.vehicleLabel
+/** After picking a customer: where their car's details came from (shown under the picker). */
+const carNote = ref<string | null>(null)
+watch(caseId, () => (carNote.value = null))
+
+// Picking the customer pulls their car from the garage, as New case does (owner 2026-11-03: the
+// TL portal "isn't pulling the claim number or insurance company from the garage"): on a case with
+// no car, the blank insurer, claim # and state fill from their car and the case is linked to it.
+// A case already linked to another car takes nothing from the suggestion (pickCustomerOnCase).
+async function onCustomerPicked(c: CustomerSearchResult) {
+  carNote.value = null
+  if (readOnly.value) return
+  const pick = pickCustomerOnCase(form.value, c, props.detail.claimId)
+  Object.assign(form.value, pick.fields)
+  const ro = pick.car?.roNumber ?? null
+  if (!pick.link || !pick.car) {
+    carNote.value = customerPickNote(pick.filled, ro, 'none')
+    return
+  }
+  try {
+    await linkCaseToCar(shopId.value, caseId.value, pick.car.claimId)
+    carNote.value = customerPickNote(pick.filled, ro, 'linked')
+    emit('refresh')
+  } catch {
+    carNote.value = customerPickNote(pick.filled, ro, 'failed')
+  }
 }
 
 const saving = ref(false)
@@ -115,17 +138,20 @@ async function save(keepalive = false) {
   try {
     const f = form.value
     const body = caseBodyFromDetail(props.detail)
+    // Only what the user changed goes over the server's current values: a refresh held back
+    // while the form had edits (a car link filling the insurer and claim #) is never wiped.
+    const edited = editedFields(JSON.parse(pristine.value) as typeof f, f)
     // Single-line fields are stored with their whitespace collapsed — they end up in
     // letter subjects and the PDF file name.
-    body.title = oneLine(f.title) ?? ''
-    body.insurerName = oneLine(f.insurerName)
-    body.insurerClaimNumber = oneLine(f.insurerClaimNumber)
-    body.customerName = oneLine(f.customerName)
-    body.customerId = f.customerId
-    body.vehicleDescription = oneLine(f.vehicleDescription)
-    body.state = opt(f.state)
-    body.invoiceTotal = estimate.value.value ?? 0
-    body.notes = opt(f.notes)
+    if (edited.has('title')) body.title = oneLine(f.title) ?? ''
+    if (edited.has('insurerName')) body.insurerName = oneLine(f.insurerName)
+    if (edited.has('insurerClaimNumber')) body.insurerClaimNumber = oneLine(f.insurerClaimNumber)
+    if (edited.has('customerName')) body.customerName = oneLine(f.customerName)
+    if (edited.has('customerId')) body.customerId = f.customerId
+    if (edited.has('vehicleDescription')) body.vehicleDescription = oneLine(f.vehicleDescription)
+    if (edited.has('state')) body.state = opt(f.state)
+    if (edited.has('invoiceTotal')) body.invoiceTotal = estimate.value.value ?? 0
+    if (edited.has('notes')) body.notes = opt(f.notes)
     await updateCase(shopId.value, caseId.value, body, { keepalive })
     // Accept our own save as the new baseline so the refresh below re-syncs the form.
     pristine.value = JSON.stringify(form.value)
@@ -222,6 +248,7 @@ async function removeDocument(id: string) {
               v-model:customer-id="form.customerId"
               @picked="onCustomerPicked"
             />
+            <small v-if="carNote" class="faint car-note">{{ carNote }}</small>
           </label>
           <label class="field">
             <span>Vehicle</span>
@@ -358,6 +385,11 @@ fieldset.fields {
 }
 .tl-title {
   margin-top: 14px;
+}
+.car-note {
+  display: block;
+  font-size: 11.5px;
+  margin-top: 4px;
 }
 .tl-hint {
   font-size: 11.5px;

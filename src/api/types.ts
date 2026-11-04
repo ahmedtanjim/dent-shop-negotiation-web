@@ -255,6 +255,8 @@ export interface CustomerCar {
   state: string | null
   /** The car already has a case (a car keeps one), so a new case won't link to it. */
   hasCase: boolean
+  /** This car's own vehicle ("2023 Honda Accord"). Absent on an older API. */
+  vehicleLabel?: string | null
 }
 
 export interface PasteExtraction {

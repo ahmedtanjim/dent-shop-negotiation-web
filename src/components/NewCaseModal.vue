@@ -8,6 +8,7 @@ import { ApiError } from '@/api/client'
 import type { CaseListItem, CustomerCar, CustomerSearchResult, UpsertCase } from '@/api/types'
 import { oneLine, US_STATES } from '@/utils/format'
 import { parseMoney } from '@/utils/amount'
+import { carVehicle, fillFromCar, filledLabel } from '@/utils/caseBody'
 import { useAuthStore } from '@/stores/auth'
 import CustomerPicker from '@/components/CustomerPicker.vue'
 import DateField from '@/components/DateField.vue'
@@ -64,23 +65,42 @@ onMounted(async () => {
 // and is linked to it, so its letters show on the car's Letters tab (owner 2026-10-28: a new
 // case "isn't pulling the claim number or insurance company from the garage").
 const car = ref<CustomerCar | null>(null)
+/** What the pick filled from the car ("Insurer and claim #"), for the hint — never claimed when nothing was. */
+const carFilled = ref<string | null>(null)
 watch(linkedCustomerId, (id) => {
-  if (!id) car.value = null
+  if (!id) {
+    car.value = null
+    carFilled.value = null
+  }
 })
 
 function onCustomerPicked(c: CustomerSearchResult) {
   car.value = c.latestCar ?? null
-  if (car.value) {
-    if (!insurerName.value.trim() && car.value.insurerName) insurerName.value = car.value.insurerName
-    if (!insurerClaimNumber.value.trim() && car.value.claimNumber)
-      insurerClaimNumber.value = car.value.claimNumber
-    // The storm's state beats the one guessed from the shop's address.
-    if (car.value.state && US_STATES.includes(car.value.state)) state.value = car.value.state
+  const before = {
+    insurerName: insurerName.value,
+    insurerClaimNumber: insurerClaimNumber.value,
+    vehicleDescription: vehicleDescription.value,
   }
-  if (!vehicleDescription.value.trim() && c.vehicleLabel) vehicleDescription.value = c.vehicleLabel
+  // The storm's state beats the one guessed from the shop's address.
+  const filled = fillFromCar(
+    { insurerName: insurerName.value, insurerClaimNumber: insurerClaimNumber.value, state: state.value },
+    car.value,
+    { replaceState: true },
+  )
+  insurerName.value = filled.insurerName
+  insurerClaimNumber.value = filled.insurerClaimNumber
+  state.value = filled.state
+  // The suggested car's own vehicle: the case links to that car, so it must name it (the
+  // customer-level label is their newest vehicle, which can be another car).
+  const vehicle = carVehicle(c)
+  if (!vehicleDescription.value.trim() && vehicle) vehicleDescription.value = vehicle
+  carFilled.value = filledLabel(before, {
+    insurerName: insurerName.value,
+    insurerClaimNumber: insurerClaimNumber.value,
+    vehicleDescription: vehicleDescription.value,
+  })
   // Auto-title so the form stays a two-field job for CRM customers.
-  if (!title.value.trim())
-    title.value = c.vehicleLabel ? `${c.fullName} — ${c.vehicleLabel}` : c.fullName
+  if (!title.value.trim()) title.value = vehicle ? `${c.fullName} — ${vehicle}` : c.fullName
 }
 
 function opt(v: string): string | null {
@@ -157,14 +177,18 @@ async function submit() {
             v-model:customer-id="linkedCustomerId"
             @picked="onCustomerPicked"
           />
+          <small v-if="!linkedCustomerId && customerName.trim()" class="car-hint">
+            Pick the customer from the list to fill the insurer and claim # from their car in your garage.
+          </small>
           <small v-if="car" class="car-hint">
             <template v-if="car.hasCase">
               RO-{{ car.roNumber }} already has a case, so this one won't be linked to it.
             </template>
-            <template v-else>
-              From RO-{{ car.roNumber }} in your garage: insurer and claim # filled in, and the case
-              is linked to that car.
+            <template v-else-if="carFilled">
+              {{ carFilled }} filled from RO-{{ car.roNumber }} in your garage, and the case will be
+              linked to that car.
             </template>
+            <template v-else>The case will be linked to RO-{{ car.roNumber }} in your garage.</template>
           </small>
         </label>
 
