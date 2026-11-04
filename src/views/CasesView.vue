@@ -7,6 +7,7 @@ import { getAiUsage } from '@/api/usage'
 import { ApiError, CRM_URL } from '@/api/client'
 import type { AiUsageSummary, CaseListItem } from '@/api/types'
 import { centsToUsd, formatDateTime } from '@/utils/format'
+import { restoredNote } from '@/utils/caseBody'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import StatusPill from '@/components/StatusPill.vue'
@@ -100,6 +101,8 @@ const showDeleted = ref(false)
 const deletedCases = ref<CaseListItem[]>([])
 const deletedLoading = ref(false)
 const restoring = ref<string | null>(null)
+/** Said after a restore that came back without its car (null otherwise). */
+const restoreNote = ref<string | null>(null)
 async function toggleDeleted() {
   showDeleted.value = !showDeleted.value
   if (!showDeleted.value || !auth.shopId) return
@@ -116,10 +119,12 @@ async function restore(c: CaseListItem) {
   if (!auth.shopId) return
   restoring.value = c.id
   error.value = null
+  restoreNote.value = null
   try {
     const back = await restoreCase(auth.shopId, c.id)
     deletedCases.value = deletedCases.value.filter((d) => d.id !== c.id)
     cases.value = [back, ...cases.value]
+    restoreNote.value = restoredNote(c, back)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Could not restore the case.'
   } finally {
@@ -207,6 +212,7 @@ onMounted(async () => {
     </div>
 
     <p v-if="error" class="error-text">{{ error }}</p>
+    <p class="restore-note" role="status" aria-live="polite">{{ restoreNote ?? '' }}</p>
 
     <div v-if="usage && auth.canSeeUsage" class="usage card" :class="{ over: usage.month.exceeded || usage.today.exceeded }" data-tour="ai-usage">
       <div class="usage-row">
@@ -392,6 +398,19 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* Always in the page (a live region); boxed only while it says something. */
+.restore-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.restore-note:not(:empty) {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
 .page {
   width: 100%;
   max-width: 1200px;

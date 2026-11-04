@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CustomerCar, CustomerSearchResult } from '@/api/types'
-import { carVehicle, customerPickNote, editedFields, fillFromCar, filledLabel, pickCustomerOnCase } from './caseBody'
+import { carVehicle, customerPickNote, editedFields, fillFromCar, filledLabel, pickCustomerOnCase, restoredNote } from './caseBody'
 
 const car: CustomerCar = {
   claimId: 'car-1',
@@ -124,5 +124,17 @@ describe('customerPickNote', () => {
     expect(customerPickNote('Claim #', 12, 'linked')).toBe('Claim # filled from RO-12, and the case is linked to that car.')
     expect(customerPickNote(null, 12, 'failed')).toBe("Couldn't link RO-12. Link the car below to share its letters.")
     expect(customerPickNote(null, null, 'none')).toBeNull()
+  })
+})
+
+describe('restoredNote', () => {
+  it('says so when a restored case came back without its car (the car got another case)', () => {
+    expect(restoredNote({ claimId: 'car-1' }, { claimId: null }))
+      .toBe('Restored. Its car already has another case, so this one is no longer linked to that car.')
+  })
+
+  it('says nothing when the case came back as it was', () => {
+    expect(restoredNote({ claimId: 'car-1' }, { claimId: 'car-1' })).toBeNull()
+    expect(restoredNote({ claimId: null }, { claimId: null })).toBeNull()
   })
 })

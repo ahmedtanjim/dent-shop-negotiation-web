@@ -180,16 +180,19 @@ async function submit() {
           <small v-if="!linkedCustomerId && customerName.trim()" class="car-hint">
             Pick the customer from the list to fill the insurer and claim # from their car in your garage.
           </small>
-          <small v-if="car" class="car-hint">
-            <template v-if="car.hasCase">
-              RO-{{ car.roNumber }} already has a case, so this one won't be linked to it.
-            </template>
-            <template v-else-if="carFilled">
-              {{ carFilled }} filled from RO-{{ car.roNumber }} in your garage, and the case will be
-              linked to that car.
-            </template>
-            <template v-else>The case will be linked to RO-{{ car.roNumber }} in your garage.</template>
-          </small>
+          <!-- Live region (always in the page): what the pick filled is announced to screen readers. -->
+          <span class="car-live" role="status" aria-live="polite">
+            <small v-if="car" class="car-hint">
+              <template v-if="car.hasCase">
+                RO-{{ car.roNumber }} already has a case, so this one won't be linked to it.
+              </template>
+              <template v-else-if="carFilled">
+                {{ carFilled }} filled from RO-{{ car.roNumber }} in your garage, and the case will be
+                linked to that car.
+              </template>
+              <template v-else>The case will be linked to RO-{{ car.roNumber }} in your garage.</template>
+            </small>
+          </span>
         </label>
 
         <div class="form-grid">

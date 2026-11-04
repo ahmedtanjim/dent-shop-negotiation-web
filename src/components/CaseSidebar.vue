@@ -248,7 +248,9 @@ async function removeDocument(id: string) {
               v-model:customer-id="form.customerId"
               @picked="onCustomerPicked"
             />
-            <small v-if="carNote" class="faint car-note">{{ carNote }}</small>
+            <!-- A live region (always in the page, empty until a pick): the note arrives after a
+                 network call, so screen readers announce it when it appears. -->
+            <small class="car-note" role="status" aria-live="polite">{{ carNote ?? '' }}</small>
           </label>
           <label class="field">
             <span>Vehicle</span>
@@ -390,6 +392,11 @@ fieldset.fields {
   display: block;
   font-size: 11.5px;
   margin-top: 4px;
+  /* It can say a link failed: readable text, not the faint hint grey (2.5:1 on white). */
+  color: var(--text-muted);
+}
+.car-note:empty {
+  margin-top: 0;
 }
 .tl-hint {
   font-size: 11.5px;

@@ -157,3 +157,15 @@ export function customerPickNote(
       : `Couldn't link ${ro}. Link the car below to share its letters.`
   return filled ? `${filled} filled from ${ro}.` : null
 }
+
+/**
+ * After restoring a deleted case: a car keeps one live case, so when the car got a new case while
+ * this one was deleted the API restores it WITHOUT its car (review 2026-11-04 — its letters leave
+ * that car's Letters tab and the CRM's "Open in TL portal" opens the other case). Says so, or null
+ * when the case came back as it was.
+ */
+export function restoredNote(before: { claimId: string | null }, after: { claimId: string | null }): string | null {
+  if (before.claimId && !after.claimId)
+    return 'Restored. Its car already has another case, so this one is no longer linked to that car.'
+  return null
+}

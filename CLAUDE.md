@@ -109,7 +109,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    `latestCar`) and links an unlinked case to that car. A case already linked to a car takes nothing
    from a suggested car that isn't its own, a car that belongs to another case is never used
    (`pickCustomerOnCase`), the vehicle is the suggested car's own (`carVehicle`), and the note under
-   the picker names only what was really filled (`customerPickNote`); the API itself fills a linked case's blank
+   the picker names only what was really filled (`customerPickNote`) — a polite live region
+   (`role="status"`, always on the page) so screen readers hear it, as is New case's car hint; the API itself fills a linked case's blank
    insurer / claim # / customer / vehicle / state from the car on every read. The sidebar's save
    sends only the fields the user changed (`editedFields`) over the server's current values, so a
    refresh held back while the form had edits is never wiped. A case also opens from the CRM car
@@ -162,7 +163,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    renew banner and the cases tour skips the New case step. `CaseWorkspaceView` provides the flag
    (`utils/readOnly`); panels disable inputs, hide write actions and never save on leave.
    The empty case list has its own Recently deleted button (owner/manager) because the toolbar
-   isn't shown there, so a shop whose every case is deleted can still reach them.
+   isn't shown there, so a shop whose every case is deleted can still reach them. A car keeps one
+   live case, so a case whose car got a new case while it was deleted comes back unlinked; the list
+   then says so in a live region ("Restored. Its car already has another case, so this one is no
+   longer linked to that car." — `restoredNote` in `utils/caseBody`).
 7. **Fair-use caps** — 429 `ai_cap_daily` / `ai_cap_monthly` sets `aiCapNotice` (banner with reset
    time). `CasesView` shows a monthly usage meter (`GET /api/shops/{id}/ai-usage`) to
    owner/manager/admin (`auth.canSeeUsage`); a failed read just hides it.
