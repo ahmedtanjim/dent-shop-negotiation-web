@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, ApiError } from './client'
 import type {
   CaseDetail,
   CaseListItem,
@@ -6,6 +6,7 @@ import type {
   DraftQuestion,
   DraftRequest,
   DraftResult,
+  StandingAnswer,
   Fact,
   GeneratedDocs,
   IntakeKind,
@@ -143,6 +144,29 @@ export function createDraft(
   body: DraftRequest,
 ): Promise<DraftResult> {
   return api.post<DraftResult>(`${base(shopId)}/cases/${caseId}/drafts`, body)
+}
+
+/** {@link createDraft} that reports the letter's text as it is written. */
+export async function streamDraft(
+  shopId: string,
+  caseId: string,
+  body: DraftRequest,
+  onText: (text: string) => void,
+): Promise<DraftResult> {
+  try {
+    return await api.postStream<DraftResult>(`${base(shopId)}/cases/${caseId}/drafts/stream`, body, onText)
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return createDraft(shopId, caseId, body) // an older API
+    throw e
+  }
+}
+
+export function getStandingAnswers(shopId: string): Promise<StandingAnswer[]> {
+  return api.get<StandingAnswer[]>(`${base(shopId)}/standing-answers`)
+}
+
+export function deleteStandingAnswer(shopId: string, id: string): Promise<void> {
+  return api.del(`${base(shopId)}/standing-answers/${id}`)
 }
 
 /** Step one of drafting: up to 3 questions about facts the letter needs (empty = draft now).

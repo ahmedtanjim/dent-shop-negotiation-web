@@ -11,9 +11,16 @@ const props = defineProps<{ questions: DraftQuestion[]; busy?: boolean }>()
 const emit = defineEmits<{ submit: [answers: DraftAnswer[]] }>()
 
 const values = ref<string[]>(props.questions.map(() => ''))
+const always = ref<boolean[]>(props.questions.map(() => false))
 const today = new Date().toISOString().slice(0, 10)
 
-function toggle(i: number, v: 'Yes' | 'No') {
+/** A fact can be true of every vehicle; a date or "Not sure" can't. */
+function canKeep(i: number) {
+  const v = values.value[i]?.trim()
+  return !!v && v !== 'Not sure' && props.questions[i].kind !== 'Date'
+}
+
+function toggle(i: number, v: 'Yes' | 'No' | 'Not sure') {
   values.value[i] = values.value[i] === v ? '' : v
 }
 
@@ -26,6 +33,7 @@ function send(skipAll = false) {
       question: q.question,
       kind: q.kind,
       answer: skipAll ? null : values.value[i]?.trim() || null,
+      always: !skipAll && canKeep(i) && always.value[i],
     })),
   )
 }
@@ -42,7 +50,7 @@ function send(skipAll = false) {
         </h3>
         <p class="dq-sub">
           Answer what you know and skip the rest. The letter never guesses, and your answers are
-          saved to the case so you won't be asked again.
+          saved so you won't be asked again on this case.
         </p>
       </div>
     </div>
@@ -54,7 +62,7 @@ function send(skipAll = false) {
 
         <div v-if="q.kind === 'YesNo'" class="dq-yn" role="group" :aria-label="q.question">
           <button
-            v-for="v in ['Yes', 'No'] as const"
+            v-for="v in ['Yes', 'No', 'Not sure'] as const"
             :key="v"
             type="button"
             class="dq-chip"
@@ -85,6 +93,10 @@ function send(skipAll = false) {
           placeholder="A few words"
           @keydown.enter.prevent="send()"
         />
+        <label v-if="canKeep(i)" class="dq-always">
+          <input v-model="always[i]" type="checkbox" :disabled="busy" />
+          True for every car at our shop. Don't ask again.
+        </label>
       </li>
     </ol>
 
@@ -179,6 +191,14 @@ function send(skipAll = false) {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
+}
+.dq-always {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
 }
 .dq-chip:disabled {
   cursor: default;

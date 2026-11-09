@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { PenLine, Sparkles } from 'lucide-vue-next'
-import { createDraft, getDraftQuestions } from '@/api/negotiation'
+import { deleteStandingAnswer, getDraftQuestions, getStandingAnswers, streamDraft } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, DraftVoice } from '@/api/types'
+import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, DraftVoice, StandingAnswer } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import { useCaseReadOnly } from '@/utils/readOnly'
+import { draftPreview } from '@/utils/draftPreview'
 import DraftQuestions from '@/components/DraftQuestions.vue'
 
 const props = defineProps<{ detail: CaseDetail }>()
@@ -22,6 +23,27 @@ const shopId = computed(() => auth.shopId as string)
 const caseId = computed(() => props.detail.case.id)
 /** The shop's plan ended: no new drafts (the letters already written stay readable). */
 const readOnly = useCaseReadOnly()
+
+const standing = ref<StandingAnswer[]>([])
+
+async function loadStanding() {
+  try {
+    standing.value = await getStandingAnswers(shopId.value)
+  } catch {
+    standing.value = [] // an older API: nothing to manage
+  }
+}
+watch(shopId, loadStanding, { immediate: true })
+
+async function removeStanding(id: string) {
+  error.value = null
+  try {
+    await deleteStandingAnswer(shopId.value, id)
+    standing.value = standing.value.filter((a) => a.id !== id)
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'That answer could not be removed. Try again.'
+  }
+}
 
 const voice = ref<DraftVoice>('Shop')
 const customerAuthorized = ref(false)
@@ -111,14 +133,19 @@ async function write(request: DraftRequest, answers: DraftAnswer[]) {
   emit('drafting', true)
   error.value = null
   try {
-    const result = await createDraft(shopId.value, caseId.value, { ...request, answers })
+    draftPreview.value = ''
+    const result = await streamDraft(shopId.value, caseId.value, { ...request, answers }, (text) => {
+      draftPreview.value += text
+    })
     instructions.value = ''
     pending.value = null
     if (result.recommendsCounsel) emit('counsel')
+    if (answers.some((a) => a.always)) void loadStanding()
     emit('refresh')
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Draft generation failed.'
   } finally {
+    draftPreview.value = ''
     busy.value = false
     step.value = null
     emit('drafting', false)
@@ -151,6 +178,23 @@ function answer(answers: DraftAnswer[]) {
         <strong>{{ detail.case.state ?? 'this case’s state' }}</strong> yet — drafts will argue
         from your documented facts but won’t cite statutes. State law coverage is expanding.
       </div>
+
+      <div v-if="detail.hasPlaybook && detail.playbookPendingReview" class="notice-amber no-playbook">
+        <strong>{{ detail.case.state }}</strong> citations were checked against the official text
+        but haven't had attorney review yet. Read them before you send.
+      </div>
+
+      <details v-if="standing.length" class="standing">
+        <summary>Saved for every car ({{ standing.length }})</summary>
+        <ul>
+          <li v-for="a in standing" :key="a.id">
+            <span>{{ a.question }} <strong>{{ a.answer }}</strong></span>
+            <button type="button" class="btn btn-ghost btn-sm" :disabled="readOnly" @click="removeStanding(a.id)">
+              Remove
+            </button>
+          </li>
+        </ul>
+      </details>
 
       <!-- the owner's copy, verbatim (2026-08-24 feedback) -->
       <div class="auto-tone">
@@ -315,6 +359,27 @@ function answer(answers: DraftAnswer[]) {
   margin-bottom: 8px;
   font-size: 12.5px;
   line-height: 1.45;
+}
+.standing {
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.standing summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.standing ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.standing li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
 }
 .generate {
   width: 100%;

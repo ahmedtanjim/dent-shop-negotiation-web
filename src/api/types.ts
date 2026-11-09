@@ -128,6 +128,8 @@ export interface CaseDetail {
   documents: NegDocument[]
   /** false = no verified citations for this state yet; drafts cite no statutes */
   hasPlaybook: boolean
+  /** this state's citations were checked against the official text; no attorney has signed off yet */
+  playbookPendingReview?: boolean
   /** linked CRM customer — context syncs live from the CRM record when set */
   customerId: string | null
   /** TL-invoice fee override, decimal dollars; null = shop default */
@@ -226,8 +228,18 @@ export interface DraftQuestion {
 export interface DraftAnswer {
   question: string
   kind: DraftQuestionKind
-  /** 'Yes' / 'No', YYYY-MM-DD, or free text; null = skipped */
+  /** 'Yes' / 'No' / 'Not sure', YYYY-MM-DD, or free text; null = skipped */
   answer: string | null
+  /** true of every vehicle at the shop: kept for the shop and never asked again */
+  always?: boolean
+}
+
+/** An answer the owner marked as true of every vehicle at the shop. */
+export interface StandingAnswer {
+  id: string
+  question: string
+  answer: string
+  createdAt: string
 }
 
 export interface DraftResult {

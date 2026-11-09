@@ -106,6 +106,21 @@ export interface RequestOptions {
   keepalive?: boolean
 }
 
+/** Turn a failed response into an ApiError, raising the app-wide notices it calls for. */
+async function throwFor(res: Response): Promise<never> {
+  const { message, code, body } = await readError(res, `Request failed (${res.status})`)
+  const resetsAt = typeof body?.resetsAt === 'string' ? body.resetsAt : null
+  if (res.status === 402) {
+    if (code === 'ai_required') aiPlanRequired.value = true
+    else subscriptionNotice.value = message
+  }
+  if (res.status === 403 && code === 'negotiator_access') negotiatorAccessDenied.value = message
+  if (res.status === 429 && code?.startsWith('ai_cap_')) {
+    aiCapNotice.value = { message, scope: code.slice('ai_cap_'.length), resetsAt }
+  }
+  throw new ApiError(res.status, message, code, body)
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -134,19 +149,7 @@ async function request<T>(
   // wrong-credentials answer and falls through to show the API's own message.
   if (res.status === 401 && headers.Authorization && !isSignInPath(path)) handleUnauthorized()
 
-  if (!res.ok) {
-    const { message, code, body } = await readError(res, `Request failed (${res.status})`)
-    const resetsAt = typeof body?.resetsAt === 'string' ? body.resetsAt : null
-    if (res.status === 402) {
-      if (code === 'ai_required') aiPlanRequired.value = true
-      else subscriptionNotice.value = message
-    }
-    if (res.status === 403 && code === 'negotiator_access') negotiatorAccessDenied.value = message
-    if (res.status === 429 && code?.startsWith('ai_cap_')) {
-      aiCapNotice.value = { message, scope: code.slice('ai_cap_'.length), resetsAt }
-    }
-    throw new ApiError(res.status, message, code, body)
-  }
+  if (!res.ok) await throwFor(res)
 
   // Always drain the body (even a 204's empty one): an unread response is reported by
   // the browser as a cancelled request (net::ERR_ABORTED) on every autosave.
@@ -161,6 +164,45 @@ export const api = {
   put: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>('PUT', path, body, undefined, opts),
   del: <T = void>(path: string) => request<T>('DELETE', path),
   postForm: <T>(path: string, form: FormData) => request<T>('POST', path, undefined, form),
+
+  /** POST whose answer arrives as server-sent events: `text` pieces, then `done` or `error`.
+   *  A plain JSON answer is accepted too (the server had nothing to stream). */
+  async postStream<T>(path: string, body: unknown, onText: (text: string) => void): Promise<T> {
+    const headers = { ...authHeader(), 'Content-Type': 'application/json' }
+    let res: Response
+    try {
+      res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
+    } catch {
+      throw new ApiError(0, NETWORK_ERROR)
+    }
+    if (res.status === 401 && 'Authorization' in headers) handleUnauthorized()
+    if (!res.ok) await throwFor(res)
+    if (!res.headers.get('Content-Type')?.includes('text/event-stream') || !res.body) {
+      return (await res.json()) as T
+    }
+
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+    let buffer = ''
+    for (;;) {
+      let chunk: ReadableStreamReadResult<string>
+      try {
+        chunk = await reader.read()
+      } catch {
+        throw new ApiError(0, NETWORK_ERROR)
+      }
+      if (chunk.done) throw new ApiError(0, 'The draft stopped before it finished. Try again in a moment.')
+      buffer += chunk.value
+      for (let end = buffer.indexOf('\n\n'); end >= 0; end = buffer.indexOf('\n\n')) {
+        const line = buffer.slice(0, end)
+        buffer = buffer.slice(end + 2)
+        if (!line.startsWith('data: ')) continue
+        const event = JSON.parse(line.slice(6)) as { type: string; text?: string; result?: T; message?: string }
+        if (event.type === 'text') onText(event.text ?? '')
+        else if (event.type === 'done') return event.result as T
+        else if (event.type === 'error') throw new ApiError(500, event.message ?? 'Draft generation failed.')
+      }
+    }
+  },
 
   /** Fetch a file with the bearer token attached. A failed download surfaces the API's
    *  own message and code (e.g. `shop_profile_incomplete`), not just "Download failed". */

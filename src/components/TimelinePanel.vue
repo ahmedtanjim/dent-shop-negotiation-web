@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { copyLetter, letterToHtml } from '@/utils/letterMarkdown'
+import { draftPreview } from '@/utils/draftPreview'
 import type { Directive } from 'vue'
 import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-vue-next'
 import {
-  createDraft,
+  streamDraft,
   getDraftQuestions,
   deleteMessage,
   extractPaste,
@@ -295,7 +296,10 @@ async function autoDraftReply(inbound: NegMessage) {
   }
   intakePhase.value = 'drafting'
   try {
-    const result = await createDraft(shopId.value, caseId.value, { ...request, answers })
+    draftPreview.value = ''
+    const result = await streamDraft(shopId.value, caseId.value, { ...request, answers }, (text) => {
+      draftPreview.value += text
+    })
     if (result.recommendsCounsel) emit('counsel')
   } catch (e) {
     // Non-fatal: the email is already saved — only the automatic draft failed. Surface the
@@ -306,6 +310,7 @@ async function autoDraftReply(inbound: NegMessage) {
       ? `The email was saved, but the automatic reply draft failed: ${reason}`
       : 'The email was saved, but the automatic reply draft failed — use “Draft a reply” on the right to retry.'
   }
+  draftPreview.value = ''
   emit('refresh')
 }
 
@@ -694,11 +699,15 @@ function fromLine(m: NegMessage): string {
         <div class="ehead"><span class="dir draft-dir">✦ AI draft</span></div>
         <div class="card msg draft drafting-skeleton">
           <p class="drafting-note">
-            <span class="spinner"></span> Writing your reply — it lands right here in a few seconds…
+            <span class="spinner"></span> Writing your reply…
           </p>
-          <div class="shimmer-line" style="width: 92%"></div>
-          <div class="shimmer-line" style="width: 78%"></div>
-          <div class="shimmer-line" style="width: 85%"></div>
+          <!-- eslint-disable-next-line vue/no-v-html -- letterToHtml escapes the text first -->
+          <div v-if="draftPreview" class="drafting-text" v-html="letterToHtml(draftPreview)"></div>
+          <template v-else>
+            <div class="shimmer-line" style="width: 92%"></div>
+            <div class="shimmer-line" style="width: 78%"></div>
+            <div class="shimmer-line" style="width: 85%"></div>
+          </template>
         </div>
       </div>
 
@@ -1171,6 +1180,10 @@ function fromLine(m: NegMessage): string {
 /* drafting skeleton */
 .drafting-skeleton {
   border-style: dashed;
+}
+.drafting-text {
+  font-size: 13.5px;
+  line-height: 1.55;
 }
 .drafting-note {
   display: flex;
