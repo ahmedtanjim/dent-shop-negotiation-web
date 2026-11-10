@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { goToCrm } from '@/api/handoff'
 import { theme, toggleTheme } from '@/utils/theme'
+import { dailyResetLabel } from '@/utils/format'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
 import { setSentryTags } from '@/analytics/sentry'
 import { helpOpen, openHelp } from '@/utils/help'
@@ -113,10 +114,20 @@ function dismissNotice() {
 const capResets = computed(() => {
   const iso = aiCapNotice.value?.resetsAt
   if (!iso) return null
+  if (aiCapNotice.value?.scope !== 'monthly') return dailyResetLabel(iso)
   const d = new Date(iso)
-  return aiCapNotice.value?.scope === 'monthly'
-    ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return Number.isNaN(d.getTime())
+    ? null
+    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+})
+/** The daily cap's text. An older API's message says "It resets at midnight UTC", which means
+ *  nothing to a shop, so with a reset instant the banner words it itself, in the viewer's time. */
+const capText = computed(() => {
+  const n = aiCapNotice.value
+  if (!n) return ''
+  if (n.scope === 'daily' && capResets.value)
+    return `This shop has used today's AI allowance. It resets at ${capResets.value}.`
+  return capResets.value ? `${n.message} Resets on ${capResets.value}.` : n.message
 })
 </script>
 
@@ -196,7 +207,7 @@ const capResets = computed(() => {
     </div>
 
     <div v-if="aiCapNotice" class="sub-banner" role="status">
-      <span>{{ aiCapNotice.message }}<template v-if="capResets"> Resets {{ aiCapNotice.scope === 'monthly' ? 'on' : 'at' }} {{ capResets }}.</template></span>
+      <span>{{ capText }}</span>
       <span class="banner-actions">
         <button class="btn btn-ghost btn-sm" @click="aiCapNotice = null">
           <X :size="14" />
