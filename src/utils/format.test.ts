@@ -7,7 +7,7 @@ describe('dailyResetLabel', () => {
 
   it('shows the reset as a clock time in the viewer’s zone, never UTC', () => {
     const label = dailyResetLabel(new Date(2026, 10, 3, 19, 0).toISOString(), now)
-    expect(label).toBe('7:00 PM your time')
+    expect(label).toBe('at 7:00 PM your time')
     expect(label).not.toMatch(/UTC|midnight/)
   })
 
@@ -16,7 +16,7 @@ describe('dailyResetLabel', () => {
   })
 
   it('names the date when the reset is further out', () => {
-    expect(dailyResetLabel(new Date(2026, 10, 6, 8, 30).toISOString(), now)).toBe('Nov 6 at 8:30 AM your time')
+    expect(dailyResetLabel(new Date(2026, 10, 6, 8, 30).toISOString(), now)).toBe('on Nov 6 at 8:30 AM your time')
   })
 
   it('is null without a usable instant', () => {

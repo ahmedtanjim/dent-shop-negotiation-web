@@ -126,8 +126,9 @@ const capText = computed(() => {
   const n = aiCapNotice.value
   if (!n) return ''
   if (n.scope === 'daily' && capResets.value)
-    return `This shop has used today's AI allowance. It resets at ${capResets.value}.`
-  return capResets.value ? `${n.message} Resets on ${capResets.value}.` : n.message
+    return `This shop has used today's AI allowance. It resets ${capResets.value}.`
+  if (!capResets.value) return n.message
+  return n.scope === 'monthly' ? `${n.message} Resets on ${capResets.value}.` : `${n.message} Resets ${capResets.value}.`
 })
 </script>
 

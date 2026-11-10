@@ -228,7 +228,7 @@ onMounted(async () => {
         <span :style="{ width: `${Math.max(usage.month.percentUsed, usage.month.calls ? 1 : 0)}%` }"></span>
       </div>
       <p v-if="usage.today.exceeded" class="usage-note">
-        Today's allowance is used up — drafting resumes at {{ dailyResetLabel(usage.today.resetsAt) }}.
+        Today's allowance is used up — drafting resumes {{ dailyResetLabel(usage.today.resetsAt) ?? 'when the day resets' }}.
       </p>
       <p v-else-if="usage.month.exceeded" class="usage-note">
         This month's allowance is used up — drafting resumes on {{ resetsOn(usage.month.resetsAt) }}.
