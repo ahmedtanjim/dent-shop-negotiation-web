@@ -134,6 +134,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    answers. 400/402/403/429 from the questions call is shown as the refusal; any other failure
    drafts without questions. No tone picker: the API picks the rung and returns it as a badge.
    Customer-voice drafts require the authorization checkbox; litigation cases cannot draft.
+   The buttons name the letter ("Generate shop letter" / "Write the customer-voice letter"), and
+   the letter is written from the panel's fields as they are when the answers go in — a voice
+   switched while the questions are open is the voice it's written in (Aaron, 2026-11-14).
+   A case with no state says to set it in Case details (not "no citations for this state").
    Yes/no questions also offer "Not sure" (treated as skipped); an answer can be ticked true of every car (kept per shop, listed and removed under "Saved for every car"). The letter appears as it is written (`POST …/drafts/stream`, shown through `utils/draftPreview.ts`); the saved draft replaces it.
 4. **No `[BLANKS]` in letters** (owner rule 2026-10-03). The API writes around missing facts and
    returns them as `missing`; `BlanksNotice` lists them (profile items link to CRM Settings).
