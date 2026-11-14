@@ -92,14 +92,24 @@ const canSubmit = computed(() => {
 // the tier the facts support. Its choice comes back as the badge on the draft card.
 // Two steps (owner decision 2026-10-03): first the assistant asks up to 3 questions about
 // facts the letter needs, then it writes a letter with no [BLANKS] in it.
-async function generate() {
-  if (readOnly.value) return
-  const request: DraftRequest = {
+/** The letter as the panel shows it right now. Read again when the answers go in, so a
+ *  voice (or reply-to, or instruction) changed while the questions were open is the one
+ *  the letter is written in — the questions are about facts, not about who signs. */
+function currentRequest(): DraftRequest {
+  return {
     voice: voice.value,
     customerAuthorized: customerAuthorized.value,
     replyToMessageId: replyToMessageId.value || null,
     instructions: instructions.value.trim() || null,
   }
+}
+
+/** What the buttons write: the voice is named on them so nobody drafts the wrong one. */
+const letterName = computed(() => (voice.value === 'Customer' ? 'customer-voice letter' : 'shop letter'))
+
+async function generate() {
+  if (readOnly.value) return
+  const request = currentRequest()
   busy.value = true
   step.value = 'checking'
   error.value = null
@@ -153,7 +163,8 @@ async function write(request: DraftRequest, answers: DraftAnswer[]) {
 }
 
 function answer(answers: DraftAnswer[]) {
-  if (pending.value) void write(pending.value.request, answers)
+  if (!pending.value || !canSubmit.value) return
+  void write(currentRequest(), answers)
 }
 </script>
 
@@ -173,10 +184,15 @@ function answer(answers: DraftAnswer[]) {
     </div>
 
     <template v-else>
-      <div v-if="!detail.hasPlaybook" class="notice-amber no-playbook">
-        No attorney-reviewed citations for
-        <strong>{{ detail.case.state ?? 'this case’s state' }}</strong> yet — drafts will argue
-        from your documented facts but won’t cite statutes. State law coverage is expanding.
+      <div v-if="!detail.case.state" class="notice-amber no-playbook">
+        This case has no state yet, so drafts won’t cite any state law. Set the
+        <strong>State</strong> in Case details and the letters can cite it.
+      </div>
+
+      <div v-else-if="!detail.hasPlaybook" class="notice-amber no-playbook">
+        No attorney-reviewed citations for <strong>{{ detail.case.state }}</strong> yet — drafts
+        will argue from your documented facts but won’t cite statutes. State law coverage is
+        expanding.
       </div>
 
       <div v-if="detail.hasPlaybook && detail.playbookPendingReview" class="notice-amber no-playbook">
@@ -251,6 +267,8 @@ function answer(answers: DraftAnswer[]) {
         :key="pending.questions.map((q) => q.question).join('|')"
         :questions="pending.questions"
         :busy="busy"
+        :letter-name="letterName"
+        :blocked="!canSubmit"
         class="questions"
         @submit="answer"
       />
@@ -262,7 +280,7 @@ function answer(answers: DraftAnswer[]) {
               ? 'Checking what the letter needs…'
               : busy
                 ? 'Drafting…'
-                : 'Generate draft'
+                : `Generate ${letterName}`
           }}
         </button>
       </template>

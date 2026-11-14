@@ -7,7 +7,17 @@ import type { DraftAnswer, DraftQuestion } from '@/api/types'
 /** Asked before a draft is written (at most 3) so the letter comes out complete — no
  *  [BLANKS] to fill in afterwards. Every question can be skipped; the letter then simply
  *  doesn't rely on that fact. Answers are saved to the case's fact list server-side. */
-const props = defineProps<{ questions: DraftQuestion[]; busy?: boolean }>()
+const props = withDefaults(
+  defineProps<{
+    questions: DraftQuestion[]
+    busy?: boolean
+    /** what gets written, e.g. "customer-voice letter" — follows the panel's voice */
+    letterName?: string
+    /** the panel can't write yet (a customer letter not authorized): answers stay editable */
+    blocked?: boolean
+  }>(),
+  { letterName: 'letter' },
+)
 const emit = defineEmits<{ submit: [answers: DraftAnswer[]] }>()
 
 const values = ref<string[]>(props.questions.map(() => ''))
@@ -27,6 +37,7 @@ function toggle(i: number, v: 'Yes' | 'No' | 'Not sure') {
 const answeredCount = computed(() => values.value.filter((v) => v.trim()).length)
 
 function send(skipAll = false) {
+  if (props.busy || props.blocked) return
   emit(
     'submit',
     props.questions.map((q, i) => ({
@@ -101,15 +112,15 @@ function send(skipAll = false) {
     </ol>
 
     <div class="dq-actions">
-      <button type="button" class="btn btn-primary" :disabled="busy" @click="send()">
+      <button type="button" class="btn btn-primary" :disabled="busy || blocked" @click="send()">
         <span v-if="busy" class="spinner"></span>
-        {{ busy ? 'Writing…' : answeredCount ? 'Write the letter' : 'Skip and write the letter' }}
+        {{ busy ? 'Writing…' : answeredCount ? `Write the ${letterName}` : `Skip and write the ${letterName}` }}
       </button>
       <button
         v-if="answeredCount"
         type="button"
         class="btn btn-ghost btn-sm"
-        :disabled="busy"
+        :disabled="busy || blocked"
         @click="send(true)"
       >
         Skip all
