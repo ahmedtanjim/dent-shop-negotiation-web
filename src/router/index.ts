@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
 import { SIGNUP_URL } from '@/api/handoff'
+import { withVisit } from '@/utils/visitSource'
 import { CRM_URL } from '@/api/client'
 import { trackRoute } from '@/analytics/ga'
 import { applyRouteSeo } from '@/utils/seo'
@@ -45,7 +46,7 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       redirect: () => {
-        window.location.replace(SIGNUP_URL)
+        window.location.replace(withVisit(SIGNUP_URL))
         return { name: 'login' }
       },
     },

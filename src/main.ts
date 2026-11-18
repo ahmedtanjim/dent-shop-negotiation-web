@@ -6,6 +6,7 @@ import './style.css'
 import { initSentry } from './analytics/sentry'
 import { watchForNewBuild } from './utils/freshBuild'
 import { loadSupportEmail } from './api/support'
+import { rememberVisit } from './utils/visitSource'
 
 // A tab left open across a deploy references chunk files that no longer exist; the next
 // navigation would then fail to load its page. Reload once to pick up the fresh build.
@@ -21,6 +22,10 @@ router.afterEach(() => sessionStorage.removeItem('dsm_reloaded_for_deploy'))
 watchForNewBuild(router)
 // The support address (Help & support, login page) comes from the API — see api/support.
 void loadSupportEmail()
+
+// A tagged link (an ad, a post) or another website that brought this visit is kept for the
+// sign-up link (utils/visitSource) — first-party only.
+rememberVisit()
 
 const app = createApp(App)
 app.use(createPinia())

@@ -5,12 +5,17 @@ import { Eye, EyeOff, Moon, Sun } from 'lucide-vue-next'
 import { login } from '@/api/auth'
 import { ApiError, CRM_URL } from '@/api/client'
 import { SIGNUP_URL } from '@/api/handoff'
+import { withVisit } from '@/utils/visitSource'
 import { useAuthStore } from '@/stores/auth'
 import { theme, toggleTheme } from '@/utils/theme'
 import { safeRedirect } from '@/utils/safeRedirect'
 import { openHelp } from '@/utils/help'
 import { trackSignUpClick } from '@/analytics/ga'
+
 import PrivacyChoicesLink from '@/components/PrivacyChoicesLink.vue'
+
+/** Sign-up on the shop system, carrying the tagged link / website that brought this visit. */
+const signupHref = withVisit(SIGNUP_URL)
 
 /** The sample letter on the left, the form on the right — same shell as the shop
  *  system's login, in this app's own colours. One account for both apps. */
@@ -153,7 +158,7 @@ async function submit() {
         </button>
 
         <p class="alt muted">
-          New here? <a :href="SIGNUP_URL" @click="trackSignUpClick('login')">Create your shop</a>
+          New here? <a :href="signupHref" @click="trackSignUpClick('login')">Create your shop</a>
           <span class="faint">· $1,999/yr, shop system included</span>
         </p>
         <p class="cross muted">Already inside the shop system? Click "DSM Negotiator" in its top bar, no password needed.</p>
