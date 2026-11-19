@@ -89,7 +89,12 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   rewrite, with its own CSP allowing Webflow's image/video hosts). It is a static copy of the
   Webflow page "AI site home", rendered through `dent_shop_home`'s `Webflow.astro` layout, with
   inline scripts moved to `welcome-assets/welcome-N.js` (CSP) and relative links made absolute to
-  dentshopmanager.com. Its total-loss training form (`welcome-2.js`, same script as the apex
+  dentshopmanager.com. `welcome-assets/visit-source.js` (growth plan 2026-11-19; same copy as
+  `dent_shop_home`'s `Webflow.astro`) keeps how the visit reached us — utm_*, the ad network of a
+  click id (never the id), the outside website, the first page — in localStorage `dsm_attr` for 30
+  days (not under GPC or the opt-out) and adds it to the sign-up links; the SPA does the same at
+  boot (`src/utils/visitSource.ts`, `rememberVisit()` in `main.ts`) and uses `withVisit(SIGNUP_URL)`
+  for the login page's "Create your shop" and the `/register` redirect. Its total-loss training form (`welcome-2.js`, same script as the apex
   site's `Webflow.astro`) POSTs the lead to `https://api.dentshopmanager.com/api/public/leads`
   (`data-source="ai-home"`, hidden `website` honeypot, `<p data-consent>` wording sent as consent;
   the API's `Marketing:LeadOrigins` must list `https://ai.dentshopmanager.com` or the browser
