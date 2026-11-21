@@ -161,6 +161,24 @@ export async function streamDraft(
   }
 }
 
+/** The owner read a draft and says what it got wrong or left out: the assistant writes that
+ *  letter again with it fixed (same voice, same email answered), reporting the text as it is
+ *  written. The rewritten draft takes the old one's place, so `draft.id` is new; `note` says
+ *  what changed. */
+export function streamRevise(
+  shopId: string,
+  caseId: string,
+  messageId: string,
+  feedback: string,
+  onText: (text: string) => void,
+): Promise<DraftResult> {
+  return api.postStream<DraftResult>(
+    `${base(shopId)}/cases/${caseId}/messages/${messageId}/revise/stream`,
+    { feedback },
+    onText,
+  )
+}
+
 export function getStandingAnswers(shopId: string): Promise<StandingAnswer[]> {
   return api.get<StandingAnswer[]>(`${base(shopId)}/standing-answers`)
 }

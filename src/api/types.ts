@@ -245,6 +245,9 @@ export interface StandingAnswer {
 export interface DraftResult {
   draft: NegMessage
   recommendsCounsel: boolean
+  /** Only on a rewrite from the owner's feedback: what the assistant changed, and anything it
+   *  could not do, in a sentence or two. */
+  note?: string | null
 }
 
 export interface CustomerSearchResult {
