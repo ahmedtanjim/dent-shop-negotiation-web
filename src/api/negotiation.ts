@@ -187,6 +187,13 @@ export function deleteStandingAnswer(shopId: string, id: string): Promise<void> 
   return api.del(`${base(shopId)}/standing-answers/${id}`)
 }
 
+/** Keep a wish about the shop's letters for EVERY case ("Sign as …"). Offered after a rewrite
+ *  when part of the owner's feedback was about all their letters; nothing becomes shop-wide
+ *  without this call. Saving the same sentence again returns the one already kept. */
+export function saveStandingPreference(shopId: string, text: string): Promise<StandingAnswer> {
+  return api.post<StandingAnswer>(`${base(shopId)}/standing-answers`, { text })
+}
+
 /** Step one of drafting: up to 3 questions about facts the letter needs (empty = draft now).
  *  Same body as createDraft; the answers then ride on createDraft. */
 export async function getDraftQuestions(

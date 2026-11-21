@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { PenLine, Sparkles } from 'lucide-vue-next'
-import { deleteStandingAnswer, getDraftQuestions, getStandingAnswers, streamDraft } from '@/api/negotiation'
+import { deleteFact, deleteStandingAnswer, getDraftQuestions, getStandingAnswers, streamDraft } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, DraftVoice, StandingAnswer } from '@/api/types'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import { useCaseReadOnly } from '@/utils/readOnly'
 import { draftPreview } from '@/utils/draftPreview'
+import { ownerSaid, savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
 import DraftQuestions from '@/components/DraftQuestions.vue'
 
 const props = defineProps<{ detail: CaseDetail }>()
@@ -34,6 +35,36 @@ async function loadStanding() {
   }
 }
 watch(shopId, loadStanding, { immediate: true })
+// Something was saved for every case from a rewritten draft ("Save for every case").
+watch(savedForEveryCaseVersion, loadStanding)
+
+/** What the owner told the assistant about THIS case: answers to its questions, and what they
+ *  said about an earlier letter (owner 2026-11-22: "remember for later letters in the same
+ *  cases"). Every later letter on the case is written knowing these; removing one forgets it. */
+const saidOnCase = computed(() =>
+  // In the order they were said: the API sorts facts by their date, and everything said on
+  // one day shares it.
+  [...props.detail.facts]
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .flatMap((f) => {
+      const text = ownerSaid(f.assertion)
+      return text === null ? [] : [{ id: f.id, text }]
+    }),
+)
+const removingSaid = ref<string | null>(null)
+async function removeSaid(id: string) {
+  if (readOnly.value || removingSaid.value) return
+  removingSaid.value = id
+  error.value = null
+  try {
+    await deleteFact(shopId.value, caseId.value, id)
+    emit('refresh')
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'That could not be removed. Try again.'
+  } finally {
+    removingSaid.value = null
+  }
+}
 
 async function removeStanding(id: string) {
   error.value = null
@@ -200,11 +231,30 @@ function answer(answers: DraftAnswer[]) {
         but haven't had attorney review yet. Read them before you send.
       </div>
 
+      <details v-if="saidOnCase.length" class="standing said-on-case">
+        <summary>Saved for this case ({{ saidOnCase.length }})</summary>
+        <p class="standing-hint">What you told the assistant about this case. Every letter on it is written knowing these.</p>
+        <ul>
+          <li v-for="f in saidOnCase" :key="f.id">
+            <span>{{ f.text }}</span>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
+              :disabled="readOnly || removingSaid !== null"
+              @click="removeSaid(f.id)"
+            >
+              Remove
+            </button>
+          </li>
+        </ul>
+      </details>
+
       <details v-if="standing.length" class="standing">
-        <summary>Saved for every car ({{ standing.length }})</summary>
+        <summary>Saved for every case ({{ standing.length }})</summary>
         <ul>
           <li v-for="a in standing" :key="a.id">
-            <span>{{ a.question }} <strong>{{ a.answer }}</strong></span>
+            <!-- an answer true of every car has a question; a wish for every letter is one sentence -->
+            <span>{{ a.question }} <strong v-if="a.answer">{{ a.answer }}</strong></span>
             <button type="button" class="btn btn-ghost btn-sm" :disabled="readOnly" @click="removeStanding(a.id)">
               Remove
             </button>
@@ -386,6 +436,14 @@ function answer(answers: DraftAnswer[]) {
 .standing summary {
   cursor: pointer;
   font-weight: 600;
+}
+.standing-hint {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+.standing li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .standing ul {
   list-style: none;

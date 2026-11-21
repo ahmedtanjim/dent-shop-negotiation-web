@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
   intakeEml: vi.fn(),
   intakeMessage: vi.fn(),
   markSent: vi.fn(),
+  saveStandingPreference: vi.fn(),
   setMessageKind: vi.fn(),
 }))
 vi.mock('@/api/negotiation', () => api)
@@ -23,6 +24,7 @@ import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { provideCaseReadOnly } from '@/utils/readOnly'
 import { draftPreview } from '@/utils/draftPreview'
+import { savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
 
 const msg = (id: string, kind: NegMessage['kind'], createdAt: string, body = `Body of ${id}`): NegMessage => ({
   id,
@@ -220,5 +222,71 @@ describe('TimelinePanel — feedback on a draft', () => {
     expect(box(w, 'draft-1').props('blocked')).toBe(true)
     await ask(w, 'draft-1', 'Fix the date.')
     expect(api.streamRevise).not.toHaveBeenCalled()
+  })
+
+  // ── what the rewrite kept for later letters (owner 2026-11-22) ───────────────
+
+  const torres = { factId: 'f-1', text: 'The adjuster is Mike Torres, not Anne Gill.', everyLetter: false }
+  const signature = { factId: 'f-2', text: 'Sign letters as Fariha Khan, Office Manager.', everyLetter: true }
+
+  async function rewritten(result: Partial<DraftResult>) {
+    const rewrite = pendingRewrite()
+    const w = mountPanel(detail([inbound, draft]))
+    await ask(w, 'draft-1', "It's Mike Torres now. Always sign as Fariha.")
+    const next = msg('draft-2', 'Draft', '2026-11-12T15:01:00Z')
+    rewrite.finish({ draft: next, recommendsCounsel: false, ...result })
+    await flushPromises()
+    await w.setProps({ detail: detail([inbound, next]) })
+    return w
+  }
+
+  it('lists what was saved for the case; only a wish about every letter can go to every case', async () => {
+    const w = await rewritten({ note: 'I changed the name and the signature.', remembered: [torres, signature] })
+    const note = card(w, 'draft-2').find('.revised-note')
+    expect(note.text()).toContain('I changed the name and the signature.')
+    expect(note.find('.kept-title').text()).toBe("Saved for this case, so you don't have to say it again:")
+    const rows = note.findAll('.kept li')
+    expect(rows.map((r) => r.find('.kept-text').text())).toEqual([torres.text, signature.text])
+    expect(rows[0].find('button').exists()).toBe(false) // a fact of this claim stays on this claim
+    expect(rows[1].find('button').text()).toBe('Save for every case')
+    expect(api.saveStandingPreference).not.toHaveBeenCalled() // nothing is shop-wide on its own
+  })
+
+  it('"Save for every case" keeps the wish for the whole shop and says so', async () => {
+    api.saveStandingPreference.mockResolvedValue({ id: 's-1', question: signature.text, answer: '', createdAt: 'x', kind: 'Preference' })
+    const before = savedForEveryCaseVersion.value
+    const w = await rewritten({ note: 'Done.', remembered: [torres, signature] })
+    const row = () => card(w, 'draft-2').findAll('.kept li')[1]
+
+    await row().find('button').trigger('click')
+    await flushPromises()
+
+    expect(api.saveStandingPreference).toHaveBeenCalledWith('shop-1', signature.text)
+    expect(row().find('button').exists()).toBe(false)
+    expect(row().find('.kept-done').text()).toBe('Saved for every case')
+    expect(savedForEveryCaseVersion.value).toBe(before + 1) // the draft panel's list reloads
+  })
+
+  it('a wish that could not be saved says why and can be tried again', async () => {
+    api.saveStandingPreference.mockRejectedValue(new ApiError(400, 'A shop can keep up to 25 things for every case. Remove one first.'))
+    const before = savedForEveryCaseVersion.value
+    const w = await rewritten({ note: null, remembered: [signature] })
+    const note = card(w, 'draft-2').find('.revised-note')
+    expect(note.exists()).toBe(true) // nothing to say about the letter, but something was saved
+
+    await note.find('.kept li button').trigger('click')
+    await flushPromises()
+
+    expect(note.find('.error-text').text()).toBe('A shop can keep up to 25 things for every case. Remove one first.')
+    expect(note.find('.kept li button').attributes('disabled')).toBeUndefined()
+    expect(savedForEveryCaseVersion.value).toBe(before)
+  })
+
+  it('an API that reports nothing saved shows the note alone', async () => {
+    const w = await rewritten({ note: 'I tightened the opening.', remembered: [] })
+    const note = card(w, 'draft-2').find('.revised-note')
+    expect(note.text()).toContain('I tightened the opening.')
+    expect(note.find('.kept').exists()).toBe(false)
+    expect(note.find('.kept-title').exists()).toBe(false)
   })
 })

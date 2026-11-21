@@ -13,10 +13,12 @@ import {
   intakeEml,
   intakeMessage,
   markSent,
+  saveStandingPreference,
   setMessageKind,
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, NegMessage } from '@/api/types'
+import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, NegMessage, RememberedNote } from '@/api/types'
+import { savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
@@ -440,8 +442,30 @@ const canRevise = computed(() => !readOnly.value && props.detail.case.status !==
 /** The draft being written again right now. */
 const revisingId = ref<string | null>(null)
 const reviseError = ref<{ id: string; text: string } | null>(null)
-/** What the assistant says it changed (and couldn't), shown on the rewritten draft. */
-const revisedNote = ref<{ id: string; text: string } | null>(null)
+/** What the assistant says it changed (and couldn't), and what it kept from the feedback for
+ *  the next letters on this case (owner 2026-11-22: "remember for later letters in the same
+ *  cases"), shown on the rewritten draft until the page reloads. */
+const revisedNote = ref<{ id: string; text: string | null; remembered: RememberedNote[] } | null>(null)
+
+/* A wish about ALL the shop's letters ("Sign as …") can be kept for every case — by the owner's
+   own click only: a sentence about one claim must never reach another customer's letter. */
+const savedForEvery = ref<Set<string>>(new Set())
+const savingForEvery = ref<string | null>(null)
+const everyError = ref<string | null>(null)
+async function saveForEveryCase(note: RememberedNote) {
+  if (readOnly.value || savingForEvery.value) return
+  savingForEvery.value = note.text
+  everyError.value = null
+  try {
+    await saveStandingPreference(shopId.value, note.text)
+    savedForEvery.value = new Set(savedForEvery.value).add(note.text)
+    savedForEveryCaseVersion.value++
+  } catch (e) {
+    everyError.value = e instanceof ApiError ? e.message : 'That could not be saved. Try again.'
+  } finally {
+    savingForEvery.value = null
+  }
+}
 
 async function onRevise(m: NegMessage, feedback: string) {
   if (!canRevise.value || draftingVisible.value) return
@@ -452,7 +476,10 @@ async function onRevise(m: NegMessage, feedback: string) {
     const result = await streamRevise(shopId.value, caseId.value, m.id, feedback, (text) => {
       draftPreview.value += text
     })
-    revisedNote.value = result.note ? { id: result.draft.id, text: result.note } : null
+    const remembered = result.remembered ?? []
+    revisedNote.value =
+      result.note || remembered.length ? { id: result.draft.id, text: result.note ?? null, remembered } : null
+    everyError.value = null
     if (result.recommendsCounsel) emit('counsel')
     emit('refresh')
   } catch (e) {
@@ -795,7 +822,31 @@ function fromLine(m: NegMessage): string {
             <Sparkles :size="14" class="ai-icon" />
             <div>
               <p class="ai-label">Rewritten from your feedback</p>
-              <p>{{ revisedNote.text }}</p>
+              <p v-if="revisedNote.text">{{ revisedNote.text }}</p>
+              <!-- what the next letters on this case will already know -->
+              <template v-if="revisedNote.remembered.length">
+                <p class="kept-title">Saved for this case, so you don't have to say it again:</p>
+                <ul class="kept">
+                  <li v-for="r in revisedNote.remembered" :key="r.text">
+                    <span class="kept-text">{{ r.text }}</span>
+                    <template v-if="r.everyLetter && !readOnly">
+                      <span v-if="savedForEvery.has(r.text)" class="kept-done"><Check :size="12" /> Saved for every case</span>
+                      <button
+                        v-else
+                        type="button"
+                        class="btn btn-sm kept-every"
+                        :disabled="savingForEvery !== null"
+                        @click="saveForEveryCase(r)"
+                      >
+                        <span v-if="savingForEvery === r.text" class="spinner"></span>
+                        Save for every case
+                      </button>
+                    </template>
+                  </li>
+                </ul>
+                <p v-if="everyError" class="error-text" role="alert">{{ everyError }}</p>
+                <p class="kept-hint">To remove one, open “Saved for this case” in the Generate new correspondence box.</p>
+              </template>
             </div>
           </div>
 
@@ -1233,6 +1284,49 @@ function fromLine(m: NegMessage): string {
 }
 .revised-note {
   margin: 0 0 12px;
+}
+.kept-title {
+  margin-top: 8px;
+  font-weight: 600;
+}
+.kept {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.kept li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+.kept-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kept-every {
+  flex-shrink: 0;
+}
+.kept-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+}
+.kept-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+@media (max-width: 520px) {
+  .kept li {
+    flex-direction: column;
+    gap: 4px;
+  }
 }
 @keyframes msg-flash {
   0% {

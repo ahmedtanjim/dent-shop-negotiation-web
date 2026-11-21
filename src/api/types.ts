@@ -234,12 +234,24 @@ export interface DraftAnswer {
   always?: boolean
 }
 
-/** An answer the owner marked as true of every vehicle at the shop. */
+/** Something the shop saved for every case. `Answer`: an answer the owner marked as true of
+ *  every vehicle (a question and its answer). `Preference`: how the owner wants every letter
+ *  written — the sentence is in `question` and `answer` is empty. An older API sends no kind. */
 export interface StandingAnswer {
   id: string
   question: string
   answer: string
   createdAt: string
+  kind?: 'Answer' | 'Preference'
+}
+
+/** One thing kept from the owner's feedback for later letters on the case. `factId` is its entry
+ *  in the case's saved list (deleteFact forgets it). `everyLetter`: it is about all the shop's
+ *  letters, so the owner is offered to keep it for every case too. */
+export interface RememberedNote {
+  factId: string | null
+  text: string
+  everyLetter: boolean
 }
 
 export interface DraftResult {
@@ -248,6 +260,8 @@ export interface DraftResult {
   /** Only on a rewrite from the owner's feedback: what the assistant changed, and anything it
    *  could not do, in a sentence or two. */
   note?: string | null
+  /** Only on a rewrite: what was kept from the feedback for later letters (an older API sends none). */
+  remembered?: RememberedNote[] | null
 }
 
 export interface CustomerSearchResult {
