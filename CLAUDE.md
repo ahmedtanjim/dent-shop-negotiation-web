@@ -68,7 +68,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 - `src/views/` — `LoginView`, `HandoffView`,
   `PaywallView` (`/upgrade`), `CasesView` (`/cases`), `CaseWorkspaceView` (`/cases/:id`), `NotFoundView`.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
-  mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `CaseSidebar` (case details + linked car,
+  mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `DraftFeedback` (the box under a draft:
+  what it got wrong or left out → the letter written again), `CaseSidebar` (case details + linked car,
   uploads), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
   `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal` (sends only
   the boxes edited since it opened; untouched = null = keep),
@@ -144,6 +145,16 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    switched while the questions are open is the voice it's written in (Aaron, 2026-11-14).
    A case with no state says to set it in Case details (not "no citations for this state").
    Yes/no questions also offer "Not sure" (treated as skipped); an answer can be ticked true of every car (kept per shop, listed and removed under "Saved for every car"). The letter appears as it is written (`POST …/drafts/stream`, shown through `utils/draftPreview.ts`); the saved draft replaces it.
+   **Feedback on a draft** (owner 2026-11-21: "after I read the letter I can tell it what it got
+   wrong or didn't include"): every unsent draft on the timeline has a `DraftFeedback` box,
+   "Something wrong or missing in this letter?". "Rewrite letter" calls
+   `streamRevise` (`POST …/messages/{id}/revise/stream`, `{ feedback }`, up to 2,000 characters):
+   the assistant writes that same letter again with the owner's words applied, shown as it is
+   written; the rewrite takes the draft's place (a new id) and carries "Rewritten from your
+   feedback" with the API's `note` (what changed, and anything it could not do), kept only until
+   the page reloads. One letter at a time: the box waits while any draft is being written, and a
+   draft being rewritten can't be discarded or marked sent. A refusal shows under the box and
+   keeps the words. No box when the plan ended (read-only) or the case is in litigation.
 4. **No `[BLANKS]` in letters** (owner rule 2026-10-03). The API writes around missing facts and
    returns them as `missing`; `BlanksNotice` lists them (profile items link to CRM Settings).
    `placeholders.ts` / `<mark class="blank-mark">` exist only for older letters that still carry one.

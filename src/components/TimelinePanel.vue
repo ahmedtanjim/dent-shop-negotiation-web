@@ -6,6 +6,7 @@ import type { Directive } from 'vue'
 import { Copy, Check, Send, Inbox, Sparkles, MailPlus, Wand2, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-vue-next'
 import {
   streamDraft,
+  streamRevise,
   getDraftQuestions,
   deleteMessage,
   extractPaste,
@@ -22,6 +23,7 @@ import TacticBadge from '@/components/TacticBadge.vue'
 import BlanksNotice from '@/components/BlanksNotice.vue'
 import DateField from '@/components/DateField.vue'
 import DraftQuestions from '@/components/DraftQuestions.vue'
+import DraftFeedback from '@/components/DraftFeedback.vue'
 import { findBlanks } from '@/utils/placeholders'
 import { readEmlPreview, type EmlPreview } from '@/utils/emlHeaders'
 import { looksLikeEmlName, tooLargeMessage } from '@/utils/uploads'
@@ -430,9 +432,45 @@ async function submitEml() {
   }
 }
 
-// The skeleton card shows whenever ANY draft is being written — the auto-draft here or a
-// manual one from DraftPanel.
-const draftingVisible = computed(() => intakePhase.value === 'drafting' || !!props.externalDrafting)
+/* ---------- feedback on a draft: the same letter, written again ----------
+   The owner reads a draft and says what it got wrong or left out; the assistant writes that
+   letter again with it fixed and the rewrite takes the draft's place (owner 2026-11-21). */
+/** A case in litigation gets no new correspondence from the assistant, rewrites included. */
+const canRevise = computed(() => !readOnly.value && props.detail.case.status !== 'Litigation')
+/** The draft being written again right now. */
+const revisingId = ref<string | null>(null)
+const reviseError = ref<{ id: string; text: string } | null>(null)
+/** What the assistant says it changed (and couldn't), shown on the rewritten draft. */
+const revisedNote = ref<{ id: string; text: string } | null>(null)
+
+async function onRevise(m: NegMessage, feedback: string) {
+  if (!canRevise.value || draftingVisible.value) return
+  revisingId.value = m.id
+  reviseError.value = null
+  draftPreview.value = ''
+  try {
+    const result = await streamRevise(shopId.value, caseId.value, m.id, feedback, (text) => {
+      draftPreview.value += text
+    })
+    revisedNote.value = result.note ? { id: result.draft.id, text: result.note } : null
+    if (result.recommendsCounsel) emit('counsel')
+    emit('refresh')
+  } catch (e) {
+    reviseError.value = {
+      id: m.id,
+      text: e instanceof ApiError ? e.message : 'The letter could not be rewritten. Try again.',
+    }
+  } finally {
+    draftPreview.value = ''
+    revisingId.value = null
+  }
+}
+
+// The skeleton card shows whenever ANY draft is being written — the auto-draft here, a
+// manual one from DraftPanel, or a rewrite from the owner's feedback.
+const draftingVisible = computed(
+  () => intakePhase.value === 'drafting' || !!props.externalDrafting || revisingId.value !== null,
+)
 
 /* ---------- per-message actions ---------- */
 
@@ -699,7 +737,8 @@ function fromLine(m: NegMessage): string {
         <div class="ehead"><span class="dir draft-dir">✦ AI draft</span></div>
         <div class="card msg draft drafting-skeleton">
           <p class="drafting-note">
-            <span class="spinner"></span> Writing your reply…
+            <span class="spinner"></span>
+            {{ revisingId ? 'Writing the letter again with your changes…' : 'Writing your reply…' }}
           </p>
           <!-- eslint-disable-next-line vue/no-v-html -- letterToHtml escapes the text first -->
           <div v-if="draftPreview" class="drafting-text" v-html="letterToHtml(draftPreview)"></div>
@@ -735,6 +774,7 @@ function fromLine(m: NegMessage): string {
             draft: m.kind === 'Draft',
             sent: m.kind === 'Sent',
             'is-new': newIds.has(m.id),
+            revising: revisingId === m.id,
           }"
         >
           <header
@@ -749,6 +789,15 @@ function fromLine(m: NegMessage): string {
               </span>
             </div>
           </header>
+
+          <!-- the assistant's answer to the owner's feedback, on the letter it rewrote -->
+          <div v-if="m.kind === 'Draft' && revisedNote?.id === m.id" class="ai-read revised-note" role="status">
+            <Sparkles :size="14" class="ai-icon" />
+            <div>
+              <p class="ai-label">Rewritten from your feedback</p>
+              <p>{{ revisedNote.text }}</p>
+            </div>
+          </div>
 
           <h3 class="msg-subject">{{ m.subject }}</h3>
       <!-- Letters are light Markdown (bold headings, bullets); letterToHtml escapes first, so
@@ -774,6 +823,16 @@ function fromLine(m: NegMessage): string {
       >
         {{ expandedIds.has(m.id) ? 'Collapse' : 'Read the full email' }}
       </button>
+
+      <!-- read the letter, then say what it got wrong or left out: the assistant writes it again -->
+      <DraftFeedback
+        v-if="m.kind === 'Draft' && canRevise"
+        :id="m.id"
+        :busy="revisingId === m.id"
+        :blocked="draftingVisible && revisingId !== m.id"
+        :error="reviseError?.id === m.id ? reviseError.text : null"
+        @submit="onRevise(m, $event)"
+      />
 
       <!-- "Why this draft" removed per owner feedback — the rationale stays internal;
            only inbound emails keep their AI read (tactic + suggested next step). -->
@@ -820,10 +879,12 @@ function fromLine(m: NegMessage): string {
             {{ copiedId === m.id ? 'Copied' : 'Copy' }}
           </button>
           <template v-if="!readOnly">
-            <button class="btn btn-ghost btn-sm" title="Discard draft" aria-label="Discard draft" @click="confirmDeleteId = m.id">
+            <!-- while this draft is being written again, discarding it or marking it sent waits:
+                 the rewrite is about to take its place -->
+            <button class="btn btn-ghost btn-sm" title="Discard draft" aria-label="Discard draft" :disabled="revisingId === m.id" @click="confirmDeleteId = m.id">
               <Trash2 :size="14" />
             </button>
-            <button class="btn btn-primary btn-sm" :disabled="sendingId === m.id" @click="confirmSendId = m.id">
+            <button class="btn btn-primary btn-sm" :disabled="sendingId === m.id || revisingId === m.id" @click="confirmSendId = m.id">
               <span v-if="sendingId === m.id" class="spinner"></span>
               <Send v-else :size="14" />
               Mark as sent
@@ -1165,6 +1226,13 @@ function fromLine(m: NegMessage): string {
 }
 .msg.is-new {
   animation: msg-flash 2.4s ease;
+}
+/* this draft is being written again: the rewrite above is about to take its place */
+.msg.revising > :not(.df) {
+  opacity: 0.55;
+}
+.revised-note {
+  margin: 0 0 12px;
 }
 @keyframes msg-flash {
   0% {
