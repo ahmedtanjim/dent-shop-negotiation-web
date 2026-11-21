@@ -52,7 +52,7 @@ function send() {
       ref="box"
       v-model="text"
       class="df-box"
-      rows="2"
+      rows="3"
       :maxlength="MAX"
       :disabled="busy"
       :aria-describedby="`df-hint-${id}`"
