@@ -13,10 +13,12 @@ import {
   intakeEml,
   intakeMessage,
   markSent,
+  saveStandingPreference,
   setMessageKind,
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
-import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, NegMessage } from '@/api/types'
+import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, NegMessage, RememberedNote } from '@/api/types'
+import { isSavedForEveryCase, noteSavedForEveryCase, savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
@@ -440,8 +442,49 @@ const canRevise = computed(() => !readOnly.value && props.detail.case.status !==
 /** The draft being written again right now. */
 const revisingId = ref<string | null>(null)
 const reviseError = ref<{ id: string; text: string } | null>(null)
-/** What the assistant says it changed (and couldn't), shown on the rewritten draft. */
-const revisedNote = ref<{ id: string; text: string } | null>(null)
+/** What the assistant says it changed (and couldn't), and what it kept from the feedback for
+ *  the next letters on this case (owner 2026-11-22: "remember for later letters in the same
+ *  cases"), shown on the rewritten draft until the page reloads. */
+const revisedNote = ref<{ id: string; text: string | null; remembered: RememberedNote[] } | null>(null)
+
+/* A wish about ALL the shop's letters ("Sign as …") can be kept for every case — by the owner's
+   own click only: a sentence about one claim must never reach another customer's letter. */
+const savingForEvery = ref<string | null>(null)
+const everyError = ref<string | null>(null)
+/** The "Saved for every case" label of each row, by its sentence: it takes the keyboard focus
+ *  when the button it replaces goes away. */
+const everyDone = new Map<string, HTMLElement>()
+function setEveryDone(text: string, el: unknown) {
+  if (el instanceof HTMLElement) everyDone.set(text, el)
+  else everyDone.delete(text)
+}
+async function saveForEveryCase(note: RememberedNote) {
+  if (readOnly.value || savingForEvery.value) return
+  savingForEvery.value = note.text
+  everyError.value = null
+  try {
+    await saveStandingPreference(shopId.value, note.text)
+    noteSavedForEveryCase(note.text)
+    savedForEveryCaseVersion.value++
+    void nextTick(() => everyDone.get(note.text)?.focus())
+  } catch (e) {
+    everyError.value = e instanceof ApiError ? e.message : 'That could not be saved. Try again.'
+  } finally {
+    savingForEvery.value = null
+  }
+}
+
+/* What the note lists as saved for this case is only what the case still has: a sentence the
+   owner removed in the draft panel leaves the note too. A fact counts as removed once it has
+   been seen on the case and is gone (the case reloads a moment after the rewrite). */
+const seenFacts = new Set<string>()
+const keptRows = computed(() => {
+  const onCase = new Set(props.detail.facts.map((f) => f.id))
+  for (const id of onCase) seenFacts.add(id)
+  return (revisedNote.value?.remembered ?? []).filter(
+    (r) => !r.factId || onCase.has(r.factId) || !seenFacts.has(r.factId),
+  )
+})
 
 async function onRevise(m: NegMessage, feedback: string) {
   if (!canRevise.value || draftingVisible.value) return
@@ -452,7 +495,10 @@ async function onRevise(m: NegMessage, feedback: string) {
     const result = await streamRevise(shopId.value, caseId.value, m.id, feedback, (text) => {
       draftPreview.value += text
     })
-    revisedNote.value = result.note ? { id: result.draft.id, text: result.note } : null
+    const remembered = result.remembered ?? []
+    revisedNote.value =
+      result.note || remembered.length ? { id: result.draft.id, text: result.note ?? null, remembered } : null
+    everyError.value = null
     if (result.recommendsCounsel) emit('counsel')
     emit('refresh')
   } catch (e) {
@@ -795,7 +841,36 @@ function fromLine(m: NegMessage): string {
             <Sparkles :size="14" class="ai-icon" />
             <div>
               <p class="ai-label">Rewritten from your feedback</p>
-              <p>{{ revisedNote.text }}</p>
+              <p v-if="revisedNote.text">{{ revisedNote.text }}</p>
+              <!-- what the next letters on this case will already know -->
+              <template v-if="keptRows.length">
+                <p class="kept-title">Saved for this case, so you don't have to say it again:</p>
+                <ul class="kept">
+                  <li v-for="r in keptRows" :key="r.text">
+                    <span class="kept-text">{{ r.text }}</span>
+                    <template v-if="r.everyLetter && !readOnly">
+                      <span
+                        v-if="isSavedForEveryCase(r.text)"
+                        :ref="(el) => setEveryDone(r.text, el)"
+                        class="kept-done"
+                        tabindex="-1"
+                      ><Check :size="12" /> Saved for every case</span>
+                      <button
+                        v-else
+                        type="button"
+                        class="btn btn-sm kept-every"
+                        :disabled="savingForEvery !== null"
+                        @click="saveForEveryCase(r)"
+                      >
+                        <span v-if="savingForEvery === r.text" class="spinner"></span>
+                        Save for every case
+                      </button>
+                    </template>
+                  </li>
+                </ul>
+                <p v-if="everyError" class="error-text" role="alert">{{ everyError }}</p>
+                <p class="kept-hint">To remove one, open “Saved for this case” in the Generate new correspondence box.</p>
+              </template>
             </div>
           </div>
 
@@ -1233,6 +1308,49 @@ function fromLine(m: NegMessage): string {
 }
 .revised-note {
   margin: 0 0 12px;
+}
+.kept-title {
+  margin-top: 8px;
+  font-weight: 600;
+}
+.kept {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.kept li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+.kept-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kept-every {
+  flex-shrink: 0;
+}
+.kept-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+}
+.kept-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+@media (max-width: 520px) {
+  .kept li {
+    flex-direction: column;
+    gap: 4px;
+  }
 }
 @keyframes msg-flash {
   0% {

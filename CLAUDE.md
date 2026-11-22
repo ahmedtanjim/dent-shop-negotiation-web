@@ -144,7 +144,7 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    the letter is written from the panel's fields as they are when the answers go in — a voice
    switched while the questions are open is the voice it's written in (Aaron, 2026-11-14).
    A case with no state says to set it in Case details (not "no citations for this state").
-   Yes/no questions also offer "Not sure" (treated as skipped); an answer can be ticked true of every car (kept per shop, listed and removed under "Saved for every car"). The letter appears as it is written (`POST …/drafts/stream`, shown through `utils/draftPreview.ts`); the saved draft replaces it.
+   Yes/no questions also offer "Not sure" (treated as skipped); an answer can be ticked true of every car (kept per shop, listed and removed under "Saved for every case"). The letter appears as it is written (`POST …/drafts/stream`, shown through `utils/draftPreview.ts`); the saved draft replaces it.
    **Feedback on a draft** (owner 2026-11-21: "after I read the letter I can tell it what it got
    wrong or didn't include"): every unsent draft on the timeline has a `DraftFeedback` box,
    "Something wrong or missing in this letter?". "Rewrite letter" calls
@@ -155,15 +155,30 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
    the page reloads. One letter at a time: the box waits while any draft is being written, and a
    draft being rewritten can't be discarded or marked sent. A refusal shows under the box and
    keeps the words. No box when the plan ended (read-only) or the case is in litigation.
+   **What the owner says is remembered** (owner 2026-11-22: "remember for later letters in the same
+   cases, and I want my AI to learn from these"). The rewrite's answer carries `remembered`
+   (`{ factId, text, everyLetter }`): what the API kept from the feedback on the case, so every
+   later letter on it is written knowing it. The note on the rewritten draft lists them ("Saved
+   for this case, so you don't have to say it again:"). One marked `everyLetter` (a wish about
+   all the shop's letters, e.g. how to sign) gets a **Save for every case** button →
+   `saveStandingPreference` (`POST …/standing-answers` `{ text }`); nothing becomes shop-wide
+   without that click, because a sentence about one claim must never reach another customer's
+   letter. `DraftPanel` lists both scopes with Remove: **Saved for this case** = the case's facts
+   that are the owner's own words (`utils/savedForEveryCase.ts` `ownerSaid`: "Shop owner's answer
+   — …" and "Shop owner's feedback — …"; `deleteFact` forgets one — this also made the pre-draft
+   answers visible and removable for the first time) and **Saved for every case** = the shop's
+   standing rows (an answer shows question + answer, a `Preference` one sentence).
+   `savedForEveryCaseVersion` (a shared ref) tells the panel to reload that list after the button.
 4. **No `[BLANKS]` in letters** (owner rule 2026-10-03). The API writes around missing facts and
    returns them as `missing`; `BlanksNotice` lists them (profile items link to CRM Settings).
    `placeholders.ts` / `<mark class="blank-mark">` exist only for older letters that still carry one.
 5. **Documents** — `getGeneratedDocs` (invoice breakdown + ready-made letters + `missing`),
    `downloadInvoicePdf`, case document upload/download/delete (`CaseSidebar` → Uploads).
-   **The fact ledger has no UI** (removed in fe3375f (2026-08-25, after the owner's 2026-08-22
-   walkthrough)): `CaseDetail.facts` is fetched but not shown, and `addFact`/`deleteFact` exist in
-   `api/negotiation.ts` with no caller. Answers to the pre-draft questions are still saved as facts
-   by the API, so nobody can see or remove them here (open owner question).
+   **The fact ledger has no UI of its own** (removed in fe3375f (2026-08-25, after the owner's
+   2026-08-22 walkthrough)): facts read from insurer emails are fetched with `CaseDetail.facts`
+   but not shown, and `addFact` has no caller. Only what the owner told the assistant (answers to
+   its questions, feedback on a letter) is listed, under "Saved for this case" in `DraftPanel`
+   (2026-11-22), where `deleteFact` removes it.
 6. **Paywall / AI plan** — the router guard loads the entitlement once per shop; below the AI tier
    every signed-in page redirects to `/upgrade`. A mid-session 402 `ai_required` sets
    `aiPlanRequired` and `App.vue` re-reads the plan and opens the paywall (not for a read-only
