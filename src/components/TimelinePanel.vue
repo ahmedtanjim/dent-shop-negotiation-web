@@ -18,7 +18,7 @@ import {
 } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, DraftAnswer, DraftQuestion, DraftRequest, NegMessage, RememberedNote } from '@/api/types'
-import { savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
+import { isSavedForEveryCase, noteSavedForEveryCase, savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
 import { formatDateTime } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import TacticBadge from '@/components/TacticBadge.vue'
@@ -449,23 +449,42 @@ const revisedNote = ref<{ id: string; text: string | null; remembered: Remembere
 
 /* A wish about ALL the shop's letters ("Sign as …") can be kept for every case — by the owner's
    own click only: a sentence about one claim must never reach another customer's letter. */
-const savedForEvery = ref<Set<string>>(new Set())
 const savingForEvery = ref<string | null>(null)
 const everyError = ref<string | null>(null)
+/** The "Saved for every case" label of each row, by its sentence: it takes the keyboard focus
+ *  when the button it replaces goes away. */
+const everyDone = new Map<string, HTMLElement>()
+function setEveryDone(text: string, el: unknown) {
+  if (el instanceof HTMLElement) everyDone.set(text, el)
+  else everyDone.delete(text)
+}
 async function saveForEveryCase(note: RememberedNote) {
   if (readOnly.value || savingForEvery.value) return
   savingForEvery.value = note.text
   everyError.value = null
   try {
     await saveStandingPreference(shopId.value, note.text)
-    savedForEvery.value = new Set(savedForEvery.value).add(note.text)
+    noteSavedForEveryCase(note.text)
     savedForEveryCaseVersion.value++
+    void nextTick(() => everyDone.get(note.text)?.focus())
   } catch (e) {
     everyError.value = e instanceof ApiError ? e.message : 'That could not be saved. Try again.'
   } finally {
     savingForEvery.value = null
   }
 }
+
+/* What the note lists as saved for this case is only what the case still has: a sentence the
+   owner removed in the draft panel leaves the note too. A fact counts as removed once it has
+   been seen on the case and is gone (the case reloads a moment after the rewrite). */
+const seenFacts = new Set<string>()
+const keptRows = computed(() => {
+  const onCase = new Set(props.detail.facts.map((f) => f.id))
+  for (const id of onCase) seenFacts.add(id)
+  return (revisedNote.value?.remembered ?? []).filter(
+    (r) => !r.factId || onCase.has(r.factId) || !seenFacts.has(r.factId),
+  )
+})
 
 async function onRevise(m: NegMessage, feedback: string) {
   if (!canRevise.value || draftingVisible.value) return
@@ -824,13 +843,18 @@ function fromLine(m: NegMessage): string {
               <p class="ai-label">Rewritten from your feedback</p>
               <p v-if="revisedNote.text">{{ revisedNote.text }}</p>
               <!-- what the next letters on this case will already know -->
-              <template v-if="revisedNote.remembered.length">
+              <template v-if="keptRows.length">
                 <p class="kept-title">Saved for this case, so you don't have to say it again:</p>
                 <ul class="kept">
-                  <li v-for="r in revisedNote.remembered" :key="r.text">
+                  <li v-for="r in keptRows" :key="r.text">
                     <span class="kept-text">{{ r.text }}</span>
                     <template v-if="r.everyLetter && !readOnly">
-                      <span v-if="savedForEvery.has(r.text)" class="kept-done"><Check :size="12" /> Saved for every case</span>
+                      <span
+                        v-if="isSavedForEveryCase(r.text)"
+                        :ref="(el) => setEveryDone(r.text, el)"
+                        class="kept-done"
+                        tabindex="-1"
+                      ><Check :size="12" /> Saved for every case</span>
                       <button
                         v-else
                         type="button"

@@ -24,7 +24,7 @@ import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { provideCaseReadOnly } from '@/utils/readOnly'
 import { draftPreview } from '@/utils/draftPreview'
-import { savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
+import { everyCaseWishes, savedForEveryCaseVersion } from '@/utils/savedForEveryCase'
 
 const msg = (id: string, kind: NegMessage['kind'], createdAt: string, body = `Body of ${id}`): NegMessage => ({
   id,
@@ -230,6 +230,7 @@ describe('TimelinePanel — feedback on a draft', () => {
   const signature = { factId: 'f-2', text: 'Sign letters as Fariha Khan, Office Manager.', everyLetter: true }
 
   async function rewritten(result: Partial<DraftResult>) {
+    everyCaseWishes.value = null // what the shop keeps for every case is shared by the two panels
     const rewrite = pendingRewrite()
     const w = mountPanel(detail([inbound, draft]))
     await ask(w, 'draft-1', "It's Mike Torres now. Always sign as Fariha.")
@@ -280,6 +281,39 @@ describe('TimelinePanel — feedback on a draft', () => {
     expect(note.find('.error-text').text()).toBe('A shop can keep up to 25 things for every case. Remove one first.')
     expect(note.find('.kept li button').attributes('disabled')).toBeUndefined()
     expect(savedForEveryCaseVersion.value).toBe(before)
+  })
+
+  it('a sentence removed from the case, or a wish no longer kept for every case, leaves the note too', async () => {
+    api.saveStandingPreference.mockResolvedValue({ id: 's-1', question: signature.text, answer: '', createdAt: 'x', kind: 'Preference' })
+    const w = await rewritten({ note: 'Done.', remembered: [torres, signature] })
+    const rows = () => card(w, 'draft-2').findAll('.kept li')
+    const next = msg('draft-2', 'Draft', '2026-11-12T15:01:00Z')
+    const fact = (id: string, text: string) => ({ id, factDate: 'x', assertion: `Shop owner's feedback — ${text}`, sourceMessageId: null, documentId: null, createdAt: 'x' })
+    const withFacts = (facts: unknown[]) => ({ ...detail([inbound, next]), facts }) as unknown as CaseDetail
+
+    // The case reloads with both on its fact list: both rows stay.
+    await w.setProps({ detail: withFacts([fact('f-1', torres.text), fact('f-2', signature.text)]) })
+    expect(rows()).toHaveLength(2)
+    await rows()[1].find('button').trigger('click')
+    await flushPromises()
+    expect(rows()[1].find('.kept-done').text()).toBe('Saved for every case')
+    // The label takes the keyboard focus the button had.
+    expect(rows()[1].find('.kept-done').attributes('tabindex')).toBe('-1')
+
+    // The owner removes the Torres line in the draft panel: it is gone from the note as well.
+    await w.setProps({ detail: withFacts([fact('f-2', signature.text)]) })
+    expect(rows().map((r) => r.find('.kept-text').text())).toEqual([signature.text])
+
+    // ...and takes the wish off "Saved for every case" there: the offer is back here.
+    everyCaseWishes.value = new Set()
+    await flushPromises()
+    expect(rows()[0].find('.kept-done').exists()).toBe(false)
+    expect(rows()[0].find('button').text()).toBe('Save for every case')
+
+    // Everything removed: the note keeps what it says about the letter, without the list.
+    await w.setProps({ detail: withFacts([]) })
+    expect(card(w, 'draft-2').find('.revised-note').text()).toContain('Done.')
+    expect(card(w, 'draft-2').find('.kept-title').exists()).toBe(false)
   })
 
   it('an API that reports nothing saved shows the note alone', async () => {
