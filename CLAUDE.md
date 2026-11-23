@@ -50,7 +50,8 @@ Vue 3.5 + TypeScript + Vite 6 + Pinia 2 + vue-router 4; `lucide-vue-next` icons,
 tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 
 - `src/main.ts` — app bootstrap; reload-once on `vite:preloadError`; `watchForNewBuild`; lazy Sentry.
-- `src/App.vue` — top bar, theme toggle, help (?) menu (replay walkthrough / Help & support), 402
+- `src/App.vue` — top bar, theme toggle, help (?) menu (**Guide for this page** — the `negotiator` guide on
+  dentshopmanager.com/help at the part for the page, new tab; replay walkthrough; Help & support), 402
   subscription banner, 429 fair-use banner, paywall watcher; mounts `HelpSupportModal`.
 - `src/router/index.ts` — routes + the auth/plan guard; `setTitle`, SEO and GA per route.
 - `src/api/` — `client.ts` (fetch wrapper: bearer, 401 → `/login?redirect=`, 402/429 handling,
@@ -82,7 +83,10 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   `safeRedirect` (the one `?redirect` / `?next` rule), `freshBuild`, `seo`, `uploads` (25 MB limit),
   `caseBody`, `emlHeaders`, `flushOnLeave`, `escapeToClose`, `invoiceFigures` (which invoice
   figures show), `readOnly` (the case workspace's read-only flag),
-  `help` (`openHelp()`), `supportReport` (support details / mailto builder; same file as the CRM's).
+  `help` (`openHelp()`), `supportReport` (support details / mailto builder; same file as the CRM's),
+  `helpGuides` (the help centre's address, route → section of the `negotiator` guide; its test fails
+  if a route has no entry or a section isn't in the list — the help centre's `src/help/app-links.ts`
+  fails its build if one of those sections disappears, so change both together).
 - `src/analytics/` — `ga.ts`, `sentry.ts`, `privacy.ts` (opt-out + Global Privacy Control).
 - `src/tour.ts` + `src/styles/tour.css` — driver.js tours on `[data-tour]` anchors.
 - `public/staticwebapp.config.json` — SWA routing fallback, cache headers, security headers + CSP.

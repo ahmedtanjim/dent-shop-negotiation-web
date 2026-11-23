@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { watch, computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LogOut, X, HelpCircle, Sun, Moon, Compass, LifeBuoy } from 'lucide-vue-next'
+import { LogOut, X, HelpCircle, Sun, Moon, Compass, LifeBuoy, BookOpen } from 'lucide-vue-next'
 import { aiCapNotice, aiPlanRequired, CRM_URL, negotiatorAccessDenied, subscriptionNotice } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useEntitlementStore } from '@/stores/entitlement'
@@ -11,6 +11,7 @@ import { dailyResetLabel } from '@/utils/format'
 import { startCasesTour, startWorkspaceTour } from '@/tour'
 import { setSentryTags } from '@/analytics/sentry'
 import { helpOpen, openHelp } from '@/utils/help'
+import { guideUrlFor } from '@/utils/helpGuides'
 import HelpSupportModal from '@/components/HelpSupportModal.vue'
 import { switchShop } from '@/api/auth'
 import { startSessionKeeper } from '@/utils/session'
@@ -77,8 +78,10 @@ watch(
   { immediate: true },
 )
 
-// The (?) button opens a small menu: replay the walkthrough, or Help & support.
+// The (?) button opens a small menu: this app's guide on the help centre (at the part for this
+// page, in a new tab), replay the walkthrough, or Help & support.
 const helpMenu = ref(false)
+const guideUrl = computed(() => guideUrlFor(route.name))
 function onOutside(e: MouseEvent) {
   if (helpMenu.value && !(e.target as HTMLElement).closest('.helpwrap')) helpMenu.value = false
 }
@@ -181,6 +184,9 @@ const capText = computed(() => {
             <HelpCircle :size="15" />
           </button>
           <div v-if="helpMenu" class="helpmenu" role="menu" aria-label="Help">
+            <a class="hm-item" role="menuitem" :href="guideUrl" target="_blank" rel="noopener" @click="helpMenu = false">
+              <BookOpen :size="15" /> Guide for this page<span class="sr-only"> (opens in a new tab)</span>
+            </a>
             <button class="hm-item" role="menuitem" @click="pickHelp('tour')">
               <Compass :size="15" /> Replay the walkthrough
             </button>
@@ -352,6 +358,17 @@ const capText = computed(() => {
 }
 .hm-item:hover {
   background: var(--panel-soft);
+}
+a.hm-item {
+  text-decoration: none;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 .banner-actions {
   display: inline-flex;
