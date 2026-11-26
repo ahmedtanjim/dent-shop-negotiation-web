@@ -72,6 +72,8 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `DraftFeedback` (the box under a draft:
   what it got wrong or left out → the letter written again), `CaseSidebar` (case details + linked car,
   uploads), `InvoiceCard` (Total Loss Invoice + PDF), `LetterColumns` (generated letters),
+  `AskAiPanel` (the workspace's **Ask AI** tab), `AttachFiles` (pick or upload case files for the
+  assistant to read; used by Ask AI and `DraftFeedback`),
   `BlanksNotice`, `NewCaseModal`, `CustomerPicker` (CRM customers), `ShopRatesModal` (sends only
   the boxes edited since it opened; untouched = null = keep),
   `HelpSupportModal` (Help & support), `DateField`,
@@ -196,6 +198,18 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
 4. **No `[BLANKS]` in letters** (owner rule 2026-10-03). The API writes around missing facts and
    returns them as `missing`; `BlanksNotice` lists them (profile items link to CRM Settings).
    `placeholders.ts` / `<mark class="blank-mark">` exist only for older letters that still carry one.
+4b. **Ask AI** (owner 2026-11-26: "a new tab in the negotiator where users can chat directly with
+   the AI for advice and attach files, it also needs a file attachment in the re-write letter
+   context window"). The workspace's third tab (`?tab=ask`, `AskAiPanel`) loads the case's
+   conversation (`getChat`) the first time it is on screen and asks with `askAi` (`POST …/chat`,
+   `{ message, documentIds? }`, up to 8,000 characters). The owner's words show as plain text;
+   answers go through `letterToHtml`; a question's attached files are listed under it. Only the
+   newest case's answer lands (a reply for a case left behind is dropped). Read-only shops read
+   it and ask nothing. **Files**: `AttachFiles` picks up to 5 of the case's own documents
+   (`utils/attachments`: PDFs, photos JPEG/PNG/GIF/WebP and text files the API can read; others
+   show "can't be read") or uploads a new one into the case's documents. The same control sits in
+   `DraftFeedback`, and `streamRevise` sends `documentIds` only when files were picked. The API
+   reads the files server-side as untrusted data; nothing in a file is remembered.
 5. **Documents** — `getGeneratedDocs` (invoice breakdown + ready-made letters + `missing`),
    `downloadInvoicePdf`, case document upload/download/delete (`CaseSidebar` → Uploads).
    **The fact ledger has no UI of its own** (removed in fe3375f (2026-08-25, after the owner's

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, AlertTriangle, X, PenLine, SearchX, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, AlertTriangle, X, PenLine, SearchX, Sparkles, Trash2 } from 'lucide-vue-next'
 import { deleteCase, getCase, getGeneratedDocs, setCaseStatus } from '@/api/negotiation'
 import { ApiError } from '@/api/client'
 import type { CaseDetail, CaseStatus, GeneratedDocs } from '@/api/types'
@@ -15,6 +15,7 @@ import InvoiceCard from '@/components/InvoiceCard.vue'
 import LetterColumns from '@/components/LetterColumns.vue'
 import TimelinePanel from '@/components/TimelinePanel.vue'
 import DraftPanel from '@/components/DraftPanel.vue'
+import AskAiPanel from '@/components/AskAiPanel.vue'
 import { startWorkspaceTour, workspaceTourSeen } from '@/tour'
 import { setTitle } from '@/router'
 
@@ -108,13 +109,14 @@ function onCounsel() {
 
 /* ---------- tabs ---------- */
 
-// The active tab lives in the URL (?tab=negotiation) so a reload, a shared link or the
-// back button returns to it.
-type Tab = 'case' | 'nego'
-const tabFromQuery = (): Tab => (route.query.tab === 'negotiation' ? 'nego' : 'case')
+// The active tab lives in the URL (?tab=negotiation, ?tab=ask) so a reload, a shared link or
+// the back button returns to it.
+type Tab = 'case' | 'nego' | 'ask'
+const tabFromQuery = (): Tab =>
+  route.query.tab === 'negotiation' ? 'nego' : route.query.tab === 'ask' ? 'ask' : 'case'
 const tab = ref<Tab>(tabFromQuery())
 watch(tab, (t) => {
-  const want = t === 'nego' ? 'negotiation' : undefined
+  const want = t === 'nego' ? 'negotiation' : t === 'ask' ? 'ask' : undefined
   if (route.query.tab === want) return
   const query = { ...route.query }
   if (want) query.tab = want
@@ -214,7 +216,7 @@ const accruing = computed(
 
 // The tour walks both tabs — it switches them through this event.
 function onTabEvent(e: Event) {
-  tab.value = (e as CustomEvent<'case' | 'nego'>).detail
+  tab.value = (e as CustomEvent<Tab>).detail
 }
 
 onMounted(async () => {
@@ -351,6 +353,14 @@ watch(
           Negotiation
           <span v-if="detail.messages.length" class="count">{{ detail.messages.length }}</span>
         </button>
+        <button
+          class="tab"
+          role="tab"
+          :aria-selected="tab === 'ask'"
+          @click="tab = 'ask'"
+        >
+          <Sparkles :size="14" aria-hidden="true" /> Ask AI
+        </button>
       </div>
 
       <!-- Tab 1 · case & documents (v-show keeps both tabs mounted so the tour and
@@ -395,6 +405,11 @@ watch(
             @drafting="externalDrafting = $event"
           />
         </div>
+      </section>
+
+      <!-- Tab 3 · Ask AI: advice on this case, with the case's files (owner 2026-11-26) -->
+      <section v-show="tab === 'ask'" class="tabpanel">
+        <AskAiPanel :detail="detail" :active="tab === 'ask'" @refresh="refresh" />
       </section>
     </template>
   </div>
@@ -574,8 +589,16 @@ watch(
   gap: 4px;
   border-bottom: 1px solid var(--border-soft);
   margin-bottom: 28px;
+  /* three tabs on a 320px phone: scroll the strip, never the page */
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
   appearance: none;
   background: none;
   border: none;
@@ -611,7 +634,7 @@ watch(
   background: var(--accent);
 }
 .tab .count {
-  margin-left: 7px;
+  margin-left: 1px;
   font-size: 11.5px;
   font-weight: 650;
   color: var(--text-faint);
