@@ -42,7 +42,7 @@ const readOnly = useCaseReadOnly()
    case on shop defaults keeps following the defaults. Clearing a field returns it to
    the shop default. */
 
-const f = ref({ admin: '', lot: '', perDay: '', tax: '', since: '', until: '' })
+const f = ref({ admin: '', lot: '', rAndI: '', rAndINote: '', perDay: '', tax: '', since: '', until: '', signed: '' })
 const edited = ref(new Set<string>())
 const saving = ref(false)
 /** A save landed and the refresh it asked for hasn't brought the new invoice back yet. */
@@ -58,10 +58,13 @@ function resetFields() {
   f.value = {
     admin: inv ? fmtNum(inv.adminFee) : d.adminFee !== null ? fmtNum(d.adminFee) : '',
     lot: inv ? fmtNum(inv.lotFee) : d.lotFee !== null ? fmtNum(d.lotFee) : '',
+    rAndI: (inv?.rAndI ?? d.rAndI ?? 0) > 0 ? fmtNum(inv?.rAndI ?? d.rAndI ?? 0) : '',
+    rAndINote: d.rAndINote ?? '',
     perDay: inv ? fmtNum(inv.storagePerDay) : fmtNum(d.storagePerDayCents / 100),
     tax: inv ? String(inv.taxPercent) : d.salesTaxPercent !== null ? String(d.salesTaxPercent) : '',
     since: d.storageStartDate ? d.storageStartDate.slice(0, 10) : '',
     until: d.storageEndDate ? d.storageEndDate.slice(0, 10) : '',
+    signed: d.authorizationSignedOn ? d.authorizationSignedOn.slice(0, 10) : '',
   }
   edited.value = new Set()
 }
@@ -96,6 +99,7 @@ watch(
 const parsed = computed(() => ({
   admin: parseMoney(f.value.admin, 'Admin fee'),
   lot: parseMoney(f.value.lot, 'Lot / gate fee'),
+  rAndI: parseMoney(f.value.rAndI, 'R&I'),
   perDay: parseMoney(f.value.perDay, 'Storage per day'),
   tax: parsePercent(f.value.tax, 'Sales tax'),
 }))
@@ -144,13 +148,17 @@ const latestEnd = computed(() => Math.max(todayUtc.value, localToday.value))
 const today = computed(() => isoOfDay(latestEnd.value))
 
 const errors = computed(() => {
-  const out: Partial<Record<Figure | 'until', string>> = {}
+  const out: Partial<Record<Figure | 'until' | 'signed' | 'rAndINote', string>> = {}
   for (const [k, p] of Object.entries(parsed.value)) if (p.error) out[k as Figure] = p.error
   // A future end date would bill days that haven't happened yet.
   const until = calendarDay(f.value.until)
   if (until !== null && until > latestEnd.value)
     out.until =
       "Storage can't end in the future. Leave \"Storage ends\" empty while the car is on your lot; it accrues through today."
+  const signed = calendarDay(f.value.signed)
+  if (signed !== null && signed > latestEnd.value)
+    out.signed = "The authorization can't be signed in the future."
+  if (f.value.rAndINote.length > 500) out.rAndINote = 'The R&I note can be at most 500 characters.'
   return out
 })
 const hasErrors = computed(() => Object.keys(errors.value).length > 0)
@@ -177,7 +185,7 @@ const preview = computed(() => {
     days = Math.max(0, end - start + 1)
   }
   const storage = days * rate
-  const subtotal = admin + lot + storage
+  const subtotal = admin + lot + val('rAndI') + storage
   // Server rounds tax in integer cents, half away from zero: round(subtotalCents · pct/100).
   const tax = Math.round(subtotal * val('tax')) / 100
   return { days, storage, subtotal, tax, total: subtotal + tax }
@@ -279,6 +287,10 @@ async function save(keepalive = false) {
   body.storagePerDay = edited.value.has('perDay') ? val('perDay') : d.storagePerDayCents / 100
   if (edited.value.has('since')) body.storageStartDate = f.value.since || null
   if (edited.value.has('until')) body.storageEndDate = f.value.until || null
+  // Sent only when touched: the API keeps what the case has for a field left out.
+  if (edited.value.has('rAndI')) body.rAndI = val('rAndI')
+  if (edited.value.has('rAndINote')) body.rAndINote = f.value.rAndINote.trim()
+  if (edited.value.has('signed')) body.authorizationSignedOn = f.value.signed
   try {
     await updateCase(shopId.value, caseId.value, body, { keepalive })
     // Only a field that was sent AND still holds the sent value is saved; one typed into
@@ -367,6 +379,20 @@ async function onPdf() {
         /></span>
       </div>
       <div class="line">
+        <span class="desc">R&amp;I (remove and install)</span>
+        <span class="val"
+          >$ <input v-model="f.rAndI" class="blank" :class="{ invalid: errors.rAndI }" :aria-invalid="!!errors.rAndI" inputmode="decimal" placeholder="0.00" aria-label="R and I charge, dollars"
+            @input="touched('rAndI')"
+        /></span>
+      </div>
+      <div class="line sub">
+        <span class="desc grow">
+          <input v-model="f.rAndINote" class="note" :class="{ invalid: errors.rAndINote }" :aria-invalid="!!errors.rAndINote" maxlength="600"
+            placeholder="Note for the R&amp;I line (optional) — e.g. bumpers, lamps and trim for teardown" aria-label="R and I note"
+            @input="touched('rAndINote')" />
+        </span>
+      </div>
+      <div class="line">
         <span class="desc" :class="{ warn: storageMissing }">
           Storage since
           <DateField v-model="f.since" variant="chip" label="In shop since" @input="touched('since')" />
@@ -407,6 +433,22 @@ async function onPdf() {
       <div class="line total">
         <span class="desc">Total recovery balance</span>
         <span class="val mono">{{ hasErrors ? '—' : usd(shown.total) }}</span>
+      </div>
+      <div class="line sub signed">
+        <span class="desc">
+          Repair authorization signed
+          <DateField
+            v-model="f.signed"
+            variant="chip"
+            label="Repair authorization signed (optional)"
+            placeholder="not set"
+            :max="today"
+            :invalid="!!errors.signed"
+            clearable
+            @input="touched('signed')"
+          />
+          <span class="hint-inline">— the cost-shifting notice names this date</span>
+        </span>
       </div>
     </fieldset>
 
@@ -565,6 +607,36 @@ async function onPdf() {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--amber);
+}
+.desc.grow {
+  flex: 1;
+}
+.note {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  padding: 3px 8px;
+  outline: 1px solid transparent;
+}
+.note:hover {
+  background: var(--bg-raised);
+  outline-color: var(--border);
+}
+.note:focus {
+  background: var(--bg-raised);
+  outline: 1.5px solid var(--accent);
+}
+.note.invalid {
+  outline: 1.5px solid var(--danger);
+}
+.line.sub.signed {
+  margin-top: 0;
+  padding-top: 8px;
+  border-bottom: none;
 }
 .hint-inline {
   color: var(--text-faint);

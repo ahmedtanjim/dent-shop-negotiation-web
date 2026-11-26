@@ -64,6 +64,12 @@ export interface UpsertCase {
   storageStartDate?: string | null
   /** last day of storage accrual; null = still accruing through today */
   storageEndDate?: string | null
+  /** R&I charge, decimal dollars. Left out = keep; 0 = no R&I line */
+  rAndI?: number | null
+  /** note printed with the R&I line. Left out = keep; '' clears */
+  rAndINote?: string | null
+  /** day the customer signed the repair authorization (yyyy-mm-dd). Left out = keep; '' clears */
+  authorizationSignedOn?: string | null
 }
 
 export type MessageKind = 'Inbound' | 'Draft' | 'Sent'
@@ -138,6 +144,11 @@ export interface CaseDetail {
   salesTaxPercent: number | null
   storageStartDate: string | null
   storageEndDate: string | null
+  /** R&I charge, decimal dollars; null = none (older API: absent) */
+  rAndI?: number | null
+  rAndINote?: string | null
+  /** day the repair authorization was signed; null = not set */
+  authorizationSignedOn?: string | null
 }
 
 export interface ShopProfile {
@@ -182,6 +193,9 @@ export interface InvoiceBreakdown {
   tax: number
   subtotal: number
   total: number
+  /** R&I line, decimal dollars (0 = none; older API: absent) */
+  rAndI?: number
+  rAndINote?: string | null
 }
 
 export interface GeneratedDocs {
