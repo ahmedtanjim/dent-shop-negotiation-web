@@ -1,6 +1,7 @@
 import { driver, type Driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import './styles/tour.css'
+import { isEmbedded } from './utils/embed'
 
 // Mirrors the Dent Shop Manager tour pattern: driver.js pointed at [data-tour] anchors,
 // auto-run once per browser via a localStorage flag, replayable from the topbar help (?) menu.
@@ -77,14 +78,19 @@ export function startCasesTour({ readOnly = false }: { readOnly?: boolean } = {}
             'Insurer, invoice amount, and message count for every open fight. Click any row to enter its workspace.',
         },
       },
-      {
-        element: '[data-tour="help"]',
-        popover: {
-          title: 'Lost? Start here',
-          description:
-            'Replay this walkthrough or email support from here. Opening your first case starts a short tour of the workspace itself.',
-        },
-      },
+      // Inside the shop system's car page there is no top bar, so no (?) button to point at.
+      ...(isEmbedded()
+        ? []
+        : [
+            {
+              element: '[data-tour="help"]',
+              popover: {
+                title: 'Lost? Start here',
+                description:
+                  'Replay this walkthrough or email support from here. Opening your first case starts a short tour of the workspace itself.',
+              },
+            },
+          ]),
     ],
   })
   setInstance(d)

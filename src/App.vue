@@ -15,6 +15,7 @@ import { guideUrlFor } from '@/utils/helpGuides'
 import HelpSupportModal from '@/components/HelpSupportModal.vue'
 import { switchShop } from '@/api/auth'
 import { startSessionKeeper } from '@/utils/session'
+import { fromParent, isEmbedded, MSG, postToParent } from '@/utils/embed'
 
 const auth = useAuthStore()
 const ent = useEntitlementStore()
@@ -88,6 +89,21 @@ function onOutside(e: MouseEvent) {
 function onMenuKey(e: KeyboardEvent) {
   if (e.key === 'Escape') helpMenu.value = false
 }
+// Inside the shop system's car page (utils/embed): no top bar of our own — the car page is the
+// chrome — follow its light/dark theme, and tell it where we are so its "Open in a new window"
+// link opens the same page.
+const embedded = isEmbedded()
+function onParentMessage(e: MessageEvent) {
+  if (!fromParent(e) || e.data.type !== MSG.theme) return
+  if (e.data.theme === 'light' || e.data.theme === 'dark') theme.value = e.data.theme
+}
+if (embedded) {
+  window.addEventListener('message', onParentMessage)
+  router.afterEach((to) => {
+    if (to.name !== 'embed') postToParent({ type: MSG.location, path: to.fullPath })
+  })
+}
+
 onMounted(() => {
   startSessionKeeper()
   document.addEventListener('click', onOutside)
@@ -136,12 +152,12 @@ const capText = computed(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ embedded }">
     <div v-if="auth.isAuthed && ent.readOnly" class="readonly-banner" role="status">
       Your DSM Negotiator plan has ended — your cases and letters are read-only.
       <RouterLink to="/upgrade">Renew to draft and send again</RouterLink>
     </div>
-    <header v-if="auth.isAuthed" class="topbar">
+    <header v-if="auth.isAuthed && !embedded" class="topbar">
       <RouterLink to="/" class="brand">
         <img src="@/assets/dsm-logo.webp" class="brand-logo" alt="Dent Shop Manager" width="142" height="128" />
         <span class="brand-word">

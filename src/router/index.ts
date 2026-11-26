@@ -7,6 +7,7 @@ import { CRM_URL } from '@/api/client'
 import { trackRoute } from '@/analytics/ga'
 import { applyRouteSeo } from '@/utils/seo'
 import { safeRedirect } from '@/utils/safeRedirect'
+import { isEmbedded } from '@/utils/embed'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -71,6 +72,14 @@ const router = createRouter({
       name: 'handoff',
       component: () => import('@/views/HandoffView.vue'),
       meta: { handoff: true, title: 'Signing you in' },
+    },
+    {
+      // Inside the shop system's car page (the black "DSM Negotiator" tab): signs in as the shop
+      // system's user over postMessage, then opens ?redirect= (utils/embed, EmbedView).
+      path: '/embed',
+      name: 'embed',
+      component: () => import('@/views/EmbedView.vue'),
+      meta: { handoff: true, title: 'DSM Negotiator' },
     },
     {
       // The paywall: shops below the AI tier land here instead of their cases. Also
@@ -145,6 +154,8 @@ router.beforeEach(async (to) => {
     return true
   }
   if (!auth.isAuthed) {
+    // Inside the shop system's car page: sign in through it, never a password form.
+    if (isEmbedded()) return { name: 'embed', query: { redirect: to.fullPath } }
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 

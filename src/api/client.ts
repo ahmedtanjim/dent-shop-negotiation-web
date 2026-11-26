@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { isEmbedded, sessionStore } from '@/utils/embed'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:5080'
 /** The shop system (CRM) — where billing lives and where "back to the shop" links go.
@@ -80,13 +81,19 @@ function dispositionFileName(header: string | null): string | null {
 const NETWORK_ERROR = "Can't reach Dent Shop Manager right now. Check your internet connection and try again."
 
 function authHeader(): Record<string, string> {
-  const token = localStorage.getItem(STORAGE_KEYS.token)
+  const token = sessionStore().getItem(STORAGE_KEYS.token)
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 function handleUnauthorized(): never {
-  for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key)
-  if (!window.location.pathname.startsWith('/login')) {
+  for (const key of Object.values(STORAGE_KEYS)) sessionStore().removeItem(key)
+  if (isEmbedded()) {
+    // Inside the shop system's car page: sign in again through it, never a password form.
+    if (!window.location.pathname.startsWith('/embed')) {
+      const here = window.location.pathname + window.location.search
+      window.location.href = `/embed?redirect=${encodeURIComponent(here)}`
+    }
+  } else if (!window.location.pathname.startsWith('/login')) {
     // Carry the current location so signing back in returns the user to the page the
     // stale token bounced them off — same contract as the router guard's ?redirect.
     const here = window.location.pathname + window.location.search

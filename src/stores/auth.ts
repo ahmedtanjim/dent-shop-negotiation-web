@@ -2,23 +2,26 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { STORAGE_KEYS } from '@/api/client'
 import type { AuthResponse } from '@/api/types'
+import { sessionStore } from '@/utils/embed'
 
 /** Membership roles as the API names them (lower-cased for comparison). */
 export type Role = 'owner' | 'manager' | 'admin' | 'technician' | 'salesrep' | 'frontdesk'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem(STORAGE_KEYS.token))
-  const shopId = ref<string | null>(localStorage.getItem(STORAGE_KEYS.shopId))
-  const shopName = ref<string | null>(localStorage.getItem(STORAGE_KEYS.shopName))
-  const displayName = ref<string | null>(localStorage.getItem(STORAGE_KEYS.displayName))
-  const role = ref<string | null>(localStorage.getItem(STORAGE_KEYS.role))
-  const userId = ref<string | null>(localStorage.getItem(STORAGE_KEYS.userId))
+  // localStorage, or this frame's sessionStorage inside the shop system's car page (utils/embed).
+  const store = sessionStore()
+  const token = ref<string | null>(store.getItem(STORAGE_KEYS.token))
+  const shopId = ref<string | null>(store.getItem(STORAGE_KEYS.shopId))
+  const shopName = ref<string | null>(store.getItem(STORAGE_KEYS.shopName))
+  const displayName = ref<string | null>(store.getItem(STORAGE_KEYS.displayName))
+  const role = ref<string | null>(store.getItem(STORAGE_KEYS.role))
+  const userId = ref<string | null>(store.getItem(STORAGE_KEYS.userId))
   /** Every shop this login is on — the top-bar switcher lists them. */
   const shops = ref<{ shopId: string; shopName: string; role: string }[]>(readShops())
 
   function readShops() {
     try {
-      const v = JSON.parse(localStorage.getItem(STORAGE_KEYS.shops) ?? '[]')
+      const v = JSON.parse(store.getItem(STORAGE_KEYS.shops) ?? '[]')
       return Array.isArray(v) ? v : []
     } catch {
       return []
@@ -51,14 +54,14 @@ export const useAuthStore = defineStore('auth', () => {
     role.value = auth.role
     userId.value = auth.userId
     shops.value = Array.isArray(auth.shops) ? auth.shops : []
-    localStorage.setItem(STORAGE_KEYS.shops, JSON.stringify(shops.value))
-    localStorage.setItem(STORAGE_KEYS.token, auth.token)
-    localStorage.setItem(STORAGE_KEYS.userId, auth.userId)
-    localStorage.setItem(STORAGE_KEYS.shopId, auth.shopId)
-    localStorage.setItem(STORAGE_KEYS.displayName, auth.displayName)
-    localStorage.setItem(STORAGE_KEYS.role, auth.role ?? '')
-    if (shopName.value) localStorage.setItem(STORAGE_KEYS.shopName, shopName.value)
-    else localStorage.removeItem(STORAGE_KEYS.shopName)
+    store.setItem(STORAGE_KEYS.shops, JSON.stringify(shops.value))
+    store.setItem(STORAGE_KEYS.token, auth.token)
+    store.setItem(STORAGE_KEYS.userId, auth.userId)
+    store.setItem(STORAGE_KEYS.shopId, auth.shopId)
+    store.setItem(STORAGE_KEYS.displayName, auth.displayName)
+    store.setItem(STORAGE_KEYS.role, auth.role ?? '')
+    if (shopName.value) store.setItem(STORAGE_KEYS.shopName, shopName.value)
+    else store.removeItem(STORAGE_KEYS.shopName)
   }
 
   function logout() {
@@ -69,7 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
     role.value = null
     userId.value = null
     shops.value = []
-    for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key)
+    for (const key of Object.values(STORAGE_KEYS)) store.removeItem(key)
   }
 
   return {

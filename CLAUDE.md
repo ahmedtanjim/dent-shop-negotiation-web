@@ -66,7 +66,7 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   `[ShopOwnerOrManager]`), `canSeeUsage` — use these, never role string literals in a component),
   `entitlement` (the shop's plan; "unknown" is never treated as the AI plan; `readOnly` = the AI
   plan ended but the shop had cases).
-- `src/views/` — `LoginView`, `HandoffView`,
+- `src/views/` — `LoginView`, `HandoffView`, `EmbedView` (`/embed`, inside the CRM car page),
   `PaywallView` (`/upgrade`), `CasesView` (`/cases`), `CaseWorkspaceView` (`/cases/:id`), `NotFoundView`.
 - `src/components/` — `TimelinePanel` (the correspondence docket: paste/.eml intake, tactic read,
   mark-sent), `DraftPanel` + `DraftQuestions` (drafting), `DraftFeedback` (the box under a draft:
@@ -111,6 +111,26 @@ tours, `@sentry/vue` (lazy). `@/` aliases `src/`. No markdown or UI library.
   the cases when signed in and otherwise leaves the SPA for it.
 
 ## Key flows
+
+0. **Inside the shop system's car page** (owner 2026-11-26: the black "DSM Negotiator" tab on
+   app.dentshopmanager.com/claims/:id/negotiator shows "the whole negotiator page … on desktop").
+   The CRM frames `/embed?redirect=/cases/:id&theme=light|dark` (`EmbedView`). `utils/embed.ts`
+   (`isEmbedded()` = `window.self !== window.top`, unit-tested) changes four things while framed:
+   (a) the session lives in **sessionStorage** (`sessionStore()`, used by the auth store, `client.ts`
+   and Sentry), so the frame never moves the session of a Negotiator tab open elsewhere in the
+   browser; (b) sign-in is the PKCE hand-off over `postMessage` — the frame keeps the verifier, posts
+   `dsm-negotiator:handoff-request {challenge}` to `CRM_URL` only, takes `dsm-crm:handoff-code {code}`
+   only from `CRM_URL` + `window.parent` (`fromParent`), and exchanges it; a 401 or a signed-out
+   page goes back to `/embed`, never `/login`; (c) **no top bar** (`App.vue`; the car page is the
+   chrome — banners, the read-only notice and the paywall still show), the theme follows
+   `?theme=` and `dsm-crm:theme` without being saved, the frame reports each route with
+   `dsm-negotiator:location {path}`, and the cases tour skips its (?) step; (d) leaving the app
+   (Stripe Checkout, `goToCrm`) opens a **new tab** (`leaveTo`). Only the CRM may frame the app:
+   `staticwebapp.config.json` sends `frame-ancestors 'self' https://app.dentshopmanager.com` (no
+   `X-Frame-Options`; the landing at `/` keeps `frame-ancestors 'none'`). The message names are a
+   contract with the CRM's `src/data/negotiatorEmbed.ts` — change both together. **New navigation
+   (a tab, a chat panel) belongs in the pages, not only in the top bar**, or it won't show inside the
+   car page.
 
 1. **Case** — `NewCaseModal` → `createCase`; the list (`CasesView`) and workspace load via `getCase`.
    **Car data** (owner 2026-11-03, "isn't pulling the claim number or insurance company from the

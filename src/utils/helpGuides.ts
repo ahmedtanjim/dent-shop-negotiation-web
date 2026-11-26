@@ -31,6 +31,7 @@ export const PAGE_SECTIONS: Record<string, string> = {
   'handoff-start': '',
   'handoff-out': '',
   handoff: '',
+  embed: '',
   paywall: 'who-can-do-this',
   cases: '3-create-a-case',
   case: '6-add-the-adjusters-email',
