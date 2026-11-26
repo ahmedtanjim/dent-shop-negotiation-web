@@ -1,6 +1,7 @@
 import type { App } from 'vue'
 import type { ErrorEvent, Breadcrumb } from '@sentry/vue'
 import { withoutQuery } from './privacy'
+import { sessionStore } from '@/utils/embed'
 
 /**
  * Error reporting for the SIGNED-IN app — dormant unless VITE_SENTRY_DSN is set at build
@@ -33,7 +34,7 @@ export function scrubText(s: string | undefined): string | undefined {
 
 function signedIn(): boolean {
   try {
-    return !!localStorage.getItem(TOKEN_KEY)
+    return !!sessionStore().getItem(TOKEN_KEY)
   } catch {
     return false
   }

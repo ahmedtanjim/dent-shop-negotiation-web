@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isEmbedded, leaveTo } from '@/utils/embed'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Check, Copy, Lock, RefreshCw, User } from 'lucide-vue-next'
@@ -141,7 +142,9 @@ async function upgrade(confirmCharge = false) {
   try {
     const r = await startCheckout(shopId(), 'ai', returnUrl(), confirmCharge)
     if (r.url) {
-      window.location.href = r.url
+      // Stripe refuses to be framed: inside the shop system's car page it opens a new tab.
+      leaveTo(r.url)
+      if (isEmbedded()) busy.value = false
       return
     }
     // Nowhere to send the browser (nothing needed changing): re-read the plan here.
