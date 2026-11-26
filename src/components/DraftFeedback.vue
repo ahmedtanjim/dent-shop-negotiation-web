@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { MessageSquareText } from 'lucide-vue-next'
+import AttachFiles from '@/components/AttachFiles.vue'
+import type { NegDocument } from '@/api/types'
 
 /** Under a draft the owner just read (owner 2026-11-21: "after I read the letter I can tell it
  *  what it got wrong or didn't include"): what's wrong or missing, in their own words. The
@@ -15,8 +17,13 @@ const props = defineProps<{
   error?: string | null
   /** unique per draft: ties the label and the hint to the box */
   id: string
+  /** the case's documents, to attach to the feedback (none passed = no Attach button) */
+  documents?: NegDocument[]
+  caseId?: string
 }>()
-const emit = defineEmits<{ submit: [feedback: string] }>()
+const emit = defineEmits<{ submit: [feedback: string, documentIds: string[]]; uploaded: [] }>()
+/** Case documents the assistant reads with the feedback (owner 2026-11-26). */
+const files = ref<string[]>([])
 
 /** The API's limit (NegotiationService.MaxFeedbackLength). */
 const MAX = 2000
@@ -36,7 +43,7 @@ function grow() {
 
 function send() {
   if (!canSend.value) return
-  emit('submit', trimmed.value)
+  emit('submit', trimmed.value, [...files.value])
 }
 
 </script>
@@ -60,6 +67,16 @@ function send() {
       @input="grow"
       @keydown.meta.enter.prevent="send"
       @keydown.ctrl.enter.prevent="send"
+    />
+    <AttachFiles
+      v-if="documents && caseId"
+      :id="`df-files-${id}`"
+      v-model="files"
+      class="df-files"
+      :documents="documents"
+      :case-id="caseId"
+      :disabled="busy"
+      @uploaded="emit('uploaded')"
     />
     <p v-if="error" class="error-text df-error" role="alert">{{ error }}</p>
     <div class="df-foot">
@@ -108,6 +125,9 @@ function send() {
   font: inherit;
   font-size: 13.5px;
   line-height: 1.45;
+}
+.df-files {
+  margin-top: 8px;
 }
 .df-error {
   margin: 6px 0 0;

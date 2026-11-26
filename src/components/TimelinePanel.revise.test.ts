@@ -128,6 +128,8 @@ describe('TimelinePanel — feedback on a draft', () => {
 
     expect(api.streamRevise).toHaveBeenCalledTimes(1)
     expect(api.streamRevise.mock.calls[0].slice(0, 4)).toEqual(['shop-1', 'case-1', 'draft-1', 'You left out the $150 tow bill.'])
+    // no files picked: none sent
+    expect(api.streamRevise.mock.calls[0][5]).toEqual([])
     // The letter being written sits at the top; the draft it replaces waits underneath.
     expect(w.find('.drafting-note').text()).toBe('Writing the letter again with your changes…')
     rewrite.text('Dear Mark,')

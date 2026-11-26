@@ -1,6 +1,7 @@
 import { api, ApiError } from './client'
 import type {
   CaseDetail,
+  ChatMessage,
   CaseListItem,
   CaseStatus,
   DraftQuestion,
@@ -171,11 +172,31 @@ export function streamRevise(
   messageId: string,
   feedback: string,
   onText: (text: string) => void,
+  documentIds: string[] = [],
 ): Promise<DraftResult> {
   return api.postStream<DraftResult>(
     `${base(shopId)}/cases/${caseId}/messages/${messageId}/revise/stream`,
-    { feedback },
+    documentIds.length ? { feedback, documentIds } : { feedback },
     onText,
+  )
+}
+
+/** Ask AI: the case's conversation with the assistant, oldest first. */
+export function getChat(shopId: string, caseId: string): Promise<ChatMessage[]> {
+  return api.get<ChatMessage[]>(`${base(shopId)}/cases/${caseId}/chat`)
+}
+
+/** Ask the assistant for advice on the case. `documentIds` are case documents (upload them
+ *  first) it reads with this question; the answer comes back saved. */
+export function askAi(
+  shopId: string,
+  caseId: string,
+  message: string,
+  documentIds: string[] = [],
+): Promise<ChatMessage> {
+  return api.post<ChatMessage>(
+    `${base(shopId)}/cases/${caseId}/chat`,
+    documentIds.length ? { message, documentIds } : { message },
   )
 }
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import type { NegDocument } from '@/api/types'
 import DraftFeedback from './DraftFeedback.vue'
 
 const mountBox = (props: Record<string, unknown> = {}) => mount(DraftFeedback, { props: { id: 'm1', ...props } })
@@ -84,5 +86,29 @@ describe('DraftFeedback', () => {
     expect(w.find('label').attributes('for')).toBe('df-box-abc')
     expect(w.find('textarea').attributes('id')).toBe('df-box-abc')
     expect(w.find('textarea').attributes('aria-describedby')).toBe('df-hint-abc')
+  })
+
+  it('without the case documents there is no Attach button, and nothing is attached', async () => {
+    const w = mountBox()
+    expect(w.find('.df-files').exists()).toBe(false)
+    await w.find('textarea').setValue('Fix the date.')
+    await button(w).trigger('click')
+    expect(w.emitted('submit')?.[0]).toEqual(['Fix the date.', []])
+  })
+
+  it('sends the case files the owner picked with the feedback', async () => {
+    setActivePinia(createPinia())
+    const documents: NegDocument[] = [
+      { id: 'd1', fileName: 'valuation.pdf', contentType: 'application/pdf', sizeBytes: 9, label: null, createdAt: '' },
+      { id: 'd2', fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 9, label: null, createdAt: '' },
+    ]
+    const w = mountBox({ documents, caseId: 'case-1' })
+    expect(w.find('.df-files').exists()).toBe(true)
+    await w.find('.df-files .af-row button').trigger('click')
+    await w.findAll('.af-pick input')[1].trigger('change')
+    expect(w.find('.af-chips').text()).toContain('photo.jpg')
+    await w.find('textarea').setValue('Use the valuation in this photo.')
+    await button(w).trigger('click')
+    expect(w.emitted('submit')?.[0]).toEqual(['Use the valuation in this photo.', ['d2']])
   })
 })

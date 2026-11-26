@@ -486,15 +486,22 @@ const keptRows = computed(() => {
   )
 })
 
-async function onRevise(m: NegMessage, feedback: string) {
+async function onRevise(m: NegMessage, feedback: string, documentIds: string[] = []) {
   if (!canRevise.value || draftingVisible.value) return
   revisingId.value = m.id
   reviseError.value = null
   draftPreview.value = ''
   try {
-    const result = await streamRevise(shopId.value, caseId.value, m.id, feedback, (text) => {
-      draftPreview.value += text
-    })
+    const result = await streamRevise(
+      shopId.value,
+      caseId.value,
+      m.id,
+      feedback,
+      (text) => {
+        draftPreview.value += text
+      },
+      documentIds,
+    )
     const remembered = result.remembered ?? []
     revisedNote.value =
       result.note || remembered.length ? { id: result.draft.id, text: result.note ?? null, remembered } : null
@@ -906,7 +913,10 @@ function fromLine(m: NegMessage): string {
         :busy="revisingId === m.id"
         :blocked="draftingVisible && revisingId !== m.id"
         :error="reviseError?.id === m.id ? reviseError.text : null"
-        @submit="onRevise(m, $event)"
+        :documents="detail.documents"
+        :case-id="detail.case.id"
+        @submit="(text, ids) => onRevise(m, text, ids)"
+        @uploaded="emit('refresh')"
       />
 
       <!-- "Why this draft" removed per owner feedback — the rationale stays internal;

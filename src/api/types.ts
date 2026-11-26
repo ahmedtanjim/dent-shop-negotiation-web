@@ -211,11 +211,19 @@ export interface MissingLetterDetail {
   inShopProfile: boolean
 }
 
+/** A case document named on an Ask AI question. */
+export interface AttachedFile {
+  documentId: string
+  fileName: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'User' | 'Assistant'
   content: string
   createdAt: string
+  /** the case documents attached to a question (empty on answers; absent from an older API) */
+  attachments?: AttachedFile[] | null
 }
 
 export interface DraftRequest {
